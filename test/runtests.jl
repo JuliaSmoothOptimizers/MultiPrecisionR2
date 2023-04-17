@@ -1,6 +1,5 @@
-using JSOTemplate
+using MultiPrecisionR2
 using Test
 
-@testset "JSOTemplate.jl" begin
-  # Write your tests here.
-end
+MPNLPModels_test()
+MultiPrecisionR2_test()

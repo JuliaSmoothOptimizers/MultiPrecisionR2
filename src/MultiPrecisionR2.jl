@@ -6,6 +6,9 @@
 
 
 module MultiPrecisionR2
+
+using ADNLPModels, IntervalArithmetic, NLPModels, Printf
+
 include("MPNLPModels.jl")
 
 """

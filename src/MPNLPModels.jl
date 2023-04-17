@@ -1,3 +1,6 @@
+using ForwardDiff
+using LinearAlgebra
+
 """
 Extends ADNLPModels.grad to IntervalBox argument.
 """

@@ -1,17 +1,11 @@
-using NLPModels
-using ADNLPModels
-using OptimizationProblems.ADNLPProblems
-using IntervalArithmetic
+using MultiPrecisionR2
+
+using ForwardDiff
+using LinearAlgebra
 using Logging
 using Test
-using Printf
-using LinearAlgebra
-using SolverCore
-using SolverBenchmark
-using ForwardDiff
-
-include("../src/MPNLPModels.jl")
-include("../src/multi_precision_regularization.jl")
+using ADNLPModels
+using IntervalArithmetic
 
 function MultiPrecisionR2_test()
   skip_int = false # waiting to know how to evaluate obj(Vector{AbstractFloat}) with IntervalArithmetic properly. see github issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
@@ -26,14 +20,14 @@ function MultiPrecisionR2_test()
         mpmodel = FPMPNLPModel(nlpList, γfunc = γfunc)
         x = (Float32.(x₀),x₀)
         #obj test
-        fh, ωf, πf = objReachPrec(mpmodel, x, 2.0*eps(Float64))
+        fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 2.0*eps(Float64))
         @test ωf <= 2*eps(Float64) skip=skip_int 
         @test πf == 2 skip=skip_int
-        fh, ωf, πf = objReachPrec(mpmodel, x, 2.0*eps(Float32))
+        fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 2.0*eps(Float32))
         @test ωf <= 2*eps(Float32) skip=skip_int
         @test πf == 1 skip=skip_int
         #grad test
-        g, ωg, πg = gradReachPrec(mpmodel, x, 1.0)
+        g, ωg, πg = MultiPrecisionR2.gradReachPrec(mpmodel, x, 1.0)
         @test ωg == 0.0 skip=skip_int
         @test πg == 1 skip=skip_int
       end
@@ -47,17 +41,17 @@ function MultiPrecisionR2_test()
         γfunc(n,u) = 0.0 # ignore rounding errors for the tests
         mpmodel = FPMPNLPModel(nlpList,ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr,γfunc = γfunc)
         #obj test
-        fh, ωf, πf = objReachPrec(mpmodel, x, 1.0)
+        fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 1.0)
         @test ωf == 0.0
         @test πf == 2
-        fh, ωf, πf = objReachPrec(mpmodel, x, 3.0)
+        fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 3.0)
         @test ωf == 2.0
         @test πf == 1
         #grad test
-        g, ωg, πg = gradReachPrec(mpmodel, x, 0.0)
+        g, ωg, πg = MultiPrecisionR2.gradReachPrec(mpmodel, x, 0.0)
         @test ωg == 0.0
         @test πg == 2
-        g, ωg, πg = gradReachPrec(mpmodel, x, 2.0)
+        g, ωg, πg = MultiPrecisionR2.gradReachPrec(mpmodel, x, 2.0)
         @test ωg == 1.0
         @test πg == 1
       end
@@ -73,7 +67,7 @@ function MultiPrecisionR2_test()
         mpmodel = FPMPNLPModel(nlpList, HPFormat = Float16, ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)
         solver = MPR2Solver(mpmodel)
         # objective function evaluation overflow
-        stat = solve!(solver,mpmodel)
+        stat = MultiPrecisionR2.solve!(solver,mpmodel)
         @test stat.status == :exception
         @test stat.iter == 0
         @test stat.solution == Float16.(x0)
@@ -102,9 +96,9 @@ function MultiPrecisionR2_test()
         sval = ones(2)
         s = (Float16.(sval), Float32.(sval))
         σ = 2.0
-        π = MPR2Precisions(1)
+        π = MultiPrecisionR2.MPR2Precisions(1)
         # step underflow at Float16
-        computeStep!(s, g, σ, FP, π)
+        MultiPrecisionR2.computeStep!(s, g, σ, FP, π)
         @test π.πs == 2
         @test s[π.πs] == - g[π.πs]/Float32(σ)
         # step overflow at Float16
@@ -112,7 +106,7 @@ function MultiPrecisionR2_test()
         g = (Float16.(gval), Float32.(gval))
         σ = 0.5
         π.πs = 1
-        computeStep!(s, g, σ, FP, π)
+        MultiPrecisionR2.computeStep!(s, g, σ, FP, π)
         @test π.πs == 2
         @test s[π.πs] == - g[π.πs]/Float32(σ)
         # step underflow at Float32
@@ -120,7 +114,7 @@ function MultiPrecisionR2_test()
         gval = nextfloat(Float16(0.0))*ones(2)
         g = (Float16.(gval), Float32.(gval))
         σ = 2 * nextfloat(Float16(0.0))/nextfloat(Float32(0.0))
-        computeStep!(s, g, σ, FP, π)
+        MultiPrecisionR2.computeStep!(s, g, σ, FP, π)
         @test π.πs == 2
         @test s[π.πs] == [Inf,Inf]
         # σ underflow at Float16
@@ -128,13 +122,13 @@ function MultiPrecisionR2_test()
         g = (Float16.(gval), Float32.(gval))
         σ = Float32(nextfloat(Float16(0.0)))/2.0
         π.πs = 1
-        computeStep!(s, g, σ, FP, π)
+        MultiPrecisionR2.computeStep!(s, g, σ, FP, π)
         @test π.πs == 2
         @test s[π.πs] == -g[π.πs]/Float32(σ)
         # sigma overflow at Float16
         σ = Float32(prevfloat(typemax(Float16)))*2.0
         π.πs = 1
-        computeStep!(s, g, σ, FP, π)
+        MultiPrecisionR2.computeStep!(s, g, σ, FP, π)
         @test π.πs == 2
         @test s[π.πs] == -g[π.πs]/Float32(σ)
         # σ underflow at Float32
@@ -142,13 +136,13 @@ function MultiPrecisionR2_test()
         g = (Float16.(gval), Float32.(gval))
         σ = nextfloat(Float32(0.0))/2.0
         π.πs = 1
-        computeStep!(s, g, σ, FP, π)
+        MultiPrecisionR2.computeStep!(s, g, σ, FP, π)
         @test π.πs == 2
         @test s[π.πs] == [Inf,Inf]
         # sigma overflow at Float32
         σ = prevfloat(typemax(Float32))*2.0
         π.πs = 1
-        computeStep!(s, g, σ, FP, π)
+        MultiPrecisionR2.computeStep!(s, g, σ, FP, π)
         @test π.πs == 2
         @test s[π.πs] == [Inf,Inf]
       end
@@ -158,12 +152,12 @@ function MultiPrecisionR2_test()
         FP = [Float16,Float32]
         cval = ones(2)
         c = (Float16.(cval), Float32.(cval))
-        π = MPR2Precisions(1)
+        π = MultiPrecisionR2.MPR2Precisions(1)
         # overflow at Float16
         xval = prevfloat(typemax(Float16))*ones(2)
         x = (Float16.(xval), Float32.(xval))
         s = (Float16.(xval), Float32.(xval))
-        computeCandidate!(c, x, s, FP, π)
+        MultiPrecisionR2.computeCandidate!(c, x, s, FP, π)
         @test π.πc == 2
         @test c[π.πc] == x[π.πc] .+ s[π.πc]
         # underflow at Float16
@@ -171,14 +165,14 @@ function MultiPrecisionR2_test()
         x = (Float16.(xval), Float32.(xval))
         sval = eps(Float16)/2.0*ones(2)
         s = (Float16.(sval), Float32.(sval))
-        computeCandidate!(c, x, s, FP, π)
+        MultiPrecisionR2.computeCandidate!(c, x, s, FP, π)
         @test π.πc == 2
         @test c[π.πc] == x[π.πc] .+ s[π.πc]
         #overflow at Float32
         xval = prevfloat(typemax(Float32))*ones(2)
         x = (Float16.(xval), Float32.(xval))
         s = (Float16.(xval), Float32.(xval))
-        computeCandidate!(c, x, s, FP, π)
+        MultiPrecisionR2.computeCandidate!(c, x, s, FP, π)
         @test π.πc == 2
         @test c[π.πc] == [Inf, Inf]
         # underflow at Float32
@@ -186,34 +180,34 @@ function MultiPrecisionR2_test()
         x = (Float16.(xval), Float32.(xval))
         sval = eps(Float32)/2.0*ones(2)
         s = (Float16.(sval), Float32.(sval))
-        computeCandidate!(c, x, s, FP, π)
+        MultiPrecisionR2.computeCandidate!(c, x, s, FP, π)
         @test π.πc == 2
         @test c[π.πc] == [Inf,Inf]
       end
     end
     @testset "computeModelDecrease!" begin
       FP = [Float16,Float32]
-      π = MPR2Precisions(1)
+      π = MultiPrecisionR2.MPR2Precisions(1)
       #overflow at Float16
       gval = Float32.(prevfloat(typemax(Float16))*ones(2))
       g = (Float16.(gval), Float32.(gval))
       sval = ones(2)*2.0
       s = (Float16.(sval), Float32.(sval))
-      ΔT = computeModelDecrease!(g, s, FP, π)
+      ΔT = MultiPrecisionR2.computeModelDecrease!(g, s, FP, π)
       @test π.πΔ == 2
       @test ΔT == -dot(g[π.πΔ], s[π.πΔ])
       #overflow at Float32
       π.πΔ = 1
       gval = prevfloat(typemax(Float32))*ones(2)
       g = (Float16.(gval), Float32.(gval))
-      ΔT = computeModelDecrease!(g,s,FP,π)
+      ΔT = MultiPrecisionR2.computeModelDecrease!(g,s,FP,π)
       @test π.πΔ == 2
       @test ΔT == -Inf
       # inconsistent FP format
-      π = MPR2Precisions(1)
+      π = MultiPrecisionR2.MPR2Precisions(1)
       π.πg = 2 # πg =2 πΔ = 1
       try
-        computeModelDecrease!(g,s,FP,π)
+        MultiPrecisionR2.computeModelDecrease!(g,s,FP,π)
         @test false
       catch e
         buf = IOBuffer()

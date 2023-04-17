@@ -1,11 +1,11 @@
-using NLPModels
-using ADNLPModels
-using OptimizationProblems.ADNLPProblems
-using IntervalArithmetic
+using MultiPrecisionR2
+
+using ForwardDiff
+using LinearAlgebra
 using Logging
 using Test
-using LinearAlgebra
-using ForwardDiff
+using ADNLPModels
+using IntervalArithmetic
 
 # Try to run 2 times if some tests do not pass
 
@@ -120,7 +120,7 @@ function MPNLPModels_test()
         Formats = [Float32,Float64]
         nlpList = [ADNLPModel(f,fp.(x0)) for fp in Formats]
         MPnlp=FPMPNLPModel(nlpList)
-        funclist = [objmp,objerrmp,gradmp,graderrmp]
+        funclist = [MultiPrecisionR2.objmp,MultiPrecisionR2.objerrmp,MultiPrecisionR2.gradmp,MultiPrecisionR2.graderrmp]
         for f in funclist
           try 
             f(MPnlp,x0,1)

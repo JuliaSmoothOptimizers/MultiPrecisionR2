@@ -7,7 +7,9 @@
 
 module MultiPrecisionR2
 
-using ADNLPModels, IntervalArithmetic, NLPModels, Printf
+using ADNLPModels, IntervalArithmetic, NLPModels, Printf, LinearAlgebra, SolverCore
+
+export FPMPNLPModel, MPR2Solver, solve!
 
 include("MPNLPModels.jl")
 
@@ -343,8 +345,8 @@ function solve!(
   end
   elapsed_time = time() - start_time
   return GenericExecutionStats(
-    status,
     MPnlp.MList[end],
+    status = status,
     solution = x[end],
     # solution = x,
     objective = MPnlp.FPList[end](f),

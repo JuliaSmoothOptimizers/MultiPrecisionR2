@@ -1,12 +1,3 @@
-using MultiPrecisionR2
-
-using ForwardDiff
-using LinearAlgebra
-using Logging
-using Test
-using ADNLPModels
-using IntervalArithmetic
-
 # Try to run 2 times if some tests do not pass
 
 
@@ -58,9 +49,9 @@ end
 end
 
 @testset "ωfRelErr and ωgRelErr mismatch dimensions" begin
-  f(x) = x[1]+x[2]
+  f3(x) = x[1]+x[2]
   x0 = zeros(2)
-  nlpList = [ADNLPModel(f,x0),ADNLPModel(f,x0)]
+  nlpList = [ADNLPModel(f3,x0),ADNLPModel(f3,x0)]
   ωfRelErr = [0.0]
   try
     FPMPNLPModel(nlpList,ωfRelErr=ωfRelErr)
@@ -84,9 +75,9 @@ end
 end
 
 @testset "γfunc callback test" begin
-  f(x) = x[1]+x[2]
+  f4(x) = x[1]+x[2]
   x0 = zeros(2)
-  nlpList = [ADNLPModel(f,x0)]
+  nlpList = [ADNLPModel(f4,x0)]
   γfunc = 0
   try
     FPMPNLPModel(nlpList,γfunc = γfunc)
@@ -100,10 +91,10 @@ end
 end
 
 @testset "Default Interval instanciation" begin
-  f(x) = x[1]+x[2]
+  f5(x) = x[1]+x[2]
   x0 = zeros(2)
   Formats = [Float32,Float64]
-  nlpList = [ADNLPModel(f,fp.(x0)) for fp in Formats]
+  nlpList = [ADNLPModel(f5,fp.(x0)) for fp in Formats]
   @test_logs (:info,"Interval evaluation used by default for objective error evaluation: might significantly increase computation time")
   (:info,"Interval evaluation used by default for gradient error evaluation: might significantly increase computation time")
   MPnlp=FPMPNLPModel(nlpList)
@@ -114,10 +105,10 @@ end
 @testset verbose = true "Obj and grad evaluation" begin
   @testset "Input FP formats consistency" begin
     setrounding(Interval,:accurate)
-    f(x) = x[1]+x[2]
+    f6(x) = x[1]+x[2]
     x0 = zeros(2)
     Formats = [Float32,Float64]
-    nlpList = [ADNLPModel(f,fp.(x0)) for fp in Formats]
+    nlpList = [ADNLPModel(f6,fp.(x0)) for fp in Formats]
     MPnlp=FPMPNLPModel(nlpList)
     funclist = [MultiPrecisionR2.objmp,MultiPrecisionR2.objerrmp,MultiPrecisionR2.gradmp,MultiPrecisionR2.graderrmp]
     for f in funclist
@@ -143,10 +134,10 @@ end
   end
   @testset "Outputs FP formats consistency" begin
     setrounding(Interval,:accurate)
-    f(x) = x[1]+x[2]
+    f7(x) = x[1]+x[2]
     x0 = zeros(2)
     Formats = [Float16,Float32,Float64]
-    nlpList = [ADNLPModel(f,fp.(x0)) for fp in Formats]
+    nlpList = [ADNLPModel(f7,fp.(x0)) for fp in Formats]
     MPnlp=FPMPNLPModel(nlpList)
     for i in 1:length(Formats)
       fp = Formats[i]
@@ -164,9 +155,9 @@ end
     setrounding(Interval,:accurate)
     c = prevfloat(typemax(Format))
     #obj test
-    f(x) = c*x[1]
+    f8(x) = c*x[1]
     x0 = ones(2)
-    nlpList = [ADNLPModel(f,Format.(x0))]
+    nlpList = [ADNLPModel(f8,Format.(x0))]
     MPnlp=FPMPNLPModel(nlpList)
     @test MultiPrecisionR2.objerrmp(MPnlp,Format.(x0),1) == (0,Inf)
     #grad testf(x) = c+x[1]
@@ -177,9 +168,9 @@ end
     setrounding(Interval,:accurate)
     c = prevfloat(typemax(Format))
     #obj test
-    f(x) = (10/eps(Format)+c)*x[1]
+    f9(x) = (10/eps(Format)+c)*x[1]
     x0 = ones(1)
-    nlpList = [ADNLPModel(f,Format.(x0))]
+    nlpList = [ADNLPModel(f9,Format.(x0))]
     ωfRelErr = [0.0]
     ωgRelErr = [0.0]
     MPnlp=FPMPNLPModel(nlpList, ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)

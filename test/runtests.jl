@@ -1,11 +1,11 @@
 using MultiPrecisionR2
-using Test
+
+using ForwardDiff
+using LinearAlgebra
 using Logging
-
-#include("MPNLPModels_test.jl")
-#include("MultiPrecisionR2_test.jl")
-
-# MPNLPModels_test()
+using Test
+using ADNLPModels
+using IntervalArithmetic
 
 with_logger(NullLogger()) do
   @testset "MPNLPModels.jl" begin

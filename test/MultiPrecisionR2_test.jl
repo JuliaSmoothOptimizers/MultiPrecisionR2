@@ -1,20 +1,10 @@
-using MultiPrecisionR2
-
-using ForwardDiff
-using LinearAlgebra
-using Logging
-using Test
-using ADNLPModels
-using IntervalArithmetic
-
-
 skip_int = false # waiting to know how to evaluate obj(Vector{AbstractFloat}) with IntervalArithmetic properly. see github issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
 @testset verbose = true "objReachPrec and gradReachPrec test" begin
   @testset "Interval" begin
     setrounding(Interval,:slow)
-    f(x) = x[1]+x[2]
+    f1(x) = x[1]+x[2]
     x₀ = [1/10,1/10]
-    nlpList = [ADNLPModel(f,Float32.(x₀)),ADNLPModel(f,Float64.(x₀))]
+    nlpList = [ADNLPModel(f1,Float32.(x₀)),ADNLPModel(f1,Float64.(x₀))]
     γfunc(n,u) = 0.0 # ignore rounding errors for the tests
     mpmodel = FPMPNLPModel(nlpList, γfunc = γfunc)
     x = (Float32.(x₀),x₀)
@@ -31,12 +21,12 @@ skip_int = false # waiting to know how to evaluate obj(Vector{AbstractFloat}) wi
     @test πg == 1 skip=skip_int
   end
   @testset "Relative error" begin
-    f(x) = x[1]+x[2]
+    f2(x) = x[1]+x[2]
     x₀ = ones(2)
     x = (Float32.(x₀),x₀)
     ωfRelErr = [1.0,0.0]
     ωgRelErr = [1.0,0.0]
-    nlpList = [ADNLPModel(f,x[1]),ADNLPModel(f,x[2])]
+    nlpList = [ADNLPModel(f2,x[1]),ADNLPModel(f2,x[2])]
     γfunc(n,u) = 0.0 # ignore rounding errors for the tests
     mpmodel = FPMPNLPModel(nlpList,ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr,γfunc = γfunc)
     #obj test
@@ -57,12 +47,12 @@ skip_int = false # waiting to know how to evaluate obj(Vector{AbstractFloat}) wi
 end
 @testset verbose = true "solve!" begin
   @testset "First eval overflow" begin
-    f(x) = prevfloat(typemax(Float16))*x[1]^2
+    f3(x) = prevfloat(typemax(Float16))*x[1]^2
     HPFormat = Float16 # set HPFormat to Float16 to force gradient error evaluation to overflow
     ωfRelErr = HPFormat[1.0]
     ωgRelErr = HPFormat[2.0]
     x0 = Float16[2]
-    nlpList = [ADNLPModel(f,x0)]
+    nlpList = [ADNLPModel(f3,x0)]
     mpmodel = FPMPNLPModel(nlpList, HPFormat = Float16, ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)
     solver = MPR2Solver(mpmodel)
     # objective function evaluation overflow
@@ -219,9 +209,9 @@ end
   setrounding(Interval,:accurate)
   FP = [Float16,Float32,Float64]
   # quadratic
-  f(x) = x[1]^2 + x[2]^2
+  f4(x) = x[1]^2 + x[2]^2
   x₀ = ones(2)
-  nlpList = [ADNLPModel(f,fp.(x₀)) for fp in FP]
+  nlpList = [ADNLPModel(f4,fp.(x₀)) for fp in FP]
   mpmodel = FPMPNLPModel(nlpList)
   solver = MPR2Solver(mpmodel)
   stat = solve!(solver,mpmodel)

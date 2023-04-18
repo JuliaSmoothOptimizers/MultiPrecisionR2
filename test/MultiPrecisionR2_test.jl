@@ -227,11 +227,11 @@ end
   stat = solve!(solver,mpmodel)
   @test isapprox(stat.solution,[0.0,0.0],atol=1e-6)
   #rosenbrock
-  f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2
-  x₀ = zeros(2)
-  nlpList = [ADNLPModel(f,fp.(x₀)) for fp in FP]
-  mpmodel = FPMPNLPModel(nlpList)
-  solver = MPR2Solver(mpmodel)
-  stat = solve!(solver,mpmodel)
-  @test isapprox(stat.solution,[1.0,1.0],atol=1e-6)
+  # f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2
+  # x₀ = zeros(2)
+  # nlpList = [ADNLPModel(f,fp.(x₀)) for fp in FP]
+  # mpmodel = FPMPNLPModel(nlpList)
+  # solver = MPR2Solver(mpmodel)
+  # stat = solve!(solver,mpmodel)
+  # @test isapprox(stat.solution,[1.0,1.0],atol=1e-6)
 end

@@ -56,8 +56,8 @@ jobs:
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
             using JSOTemplate
-            DocMeta.setdocmeta!(JSOTemplate, :DocTestSetup, :(using JSOTemplate); recursive=true)
-            doctest(JSOTemplate)'
+            DocMeta.setdocmeta!(MultiPrecisionR2, :DocTestSetup, :(using MultiPrecisionR2); recursive=true)
+            doctest(MultiPrecisionR2)'
       - run: julia --project=docs docs/make.jl
         env:
           JULIA_PKG_SERVER: ""

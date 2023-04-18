@@ -132,7 +132,7 @@ end
       end
     end
     try 
-      gradmp!(MPnlp,x0,1,copy(x0))
+      MultiPrecisionR2.gradmp!(MPnlp,x0,1,copy(x0))
       @test false
     catch e
       buf = IOBuffer()
@@ -150,12 +150,12 @@ end
     MPnlp=FPMPNLPModel(nlpList)
     for i in 1:length(Formats)
       fp = Formats[i]
-      @test typeof(objmp(MPnlp,fp.(x0),i)) == Formats[i]
-      @test typeof(objerrmp(MPnlp,fp.(x0),i)[1]) == Formats[i]
-      @test typeof(gradmp(MPnlp,fp.(x0),i)) == Vector{Formats[i]}
-      @test typeof(graderrmp(MPnlp,fp.(x0),i)[1]) == Vector{Formats[i]}
+      @test typeof(MultiPrecisionR2.objmp(MPnlp,fp.(x0),i)) == Formats[i]
+      @test typeof(MultiPrecisionR2.objerrmp(MPnlp,fp.(x0),i)[1]) == Formats[i]
+      @test typeof(MultiPrecisionR2.gradmp(MPnlp,fp.(x0),i)) == Vector{Formats[i]}
+      @test typeof(MultiPrecisionR2.graderrmp(MPnlp,fp.(x0),i)[1]) == Vector{Formats[i]}
       g = copy(fp.(x0))
-      gradmp!(MPnlp,fp.(x0),i,g)
+      MultiPrecisionR2.gradmp!(MPnlp,fp.(x0),i,g)
       @test typeof(g) == Vector{Formats[i]}
     end
   end
@@ -168,9 +168,9 @@ end
     x0 = ones(2)
     nlpList = [ADNLPModel(f,Format.(x0))]
     MPnlp=FPMPNLPModel(nlpList)
-    @test objerrmp(MPnlp,Format.(x0),1) == (0,Inf)
+    @test MultiPrecisionR2.objerrmp(MPnlp,Format.(x0),1) == (0,Inf)
     #grad testf(x) = c+x[1]
-    @test graderrmp(MPnlp,Format.(x0),1) == (zeros(2),Inf)
+    @test MultiPrecisionR2.graderrmp(MPnlp,Format.(x0),1) == (zeros(2),Inf)
   end
   @testset "Overflow floating point eval" begin
     Format = Float16
@@ -183,8 +183,8 @@ end
     ωfRelErr = [0.0]
     ωgRelErr = [0.0]
     MPnlp=FPMPNLPModel(nlpList, ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)
-    @test objerrmp(MPnlp,Format.(x0),1) == (Inf,Inf)
+    @test MultiPrecisionR2.objerrmp(MPnlp,Format.(x0),1) == (Inf,Inf)
     #grad testf(x) = c+x[1]
-    @test graderrmp(MPnlp,Format.(x0),1)[2] == Inf
+    @test MultiPrecisionR2.graderrmp(MPnlp,Format.(x0),1)[2] == Inf
   end
 end

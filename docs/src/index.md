@@ -1,7 +1,7 @@
 ```@meta
-CurrentModule = JSOTemplate
+CurrentModule = MultiPrecisionR2
 ```
 
-# JSOTemplate
+# MultiPrecisionR2
 
-Documentation for [JSOTemplate](https://github.com/JuliaSmoothOptimizers/JSOTemplate.jl).
+Documentation for [MultiPrecisionR2]().

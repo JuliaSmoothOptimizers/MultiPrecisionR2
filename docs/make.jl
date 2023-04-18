@@ -1,7 +1,7 @@
 using MultiPrecisionR2
 using Documenter
 
-DocMeta.setdocmeta!(JSOTemplate, :DocTestSetup, :(using JSOTemplate); recursive = true)
+DocMeta.setdocmeta!(JSOTemplate, :DocTestSetup, :(using MultiPrecisionR2); recursive = true)
 
 makedocs(;
   modules = [MultiPrecisionR2],

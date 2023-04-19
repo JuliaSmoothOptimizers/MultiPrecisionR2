@@ -1,25 +1,25 @@
 skip_int = false # waiting to know how to evaluate obj(Vector{AbstractFloat}) with IntervalArithmetic properly. see github issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
+@testset "Minimal problem tests" begin
+  setrounding(Interval,:accurate)
+  FP = [Float16,Float32,Float64]
+  # quadratic
+  f4(x) = x[1]^2 + x[2]^2
+  x₀ = ones(2)
+  nlpList = [ADNLPModel(f4,fp.(x₀)) for fp in FP]
+  mpmodel = FPMPNLPModel(nlpList)
+  solver = MPR2Solver(mpmodel)
+  stat = solve!(solver,mpmodel)
+  @test isapprox(stat.solution,[0.0,0.0],atol=1e-6)
+  #rosenbrock
+  # f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2
+  # x₀ = zeros(2)
+  # nlpList = [ADNLPModel(f,fp.(x₀)) for fp in FP]
+  # mpmodel = FPMPNLPModel(nlpList)
+  # solver = MPR2Solver(mpmodel)
+  # stat = solve!(solver,mpmodel)
+  # @test isapprox(stat.solution,[1.0,1.0],atol=1e-6)
+end
 @testset verbose = true "objReachPrec and gradReachPrec test" begin
-  @testset "Minimal problem tests" begin
-    setrounding(Interval,:accurate)
-    FP = [Float16,Float32,Float64]
-    # quadratic
-    f4(x) = x[1]^2 + x[2]^2
-    x₀ = ones(2)
-    nlpList = [ADNLPModel(f4,fp.(x₀)) for fp in FP]
-    mpmodel = FPMPNLPModel(nlpList)
-    solver = MPR2Solver(mpmodel)
-    stat = solve!(solver,mpmodel)
-    @test isapprox(stat.solution,[0.0,0.0],atol=1e-6)
-    #rosenbrock
-    # f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2
-    # x₀ = zeros(2)
-    # nlpList = [ADNLPModel(f,fp.(x₀)) for fp in FP]
-    # mpmodel = FPMPNLPModel(nlpList)
-    # solver = MPR2Solver(mpmodel)
-    # stat = solve!(solver,mpmodel)
-    # @test isapprox(stat.solution,[1.0,1.0],atol=1e-6)
-  end
   @testset "Interval" begin
     setrounding(Interval,:slow)
     f1(x) = x[1]+x[2]

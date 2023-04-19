@@ -275,7 +275,7 @@ end
 
 """
 Test interval evaluation of objective of all the AbstractNLPModels in MList.
-Test fails if and return an error if:
+Test fails and return an error if:
   * Interval evaluation returns an error
   * Interval evaluation is not type stable
 See [`FPMPNLPModel`](@ref), [`AbstractNLPModel`](@ref)
@@ -283,7 +283,7 @@ See [`FPMPNLPModel`](@ref), [`AbstractNLPModel`](@ref)
 function ObjIntervalEval_test(MList::AbstractVector{M}) where M<:AbstractNLPModel
   i=1
   for nlp in MList
-    @debug "Testing grad evaluation of MList[$i]"
+    @debug "Testing objective evaluation of MList[$i]"
     try
       # X0 = IntervalBox(nlp.meta.x0)
       X0 = [xi..xi for xi ∈ nlp.meta.x0]

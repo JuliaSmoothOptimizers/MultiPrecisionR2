@@ -11,17 +11,43 @@ MultiPrecisionR2 ensures numerical stability by using interval evaluations of th
 using Pkg
 Pkg.add("MultiPrecisionR2.jl")
 ```
-## How to use
+## Minimal examples
+```julia
+using MultiPrecisionR2
+using ADNLPModels
+using IntervalArithmetic
+
+setrounding(Interval,:accurate)
+FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
+f4(x) = x[1]^2 + x[2]^2 # some objective function
+x₀ = ones(2) # initial point
+nlpList = [ADNLPModel(f4,fp.(x₀)) for fp in FP] # instanciate a list of ADNLPModel, one for each floating point format
+mpmodel = FPMPNLPModel(nlpList) # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
+solver = MPR2Solver(mpmodel); # instaciate the algorithm structure
+stat = solve!(solver,mpmodel) # run the algorithm
+```
+
+```julia
+using MultiPrecisionR2
+using ADNLPModels
+using IntervalArithmetic
+using OptimizationProblems
+using OptimizationProblems.ADNLPProblems
+
+setrounding(Interval,:accurate)
+FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
+s = :woods # select problem
+nlpList = [eval(s)(n=12,type = Val(F)) for F ∈ FP] # instanciate a list of ADNLPModel, one for each floating point format
+mpmodel = FPMPNLPModel(nlpList) # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
+solver = MPR2Solver(mpmodel); # instaciate the algorithm structure
+stat = solve!(solver,mpmodel) # run the algorithm
+```
 
 ## Warnings
 1. MultiPrecisionR2.jl works only with Floating Point formats.
 2. Unfortunately, other modes than `:accurate` for interval evaluation are not guaranteed to work with FP formats different from Float32 and Float64. 
 3. If interval evaluation mode is used, interval evaluation for the objective and the gradient is automatically tested upon FPMPNLPModel instanciation.  An error is thrown if the evaluation fails. This might happen for several reasons related to [IntervalArithmetic.jl](https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md) package.
 
-
-## How to Cite
-
-If you use JSOTemplate.jl in your work, please cite using the format given in [CITATION.cff](https://github.com/JuliaSmoothOptimizers/JSOTemplate.jl/blob/main/CITATION.cff).
 
 ## Bug reports and discussions
 

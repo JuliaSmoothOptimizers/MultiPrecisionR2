@@ -1,22 +1,53 @@
-# JSOTemplate
+# MultiPrecisionR2.jl #
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaSmoothOptimizers.github.io/JSOTemplate.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaSmoothOptimizers.github.io/JSOTemplate.jl/dev)
-[![Build Status](https://github.com/JuliaSmoothOptimizers/JSOTemplate.jl/workflows/CI/badge.svg)](https://github.com/JuliaSmoothOptimizers/JSOTemplate.jl/actions)
-[![Build Status](https://api.cirrus-ci.com/github/JuliaSmoothOptimizers/JSOTemplate.jl.svg)](https://cirrus-ci.com/github/JuliaSmoothOptimizers/JSOTemplate.jl)
-[![Coverage](https://codecov.io/gh/JuliaSmoothOptimizers/JSOTemplate.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaSmoothOptimizers/JSOTemplate.jl)
+MultiPrecisionR2 is a package that implements a multi-precion version of the Quadratic Regularization (R2) algorithm for solving non-convex, continuous, smooth optimization problems. The evaluation precision of the objective function and the gradient is adapted dynamically to use low precision Floating Point (FP) as much as possible while ensuring convergence and numerical stability.
 
-This is a template/skeleton for JSO packages.
-It should be used for new packages, and as a reference for changes in existing packages.
+MultiPrecisionR2 relies on [Julia Smooth Optimizers (JSO)](https://github.com/JuliaSmoothOptimizers) environment, and in particular works with `NLPModel` implemented in [NLPModels.jl](https://github.com/JuliaSmoothOptimizers/NLPModels.jl) package.
 
-## Things to change
+MultiPrecisionR2 ensures numerical stability by using interval evaluations of the objective function and gradient. Interval evaluation relies on [IntervalArithmetic.jl](https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md) package to perform the interval evaluation.
 
-- Project.toml: name and uuid
-- LICENSE.md: Check if MPL-v2 is the correct choice
+## Installation
+```julia
+using Pkg
+Pkg.add("MultiPrecisionR2.jl")
+```
+## Minimal examples
+```julia
+using MultiPrecisionR2
+using ADNLPModels
+using IntervalArithmetic
 
-## How to Cite
+setrounding(Interval,:accurate)
+FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
+f4(x) = x[1]^2 + x[2]^2 # some objective function
+x₀ = ones(2) # initial point
+nlpList = [ADNLPModel(f4,fp.(x₀)) for fp in FP] # instanciate a list of ADNLPModel, one for each floating point format
+mpmodel = FPMPNLPModel(nlpList) # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
+solver = MPR2Solver(mpmodel); # instaciate the algorithm structure
+stat = solve!(solver,mpmodel) # run the algorithm
+```
 
-If you use JSOTemplate.jl in your work, please cite using the format given in [CITATION.cff](https://github.com/JuliaSmoothOptimizers/JSOTemplate.jl/blob/main/CITATION.cff).
+```julia
+using MultiPrecisionR2
+using ADNLPModels
+using IntervalArithmetic
+using OptimizationProblems
+using OptimizationProblems.ADNLPProblems
+
+setrounding(Interval,:accurate)
+FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
+s = :woods # select problem
+nlpList = [eval(s)(n=12,type = Val(F)) for F ∈ FP] # instanciate a list of ADNLPModel, one for each floating point format
+mpmodel = FPMPNLPModel(nlpList) # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
+solver = MPR2Solver(mpmodel); # instaciate the algorithm structure
+stat = solve!(solver,mpmodel) # run the algorithm
+```
+
+## Warnings
+1. MultiPrecisionR2.jl works only with Floating Point formats.
+2. Unfortunately, other modes than `:accurate` for interval evaluation are not guaranteed to work with FP formats different from Float32 and Float64. 
+3. If interval evaluation mode is used, interval evaluation for the objective and the gradient is automatically tested upon FPMPNLPModel instanciation.  An error is thrown if the evaluation fails. This might happen for several reasons related to [IntervalArithmetic.jl](https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md) package.
+
 
 ## Bug reports and discussions
 

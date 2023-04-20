@@ -17,5 +17,4 @@ jobs:
           version: '1'
       - name: Aqua.jl
         run: |
-          julia --color=yes -e 'using Pkg; Pkg.add("Aqua"); Pkg.develop(path="."); using Aqua, MultiPrecisionR2; Aqua.test_all(MultiPrecisionR2, ambiguities=false); Aqua.test_ambiguities(MultiPrecisionR2
-        )'
+          julia --color=yes -e 'using Pkg; Pkg.add("Aqua"); Pkg.develop(path="."); using Aqua, MultiPrecisionR2; Aqua.test_all(MultiPrecisionR2, ambiguities=false); Aqua.test_ambiguities(MultiPrecisionR2)'

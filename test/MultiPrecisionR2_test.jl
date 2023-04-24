@@ -1,4 +1,4 @@
-skip_int = false # waiting to know how to evaluate obj(Vector{AbstractFloat}) with IntervalArithmetic properly. see github issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
+ # skip_int = false # waiting to know how to evaluate obj(Vector{AbstractFloat}) with IntervalArithmetic properly. see github issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
 @testset verbose = true "objReachPrec and gradReachPrec test" begin
   @testset "Minimal problem tests" begin
     setrounding(Interval,:accurate)
@@ -30,15 +30,15 @@ skip_int = false # waiting to know how to evaluate obj(Vector{AbstractFloat}) wi
     x = (Float32.(x₀),x₀)
     #obj test
     fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 2.0*eps(Float64))
-    @test ωf <= 2*eps(Float64) skip=skip_int 
-    @test πf == 2 skip=skip_int
+    @test ωf <= 2*eps(Float64) 
+    @test πf == 2
     fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 2.0*eps(Float32))
-    @test ωf <= 2*eps(Float32) skip=skip_int
-    @test πf == 1 skip=skip_int
+    @test ωf <= 2*eps(Float32)
+    @test πf == 1
     #grad test
     g, ωg, πg = MultiPrecisionR2.gradReachPrec(mpmodel, x, 1.0)
-    @test ωg == 0.0 skip=skip_int
-    @test πg == 1 skip=skip_int
+    @test ωg == 0.0
+    @test πg == 1
   end
   @testset "Relative error" begin
     f2(x) = x[1]+x[2]

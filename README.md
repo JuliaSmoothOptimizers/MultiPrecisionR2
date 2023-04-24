@@ -1,4 +1,11 @@
+
 # MultiPrecisionR2.jl #
+
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://d-monnet.github.io/MultiPrecisionR2.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://d-monnet.github.io/MultiPrecisionR2.jl/dev)
+[![Build Status](https://github.com/d-monnet/MultiPrecisionR2.jl/workflows/CI/badge.svg)](https://github.com/d-monnet/MultiPrecisionR2.jl/actions)
+[![Build Status](https://api.cirrus-ci.com/github/d-monnet/MultiPrecisionR2.jl.svg)](https://cirrus-ci.com/github/d-monnet/MultiPrecisionR2.jl)
+[![Coverage](https://codecov.io/gh/d-monnet/MultiPrecisionR2.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/d-monnet/MultiPrecisionR2.jl)
 
 MultiPrecisionR2 is a package that implements a multi-precion version of the Quadratic Regularization (R2) algorithm for solving non-convex, continuous, smooth optimization problems. The evaluation precision of the objective function and the gradient is adapted dynamically to use low precision Floating Point (FP) as much as possible while ensuring convergence and numerical stability.
 

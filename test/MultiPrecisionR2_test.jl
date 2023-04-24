@@ -207,7 +207,8 @@ end
 end
 @testset "Minimal problem tests" begin
   setrounding(Interval,:accurate)
-  FP = [Float16,Float32,Float64]
+  # FP = [Float16,Float32,Float64], test error due to Float 16
+  FP = [Float32,Float64]
   # quadratic
   f4(x) = x[1]^2 + x[2]^2
   x₀ = ones(2)

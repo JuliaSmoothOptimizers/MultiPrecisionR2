@@ -5,10 +5,17 @@ using LinearAlgebra
 Extends ADNLPModels.grad to IntervalBox argument.
 """
 function NLPModels.grad(nlp::ADNLPModel,X::Vector{Interval{S}}) where S
-  nlp.counters.neval_grad+=1
-  return ForwardDiff.gradient(nlp.f,X)
+  G = similar(X)
+  grad!(nlp,X,G)
+  return G
 end
 
+function NLPModels.grad!(nlp::ADNLPModel,X::Vector{Interval{S}},G::Vector{Interval{S}}) where S
+  nlp.counters.neval_grad+=1
+  ForwardDiff.gradient!(G,nlp.f,X)
+end
+
+NLPModels.grad!
 const INT_ERR = 0
 const REL_ERR = 1
 
@@ -78,7 +85,7 @@ s = problem[end]
 MPmodel = FPMPNLPModel(s,T)
 ```
 """
-struct FPMPNLPModel{H,F} <: AbstractMPNLPModel
+struct FPMPNLPModel{H,F,T<:Tuple} <: AbstractMPNLPModel
   MList::AbstractVector
   FPList::Vector{DataType}
   EpsList::Vector{H}
@@ -87,6 +94,8 @@ struct FPMPNLPModel{H,F} <: AbstractMPNLPModel
   ωgRelErr::Vector{H}
   ObjEvalMode::Int
   GradEvalMode::Int
+  X::T
+  G::T
 end
 
 function FPMPNLPModel(MList::AbstractVector{M};
@@ -108,7 +117,7 @@ function FPMPNLPModel(MList::AbstractVector{M};
   else
     γfunc_test(γfunc) # test provided callback function
   end
-  ObjEvalMode= INT_ERR
+  ObjEvalMode = INT_ERR
   if ωfRelErr === nothing
     @info "Interval evaluation used by default for objective error evaluation: might significantly increase computation time"
     ObjIntervalEval_test(MList)
@@ -126,13 +135,20 @@ function FPMPNLPModel(MList::AbstractVector{M};
     gRelList_test(MList,ωgRelErr)
     GradEvalMode = REL_ERR
   end
+  # instanciate interval containers X and G for point x and gradient g only if interval evaluation is used
+  X = Tuple([ElType(0) .. ElType(0)] for ElType in FPList)
+  G = Tuple([ElType(0) .. ElType(0)] for ElType in FPList)
+  if ObjEvalMode == INT_ERR || GradEvalMode == INT_ERR
+    X = Tuple([ElType(0) .. ElType(0) for _ in 1:MList[1].meta.nvar] for ElType in FPList)
+    G = Tuple([ElType(0) .. ElType(0) for _ in 1:MList[1].meta.nvar] for ElType in FPList)
+  end
   #reset counters : does not count interval evaluation of obj and grad for error test
   for nlp in MList
     reset!(nlp)
   end
   EpsList[end] >= eps(HPFormat) || error("HPFormat ($HPFormat) must be a FP format with precision equal or greater than NLPModels (max prec NLPModel: $(FPList[end]))")
   EpsList[end] != eps(HPFormat) || @warn "HPFormat ($HPFormat) is the same format than highest accuracy NLPModel: chances of numerical instability increased"
-  FPMPNLPModel(MList,FPList,EpsList,γfunc,ωfRelErr,ωgRelErr,ObjEvalMode,GradEvalMode)
+  FPMPNLPModel(MList,FPList,EpsList,γfunc,ωfRelErr,ωgRelErr,ObjEvalMode,GradEvalMode,X,G)
 end
 
 function FPMPNLPModel(s::Symbol,
@@ -174,8 +190,10 @@ end
 
 @doc (@doc objerrmp)
 function objerrmp(m::FPMPNLPModel, x::V, id::Int, ::Val{INT_ERR}) where {S,V<:AbstractVector{S}}
-  X = [xi..xi for xi ∈ x] # ::Vector{Interval{S}}
-  F = obj(m.MList[id],X) # ::Interval{S}
+  for i in eachindex(x) # this is the proper way to instanciate interval vector, see issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
+    m.X[id][i] = x[i] .. x[i] # ::Vector{Interval{S}}
+  end
+  F = obj(m.MList[id],m.X[id]) # ::Interval{S}
   if diam(F) == Inf #overflow case
     return S(0.0), Inf
   else
@@ -203,7 +221,7 @@ end
  
 @doc (@doc gradmp) function gradmp!(m::FPMPNLPModel, x::V, id::Int, g::V) where {S, V<:AbstractVector{S}}
   S == m.FPList[id] || error("Expected input format $(m.FPList[id]) for x but got $S")
-  g .= grad(m.MList[id],x)
+  grad!(m.MList[id],x,g)
 end
 
 """
@@ -222,31 +240,33 @@ end
 
 @doc( @doc graderrmp!)
 function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, id::Int, ::Val{INT_ERR}) where {H, S, V<:AbstractVector{S}}
-  X = [xi..xi for xi ∈ x] # ::Vector{Interval{S}}
-  G = grad(m.MList[id],X) # ::IntervalBox{S}
-  if findfirst(x->diam(x) === S(Inf),G) !== nothing  #overflow case
+  for i in eachindex(x) # this is the proper way to instanciate interval vector, see issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
+    m.X[id][i] = x[i] .. x[i] # ::Vector{Interval{S}}
+  end
+  grad!(m.MList[id],m.X[id],m.G[id]) # ::IntervalBox{S}
+  if findfirst(x->diam(x) === S(Inf),m.G[id]) !== nothing  #overflow case
     g .= zero(S)
     return g, Inf
   end
-  g .= mid.(G) # ::Vector{S}
+  g .= mid.(m.G[id]) # ::Vector{S}
   if findfirst(x->x!==S(0),g) === nothing # g = mid(G) == 0ⁿ
-    if findfirst(x->radius(x)!==S(0),G) === nothing # G = [0,0]ⁿ
+    if findfirst(x->radius(x)!==S(0),m.G[id]) === nothing # G = [0,0]ⁿ
       return g, 0
-    else # G = [-Gᵢ,Gᵢ], pick a g in G. Pick upper bounds by default
-      g .= [Gi.hi for Gi in G] # ::Vector{S}
+    else # G = [-Gᵢ,Gᵢ], pick a g in G. Pick upper bounds by default.
+      g .= [Gi.hi for Gi in m.G[id]] # ::Vector{S}
     end
   end
   g_norm = norm(g) # ::S. ! computed with finite precision
   n=m.MList[1].meta.nvar # ::Int
   u = m.EpsList[id]/2 #::S. Assume RN rounding mode
   γₙ = m.γfunc(n,u) # ::H
-  ωg = H(norm(diam.(G)))/H(g_norm) * (1+γₙ)/(1-γₙ) #::H. Accounts for norm computation rounding errors, evaluated with HPFormat ≈> exact computation
+  ωg = H(norm(diam.(m.G[id])))/H(g_norm) * (1+γₙ)/(1-γₙ) #::H. Accounts for norm computation rounding errors, evaluated with HPFormat ≈> exact computation
   return g, ωg
 end
 
 @doc( @doc graderrmp!)
 function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, id::Int, ::Val{REL_ERR}) where {H, S, V<:AbstractVector{S}}
-  g .= grad(m.MList[id],x) # ::Vector{S}
+  grad!(m.MList[id],x,g) # ::Vector{S}
   if findfirst(x->x===S(Inf),g) !== nothing # one element of g overflow
     return g, Inf
   end

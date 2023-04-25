@@ -4,7 +4,6 @@
 
 # This work has been supported by the NSERC Alliance grant 544900- 19 in collaboration with Huawei-Canada. 
 
-
 module MultiPrecisionR2
 
 using ADNLPModels, IntervalArithmetic, NLPModels, Printf, LinearAlgebra, SolverCore

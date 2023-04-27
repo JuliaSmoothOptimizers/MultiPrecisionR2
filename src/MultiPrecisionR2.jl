@@ -58,7 +58,6 @@ function MPR2Solver(MPnlp::M) where { M <: FPMPNLPModel }
   return MPR2Solver(x, s, c, g)
 end
 
-
 @doc (@doc MPR2Solver) function mpr2s(
   MPnlp::FPMPNLPModel;
   x₀::V = MPnlp.MList[end].meta.x0,
@@ -134,7 +133,7 @@ function MPR2Params(LPFormat::DataType, HPFormat::DataType)
 end
 
 """
-Precision of variables and precision evaluation of obj and grad.
+Precision of variables and precision evaluation of obj, grad and model reduction.
 Precisions are represented as integer, and correspond to FP format of corresponding index in FPList of FPMPNLPModel.
 See [`FPMPNLPModel`](@ref)
 """

@@ -88,6 +88,17 @@ end
     err_msg = String(take!(buf))
     @test err_msg == "Wrong γfunc template, expected template: γfunc(n::Int,u::Float) -> Float"
   end
+  x0 = Float16.(zeros(Int32(round(3/eps(Float16)))))
+  nlpList = [ADNLPModel(f4,x0)]
+  try
+    FPMPNLPModel(nlpList)
+    @test false
+  catch e
+    buf = IOBuffer()
+    showerror(buf,e)
+    err_msg = String(take!(buf))
+    @test err_msg == "γfunc: dot product error greater than 100% with highest precision. Consider using higher precision floating point format, or provide a different callback function for γfunc (last option might cause numerical instability)."
+  end
 end
 
 @testset "Default Interval instanciation" begin

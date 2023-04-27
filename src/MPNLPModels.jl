@@ -115,8 +115,10 @@ function FPMPNLPModel(MList::AbstractVector{M};
   if γfunc === nothing 
     γfunc = (n::Int,u::AbstractFloat) -> n*u
   else
-    γfunc_test(γfunc) # test provided callback function
+    γfunc_test_template(γfunc) # test provided callback function
   end
+  γfunc_test_error_bound(MList[1].meta.nvar,EpsList[end],γfunc)
+
   ObjEvalMode = INT_ERR
   if ωfRelErr === nothing
     @info "Interval evaluation used by default for objective error evaluation: might significantly increase computation time"
@@ -136,8 +138,8 @@ function FPMPNLPModel(MList::AbstractVector{M};
     GradEvalMode = REL_ERR
   end
   # instanciate interval containers X and G for point x and gradient g only if interval evaluation is used
-  X = Tuple([ElType(0) .. ElType(0)] for ElType in FPList)
-  G = Tuple([ElType(0) .. ElType(0)] for ElType in FPList)
+  X = tuple()
+  G = tuple()
   if ObjEvalMode == INT_ERR || GradEvalMode == INT_ERR
     X = Tuple([ElType(0) .. ElType(0) for _ in 1:MList[1].meta.nvar] for ElType in FPList)
     G = Tuple([ElType(0) .. ElType(0) for _ in 1:MList[1].meta.nvar] for ElType in FPList)
@@ -357,7 +359,7 @@ end
 Tests if γfunc callback function is properly implemented.
 Expected template: γfunc(n::Int,u::Float) -> Float
 """    
-function γfunc_test(γfunc)
+function γfunc_test_template(γfunc)
   err_msg = "Wrong γfunc template, expected template: γfunc(n::Int,u::Float) -> Float"
   try
     typeof(γfunc(1,1.0)) <: AbstractFloat  || error(err_msg)
@@ -366,6 +368,17 @@ function γfunc_test(γfunc)
   end
 end
 
+"""
+Tests if γfunc callback provides strictly less than 100% error for dot product error of vector
+of size the dimension of the problem and the lowest machine epsilon.
+"""
+
+function γfunc_test_error_bound(n::Int,eps::AbstractFloat,γfunc)
+  err_msg = "γfunc: dot product error greater than 100% with highest precision. Consider using higher precision floating point format, or provide a different callback function for γfunc (last option might cause numerical instability)."
+  if γfunc(n,eps) >= 1.0
+    error(err_msg)
+  end
+end
 """
 Tests dimensions match of NLPModels in FPMPModel.MList.
 """

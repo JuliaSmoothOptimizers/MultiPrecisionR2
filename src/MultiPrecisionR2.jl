@@ -207,9 +207,8 @@ function solve!(
     done = true
   end
   _, ωg, π.πg = gradReachPrec!(MPnlp, x, g, OF[end], π = π.πg)
-  # g.=gout # keep g type consistent
   if findfirst(x->x === FP[end](Inf), g) !== nothing || ωg == FP[end](Inf)
-    @warn "Objective or ojective error overflow at x0"
+    @warn "Gradient or gradient error overflow at x0"
     status = :exception
     done = true
   end
@@ -346,7 +345,6 @@ function solve!(
     MPnlp.MList[end],
     status = status,
     solution = x[end],
-    # solution = x,
     objective = MPnlp.FPList[end](f),
     dual_feas = MPnlp.FPList[end](g_norm),
     elapsed_time = elapsed_time,

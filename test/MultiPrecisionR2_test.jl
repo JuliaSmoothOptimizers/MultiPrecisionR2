@@ -51,7 +51,7 @@ end
     HPFormat = Float16 # set HPFormat to Float16 to force gradient error evaluation to overflow
     ωfRelErr = HPFormat[1.0]
     ωgRelErr = HPFormat[2.0]
-    x0 = Float16[2]
+    x0 = Float16.([2])
     nlpList = [ADNLPModel(f3,x0)]
     mpmodel = FPMPNLPModel(nlpList, HPFormat = Float16, ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)
     solver = MPR2Solver(mpmodel)

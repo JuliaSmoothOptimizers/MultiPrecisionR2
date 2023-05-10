@@ -89,6 +89,8 @@ struct FPMPNLPModel{H,F,T<:Tuple} <: AbstractMPNLPModel
   MList::AbstractVector
   FPList::Vector{DataType}
   EpsList::Vector{H}
+  UList::Vector{H}
+  OFList::Vector{H}
   γfunc::F
   ωfRelErr::Vector{H}
   ωgRelErr::Vector{H}
@@ -107,6 +109,8 @@ function FPMPNLPModel(MList::AbstractVector{M};
   nlpdim_test(MList)
   FPList = [typeof(nlp.meta.x0[1]) for nlp in MList]
   EpsList = convert.(HPFormat,eps.(FPList))
+  UList = EpsList.*HPFormat(1/2) # assume rounding mode is rounding to the nearest
+  OFList = HPFormat.(prevfloat.(typemax.(FPList)))
   if sort(EpsList) != reverse(EpsList)
     err_msg = "MList: wrong models FP formats precision order"
     @error err_msg
@@ -150,7 +154,7 @@ function FPMPNLPModel(MList::AbstractVector{M};
   end
   EpsList[end] >= eps(HPFormat) || error("HPFormat ($HPFormat) must be a FP format with precision equal or greater than NLPModels (max prec NLPModel: $(FPList[end]))")
   EpsList[end] != eps(HPFormat) || @warn "HPFormat ($HPFormat) is the same format than highest accuracy NLPModel: chances of numerical instability increased"
-  FPMPNLPModel(MList,FPList,EpsList,γfunc,ωfRelErr,ωgRelErr,ObjEvalMode,GradEvalMode,X,G)
+  FPMPNLPModel(MList,FPList,EpsList,UList,OFList,γfunc,ωfRelErr,ωgRelErr,ObjEvalMode,GradEvalMode,X,G)
 end
 
 function FPMPNLPModel(s::Symbol,
@@ -248,12 +252,12 @@ function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, id::Int, ::Val{INT_ERR}) whe
   grad!(m.MList[id],m.X[id],m.G[id]) # ::IntervalBox{S}
   if findfirst(x->diam(x) === S(Inf),m.G[id]) !== nothing  #overflow case
     g .= zero(S)
-    return g, Inf
+    return Inf
   end
   g .= mid.(m.G[id]) # ::Vector{S}
   if findfirst(x->x!==S(0),g) === nothing # g = mid(G) == 0ⁿ
     if findfirst(x->radius(x)!==S(0),m.G[id]) === nothing # G = [0,0]ⁿ
-      return g, 0
+      return 0
     else # G = [-Gᵢ,Gᵢ], pick a g in G. Pick upper bounds by default.
       g .= [Gi.hi for Gi in m.G[id]] # ::Vector{S}
     end
@@ -263,27 +267,27 @@ function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, id::Int, ::Val{INT_ERR}) whe
   u = m.EpsList[id]/2 #::S. Assume RN rounding mode
   γₙ = m.γfunc(n,u) # ::H
   ωg = H(norm(diam.(m.G[id])))/H(g_norm) * (1+γₙ)/(1-γₙ) #::H. Accounts for norm computation rounding errors, evaluated with HPFormat ≈> exact computation
-  return g, ωg
+  return ωg
 end
 
 @doc( @doc graderrmp!)
 function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, id::Int, ::Val{REL_ERR}) where {H, S, V<:AbstractVector{S}}
   grad!(m.MList[id],x,g) # ::Vector{S}
   if findfirst(x->x===S(Inf),g) !== nothing # one element of g overflow
-    return g, Inf
+    return Inf
   end
   g_norm = norm(g) #::S ! computed with finite precision in S FP format
   n=m.MList[1].meta.nvar # ::Int
   u = m.EpsList[id]/2 # ::H. Assuming RN rounding mode
   γₙ = m.γfunc(n,u) # ::H
   ωg = m.ωgRelErr[id] * (1+γₙ)/(1-γₙ) # ::H. Accounting for norm computation rounding errors, evaluated with HPFormat ≈> exact computation
-  return g, ωg #::Vector{S} ::H
+  return ωg #::Vector{S} ::H
 end
 
 @doc( @doc graderrmp!)
 function graderrmp(m::FPMPNLPModel, x::V, id::Int) where {S,V<:AbstractVector{S}}
   g = similar(x)
-  _, ωg =  graderrmp!(m, x, g, id)
+  ωg =  graderrmp!(m, x, g, id)
   return g, ωg
 end
 

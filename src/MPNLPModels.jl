@@ -145,7 +145,6 @@ function FPMPNLPModel(MList::AbstractVector{M};
   X = tuple()
   G = tuple()
   if ObjEvalMode == INT_ERR || GradEvalMode == INT_ERR
-    setrounding(Interval,:accurate)
     X = Tuple([ElType(0) .. ElType(0) for _ in 1:MList[1].meta.nvar] for ElType in FPList)
     G = Tuple([ElType(0) .. ElType(0) for _ in 1:MList[1].meta.nvar] for ElType in FPList)
   end

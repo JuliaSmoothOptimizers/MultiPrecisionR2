@@ -41,10 +41,10 @@ The error models are :
 - `γfunc` : callback function for dot product rounding error parameter |γ|, |fl(x.y) - x.y| ≤ |x|.|y| γ. Expected signature is `γfunc(n::Int,u::H)` and output is `H`. Default callback `γfunc(n::Int,u::H) = n*u` is implemented upon instanciation. 
 - `ωfRelErr::Vector{H}` : List of relative error factor for objective function evaluation of the MList NLPModels. Error model is |obj.(MList[i],x)-fl(f(x))| ≤ ωfRelErr[i] * |obj.(MList[i],x)| 
 - `ωgRelErr::Vector{H}` : List of relative error factor for gradient of the MList NLPModels. Error model is |grad.(MList[i],x)-fl(∇f(x))| ≤ ωgRelErr[i] * ||grad.(MList[i],x)||₂ 
-- `ObjEvalMode::Int` : Evalutation mode for objective and error. Possible values:
+- `ObjEvalMode::Int` : Evalutation mode for objective and error. Set automatically upon instanciation. Possible values:
   + `INT_ERR` : interval evaluation of objective (chosen as middle of the interval) and error
   + `REL_ERR` : classical evaluation and use relative error model (with ωfRelErr value)
-- `GradEvalMode::Int` : Evalutation mode for gradient and error. Possible values:
+- `GradEvalMode::Int` : Evalutation mode for gradient and error. Set automatically upon instanciation. Possible values:
   + `INT_ERR` : interval evaluation of gradient (chosen as middle of interval vector) and error
   + `REL_ERR` : classical evaluation and use relative error model (with ωgRelErr value)
 
@@ -145,6 +145,7 @@ function FPMPNLPModel(MList::AbstractVector{M};
   X = tuple()
   G = tuple()
   if ObjEvalMode == INT_ERR || GradEvalMode == INT_ERR
+    setrounding(Interval,:accurate)
     X = Tuple([ElType(0) .. ElType(0) for _ in 1:MList[1].meta.nvar] for ElType in FPList)
     G = Tuple([ElType(0) .. ElType(0) for _ in 1:MList[1].meta.nvar] for ElType in FPList)
   end
@@ -264,7 +265,7 @@ function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, id::Int, ::Val{INT_ERR}) whe
   end
   g_norm = norm(g) # ::S. ! computed with finite precision
   n=m.MList[1].meta.nvar # ::Int
-  u = m.EpsList[id]/2 #::S. Assume RN rounding mode
+  u = m.UList[id] #::S.
   γₙ = m.γfunc(n,u) # ::H
   ωg = H(norm(diam.(m.G[id])))/H(g_norm) * (1+γₙ)/(1-γₙ) #::H. Accounts for norm computation rounding errors, evaluated with HPFormat ≈> exact computation
   return ωg
@@ -278,7 +279,7 @@ function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, id::Int, ::Val{REL_ERR}) whe
   end
   g_norm = norm(g) #::S ! computed with finite precision in S FP format
   n=m.MList[1].meta.nvar # ::Int
-  u = m.EpsList[id]/2 # ::H. Assuming RN rounding mode
+  u = m.UList[id] # ::H
   γₙ = m.γfunc(n,u) # ::H
   ωg = m.ωgRelErr[id] * (1+γₙ)/(1-γₙ) # ::H. Accounting for norm computation rounding errors, evaluated with HPFormat ≈> exact computation
   return ωg #::Vector{S} ::H
@@ -311,7 +312,6 @@ function ObjIntervalEval_test(MList::AbstractVector{M}) where M<:AbstractNLPMode
   for nlp in MList
     @debug "Testing objective evaluation of MList[$i]"
     try
-      # X0 = IntervalBox(nlp.meta.x0)
       X0 = [xi..xi for xi ∈ nlp.meta.x0]
       intype = typeof(nlp.meta.x0[1])
       output = obj(nlp,X0) # ! obj(nlp,X0::IntervalBox{T}) returns either ::T or Interval{T}

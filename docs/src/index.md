@@ -69,16 +69,16 @@ stat = solve!(solver,mpmodel) # run the algorithm
 # MPR2 Algorithm: General Description 
 
 ## **Notations**
-* $ fl $: finite-precision computation
+* $fl$: finite-precision computation
 * $u$: unit round-off for a given FP format
 * $\delta$: rounding error induced by one FP operation ($+,-,/,*), for example $fl(x+y) = (x+y)(1+\delta)$). Bounded as $|\delta|\leq u$.
-* $ \pi $: FP format index, also called **precision**
-* $ f: x \rightarrow f(x) $: objective function
-* $ \hat{f}: x,\pi_f \rightarrow fl(f(x,\pi_f)) $: finite precision counterpart of $ f $ with FP format corresponding to index $ \pi_f $  
-* $ \nabla f: x \rightarrow \nabla f(x) $: gradient of $ f $
-* $ \hat{g}: x, \pi_g \rightarrow fl(\nabla f(x),\pi_g)$ : finite precision counterpart of $ \nabla f $ with FP format corresponding to index $ \pi_g $
-* $ \omega_f(x) $: bound on finite precision evaluation error of $ f $, $ | \hat{f}(x,\pi_f) -f(x) | \leq \omega_f(x)$
-* $ \omega_g(x) $: bound on finite precision evaluation error of $ \nabla f $, $ \| \hat{g}(x,\pi_g) -\nabla f(x) \| \leq \omega_g(x)\|\hat{g}(x,\pi_g)\|$
+* $\pi$: FP format index, also called **precision**
+* $f: x \rightarrow f(x)$: objective function
+* $\hat{f}: x,\pi_f \rightarrow fl(f(x,\pi_f))$: finite precision counterpart of $f$ with FP format corresponding to index $\pi_f$  
+* $\nabla f: x \rightarrow \nabla f(x)$: gradient of $f$
+* $\hat{g}: x, \pi_g \rightarrow fl(\nabla f(x),\pi_g)$ : finite precision counterpart of $\nabla f $ with FP format corresponding to index $\pi_g $
+* $\omega_f(x) $: bound on finite precision evaluation error of $f $, $| \hat{f}(x,\pi_f) -f(x) | \leq \omega_f(x)$
+* $\omega_g(x) $: bound on finite precision evaluation error of $\nabla f $, $\| \hat{g}(x,\pi_g) -\nabla f(x) \| \leq \omega_g(x)\|\hat{g}(x,\pi_g)\|$
 
 ## **MPR2 Algorithm Broad Description** (differs from package implementation)
 MPR2 is described by the following algorithm. Note that the actual implementation in the package differs slightly. For an overview of the actual implementation, see section [Diving Into MPR2 Implementation](#diving-into-mpr2-implementation).
@@ -86,7 +86,7 @@ MPR2 is described by the following algorithm. Note that the actual implementatio
 In the algorithm, *compute* means compute with finite-precision machine computation, and *define* means "compute exactly", *i.e* with infinite precision. Defining a value is therefore not possible to perform on a (finite-precision) machine. This point is discussed later. 
 
 **Inputs**: 
-  * Initial values: $ x_0 $, $\sigma_0$
+  * Initial values: $x_0 $, $\sigma_0$
   * Tunable Parameters: $0 < \eta_0 < \eta_1 < \eta_2 < 1$, $0 < \gamma_1 < 1 < \gamma_2$, $\kappa_m$
   * Gradient tolerance: $\epsilon$
   * List of FP formats (*e.g* [Float16, Float32, Float64])
@@ -95,8 +95,8 @@ In the algorithm, *compute* means compute with finite-precision machine computat
   * $x_s$ such that $\nabla f(x_s) \leq \epsilon \|\nabla f(x_0)\|$
 
 **Initialization**
-1. Compute $ f_0 = \hat{f}(x_0,\pi_f)$
-2. Compute $ g_0 = \hat{g}(x_0,\pi_g)$
+1. Compute $f_0 = \hat{f}(x_0,\pi_f)$
+2. Compute $g_0 = \hat{g}(x_0,\pi_g)$
 
 **While** $\|g_k\| > \dfrac{\epsilon}{1+\omega_g(x_k)}$ **do**
 
@@ -330,9 +330,8 @@ The user has to make sure that the parameters respect the convergence conditions
 
 **MPR2Solver Example 1**: Lack of Precision and Parameters Selection
 ```julia
+setrounding(Interval,:accurate)
 T = [Float16, Float32] # selected FP formats, max eval precision is Float64
-#smoothmax function, argmin = [offset,...,offset]
-alpha = 4.0
 f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
 x = 1.5*ones(2) # initial point
 MList = [ADNLPModel(f,t.(x)) for t in T]; # list of models
@@ -558,6 +557,8 @@ The expected template for `selectPif!()` callback function is `function selectPi
 * `solve!()` does not check that objective/gradient evaluation are preformed with a suitable FP format in the callback functions(see sections [Multi-Precision Evaluation and Vector Containers](#multi-precision-evaluation-and-vector-containers) and [Forbidden Evaluation](#forbidden-evaluations)).
 * `solve!()` does not ensure convergence if the user uses its own callback functions.
 * `solve!()`does not update objective/gradient values and precision outside the callback functions. See [Callback Functions: Expected Behavior](#callback-functions-expected-behavior) for proper callbacks implementation.
+* `solve!()` does not handle overflow that might occur when evaluation the objective/gradient in the callback functions. It is up to the user to make sure no overflowed value is returned by the callbacks. See [Implementation Examples](#implementation-examples) for dealing with overflow properly.
+* `solve!()` does not throw error/warning if evaluations in callback have failed. It is up to the user to handle that.
 
 ## Callback Functions Cheat Sheet
 
@@ -566,17 +567,252 @@ The expected template for `selectPif!()` callback function is `function selectPi
 |`compute_f_at_x!()`| Select obj. FP format, compute $f(x_k)$ and $ωf(x_k)$ |prec_fail::Bool : `true` if $\omega_f(x_k)$ is too big, stops main loop| `st.status`, `st.f`, `st.ωf`, `π.πf`
 |`compute_f_at_c!()`|Select obj. FP format and compute $f(c_k)$ and $ωf(c_k)$ | prec_fail::Bool: `true` if $\omega_f(c_k)$ is too big, stops main loop|  `st.status`, `st.f⁺`, `st.ωf⁺`, `π.πf⁺`
 |`compute_g!()`| Select grad FP format and compute $g(c_k)$ and $ωg(c_k)$ | prec_fail::Bool: `true` if $\omega_g(c_k)$ is too big, stops main loop| `st.status`, `g`, `st.ωg`, `π.πg` 
-|`recompute_g()`| Select grad FP format and recompute $g(x_k)$ and $ωg(x_k)$ | prec_fail::Bool: `true` if $\omega_g(c_k)$ is too big, stops main loop, g_recompute::Bool: `true` if $\hat{g}(x_k)$ was recomputed, updates `g` in main loop |`st.status`, `g`, `st.ωg`, `π.πg`, `st.ΔT`, `π.ΔT`, `st.x_norm`, `π.πnx`, `st.s_norm`, `π.πns`, `st.ϕ`, `st.ϕhat`, `π.πc`, `st.μ` 
+|`recompute_g()`| Select grad FP format and recompute $g(x_k)$ and $ωg(x_k)$ | prec_fail::Bool: `true` if $\omega_g(c_k)$ is too big, stops main loop, g_recompute::Bool: `true` if $\hat{g}(x_k)$ was recomputed|`st.status`, `g`, `st.ωg`, `π.πg`, `st.ΔT`, `π.ΔT`, `st.x_norm`, `π.πnx`, `st.s_norm`, `π.πns`, `st.ϕ`, `st.ϕhat`, `π.πc`, `st.μ` 
 |`selectPic!()`| | void | `π.πc` 
 
 
 
 ## Implementation Examples
 
-### Example 1: Precision Selection Strategy Based on Step Size
+### Example 1: Precision Selection Strategy Based on Step Size (Error Free)
+This example implements a precision selection strategy for the objective and gradient based on the norm of the step size, which does not take into account evaluation errors. The strategy is to choose the FP format for evaluation such that the norm of the step is greater than the square root of the unit roundoff.
 
-### Example 2: Switching to Gradient Descent When Lacking Objective Precision
+The callback functions must handles precision selection for evaluations and optionally error/warning messages if evaluation fails (typically overflow or lack of precision)
 
-### Example 3: Adding Momentum to Gradient
+```julia
+function my_compute_f_at_c!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T) where {H, L, E, T <: Tuple}
+  πmax = length(m.FPList) # get maximal allowed precision
+  eval_prec = findfirst(u -> sqrt(u) < st.s_norm, m.UList) # select precision according to the criterion
+  if eval_prec === nothing # not enough precsion
+    @warn " not enough precision for objective evaluation at c: ||s|| = $(st.s_norm) < sqrt(u($(m.FPList[end]))) = $(sqrt(m.UList[end]))"
+    st.status = :exception
+    return true
+  end
+  π.πf⁺ = max(eval_prec,π.πc) # evaluation precision should be greater or equal to the FP format of the candidate (see forbidden evaluation)
+  st.f⁺ = objmp(m,c[π.πf⁺],π.πf⁺) # eval objective only. solve!() made sure c[π.πf⁺] is up-to-date (see containers section)
+  while st.f⁺ == Inf # check for overflow
+    π.πf⁺ += 1
+    if π.πf⁺ > πmax
+      @warn " not enough precision for objective evaluation at c: overflow"
+      st.status = :exception
+      return true # objective overflow with highest precision FP format: this is a fail
+    end
+    st.f⁺ = objmp(m,c[π.πf⁺],π.πf⁺)
+  end
+  return false
+end
+  
+function my_compute_f_at_x!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, x::T) where {H, L, E, T <: Tuple}
+  πmax = length(m.FPList) # get maximal allowed precision
+  if st.iter == 0 # initial evaluation, step = 0, choose max precision
+    π.πf = πmax
+  else # evaluation in main loop
+    eval_prec = findfirst(u -> sqrt(u) < st.s_norm, m.UList) # select precision according to the criterion
+    if eval_prec === nothing # not enough precsion
+      @warn " not enough precision for objective evaluation at x: ||s|| = $(st.s_norm) < sqrt(u($(m.FPList[end]))) = $(sqrt(m.UList[end]))"
+      st.status = :exception
+      return true
+    end
+    π.πf = max(eval_prec,π.πx) # evaluation precision should be greater or equal to the FP format of the current solution (see forbidden evaluation)
+  end
+  st.f = objmp(m,x[π.πf],π.πf) # eval objective only. solve!() made sure x[π.πf] is up-to-date (see containers section)
+  while st.f == Inf # check for overflow
+    π.πf += 1
+    if π.πf > πmax
+      @warn " not enough precision for objective evaluation at x: overflow"
+      st.status = :exception
+      return true # objective overflow with highest precision FP format: this is a fail
+    end
+    st.f = objmp(m,x[π.πf],π.πf)
+  end
+  return false
+end
+
+function my_compute_g!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T, g::T) where {H, L, E, T <: Tuple}
+  πmax = length(m.FPList) # get maximal allowed precision
+  if st.iter == 0 # initial evaluation, step = 0, choose max precision
+    π.πg = πmax
+  else # evaluation in main loop
+    eval_prec = findfirst(u -> sqrt(u) < st.s_norm, m.UList) # select precision according to the criterion
+    if eval_prec === nothing # not enough precsion
+      @warn " not enough precision for gradient evaluation at c: ||s|| = $(st.s_norm) < sqrt(u($(m.FPList[end]))) = $(sqrt(m.UList[end]))"
+      st.status = :exception
+      return true
+    end
+    π.πg = max(eval_prec,π.πg) # evaluation precision should be greater or equal to the FP format of the candidate (see forbidden evaluation)
+  end
+  gradmp!(m,c[π.πg],π.πg,g[π.πg]) # eval gradient only. solve!() made sure x[π.πg] is up-to-date (see containers section)
+  while findfirst(elem->elem == Inf,g[π.πg]) !== nothing # check for overflow, gradient vector version
+    π.πg += 1
+    if π.πg > πmax
+      @warn " not enough precision for gradient evaluation at c: overflow"
+      st.status = :exception
+      return true # objective overflow with highest precision FP format: this is a fail
+    end
+    gradmp!(m,c[π.πg],π)
+  end
+  return false
+end
+
+function my_recompute_g!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, x::T, g::T, s::T) where {H, L, E, T <: Tuple}
+  # simply update norm of the step, since recompute_g!() is called at the begining of the main loop after step computation
+  πmax = length(m.FPList) # get maximum precision index
+  π.πns = π.πs # select precision for step norm computation
+  s_norm = norm(s[π.πs])
+  while s_norm == Inf || s_norm ==0.0 # handle possible over/underflow
+    π.πns = π.πns+1 # increase precision to avoid over/underflow
+    if π.πns > πmax
+      st.status = :exception
+      return true, false # overflow occurs with max precion: cannot compute s_norm with provided FP formats. Returns fail.
+    end
+    s_norm = norm(s[π.πns]) # compute norm with higher precision step, solve!() made sure s[π.πns] is up-to-date
+  end
+  st.s_norm = s_norm
+  return false, false
+end
+```
+
+Let's try this implementation on a simple quadratic objective.
+
+```julia
+T = [Float16, Float32] # selected FP formats,
+f(x) = x[1]^2 + x[2]^2 # objective function
+omega = [0.0,0.0]
+x = 1.5*ones(2) # initial point
+MList = [ADNLPModel(f,t.(x)) for t in T]; # list of models
+MPmodel = FPMPNLPModel(MList, ωfRelErr = omega, ωgRelErr = omega); # indicates the use of relative error only to avoid interval evaluation, relative errors will not be computed with above callbacks
+solver = MPR2Solver(MPmodel);
+stat = solve!(solver,MPmodel;
+compute_f_at_x! = my_compute_f_at_x!,
+compute_f_at_c! = my_compute_f_at_c!,
+compute_g! = my_compute_g!,
+recompute_g! = my_recompute_g!);
+stat  # first-order stationary point has been found
+```
+
+Let's now try our implementation on the Rosenbrock function.
+
+```julia
+T = [Float16, Float32] # selected FP formats,
+f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
+omega = [0.0,0.0]
+x = 1.5*ones(2) # initial point
+MList = [ADNLPModel(f,t.(x)) for t in T]; # list of models
+MPmodel = FPMPNLPModel(MList, ωfRelErr = omega, ωgRelErr = omega); # indicates the use of relative error only to avoid interval evaluation, relative errors will not be computed with above callbacks
+solver = MPR2Solver(MPmodel);
+stat = solve!(solver,MPmodel;
+compute_f_at_x! = my_compute_f_at_x!,
+compute_f_at_c! = my_compute_f_at_c!,
+compute_g! = my_compute_g!,
+recompute_g! = my_recompute_g!); # throw lack of precision warning
+```
+
+The strategy implemented for precision selection does not allow to find a first-order critical point for the Rosenbrock function: the step becomes too small before MPR2 converges. Although this implementation is fast since it does not bother with evaluation errors, it is not very satisfactory since Example 1 in section [Lack of Precision](#lack-of-precision) shows that the default implementation is able to converge to a first-order critical point.
+This highlights that it is important to understand how rounding errors occur and affect the convergence of the algorithm (see section [MPR2 Algorithm: General Description](#mpr2-algorithm-general-description)) and that "naive" strategies like the one implemented above might not be satisfactory.
+
+### Example 2: Switching to When Lacking Objective Precision
+It might happen that `solve!()` stops early because the objective evaluation lacks precision. Consider for example that we use consider relative evaluation error for the objective. If MPR2 converges to a point where the objective is big, the error can be big too, and if the gradient is small the convergence condition $\omega f(x_k) \leq \eta_0 \Delta T_k = \|\hat{g}(x_k)\|^2/\sigma_k$ is likely to fail. In that case, the user might want to continue running the algorithm without caring about the objective, that is, as a simple gradient descent.
+`solve!()` implementation allows enough flexibility to do so. In the implementation below, the user defined structure `e` is used to indicate what "mode" the algorithm is running: default mode or gradient descent. The callbacks `compute_f_at_x!` sets `st.f = Inf` and `compute_f_at_c!` sets `st.f⁺ = 0` if gradient descent mode is used. This ensures that $\rho_k = Inf \geq \eta_1$ and the step is accepted in gradient descent mode.
+In the implementation below, `compute_f_at_x!` and `compute_f_at_c!` selects the precision such that $\omega f(x_k) \leq \eta_0 \Delta T_k$ in default mode. We implement `compute_g!` to set `σ` so that `ComputeStep!()` will use the learning rate `1/σ`. We use the default `recompute_g` callback.
+
+```julia
+mutable struct my_struct
+  gdmode::Bool
+  learning_rate
+end
+
+function my_compute_f_at_c!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T) where {H, L, E, T <: Tuple}
+  if !e.gdmode
+    ωfBound = p.η₀*st.ΔT
+    π.πf⁺ = π.πx # basic precision selection strategy
+    st.f⁺, st.ωf⁺, π.πf⁺ = objReachPrec(m, c, ωfBound, π = π.πf⁺)
+    if st.f⁺ == Inf # stop algo if objective overflow
+      @warn "Objective evaluation overflow at x"
+      st.status = :exception
+      return true
+    end
+    if st.ωf⁺ > ωfBound # evaluation error too big
+      @warn "Objective evaluation error at x too big to ensure convergence: switching to gradient descent"
+      e.gdmode = true
+      st.f⁺ = 0
+      return false
+    end
+  else # gradient descent mode
+    st.f⁺ = 0
+  end
+  return false
+end
+
+function my_compute_f_at_x!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, p::MPR2Params{H, L}, e::E, x::T) where {H, L, E, T <: Tuple}
+  πmax = length(m.EpsList)
+  if st.iter == 0 # initial evaluation before main loop
+    st.f, st.ωf, π.πf = objReachPrec(m, x, m.OFList[end], π = π.πf)
+  else # evaluation in the main loop
+    if !e.gdmode
+      ωfBound = p.η₀*st.ΔT
+      if st.ωf > ωfBound # need to reevaluate the objective at x
+        if π.πf == πmax # already at highest precision 
+          @warn "Objective evaluation error at x too big to ensure convergence: switching to gradient descent"
+          e.gdmode = true
+          st.f = Inf
+          return false
+        end
+        π.πf += 1 # increase evaluation precision of f at x
+        st.f, st.ωf, π.πf = objReachPrec(m, x, ωfBound, π = π.πf)
+        if st.ωf > ωfBound # error evaluation too big with max precison
+          @warn "Objective evaluation error at x too big to ensure convergence: switching to gradient descent"
+          e.gdmode = true
+          st.f = Inf
+          return false
+        end
+      end
+    else # gradient descent mode
+      st.f = Inf
+    end
+  end
+  return false
+end
+
+function my_compute_g!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T, g::T) where {H, L, E, T <: Tuple}
+  π.πg = π.πc # default strategy, could be a callback
+  st.ωg, π.πg = gradReachPrec!(m, c, g, m.OFList[end], π = π.πg)
+  if e.gdmode
+    st.σ = 1/e.learning_rate
+  end
+  return false
+end
+```
+Let us first run `solve!()` with the default implementation and relative evaluation error.
+```julia
+T = [Float16, Float32] # selected FP formats,
+#f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
+f(x) = x[1]^2 + x[2]^2
+omegaf = Float64.([0.1,0.011])
+omegag = Float64.([0.05,0.01])
+x = 1.5*ones(2) # initial point
+MList = [ADNLPModel(f,t.(x)) for t in T]; # list of models
+MPmodel = FPMPNLPModel(MList, ωfRelErr = omegaf, ωgRelErr = omegag);
+solver = MPR2Solver(MPmodel);
+stat = solve!(solver,MPmodel); # stops at iteration 7, throw lack of precision warning
+```
+
+We run `solve!()` with the callback functions defined above and the default callbacks for `compute_g!()` and `recompute_g!()`. We use relative objective and gradient error.
+```julia
+T = [Float16, Float32] # selected FP formats,
+#f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
+f(x) = x[1]^2 + x[2]^2 +0.5
+omegaf = Float64.([0.01,0.005])
+omegag = Float64.([0.05,0.01])
+x = 1*ones(2) # initial point
+MList = [ADNLPModel(f,t.(x)) for t in T]; # list of models
+MPmodel = FPMPNLPModel(MList, ωfRelErr = omegaf, ωgRelErr = omegag);
+solver = MPR2Solver(MPmodel);
+e = my_struct(false,1e-2)
+stat = solve!(solver,MPmodel;
+e = e,
+compute_f_at_x! = my_compute_f_at_x!,
+compute_f_at_c! = my_compute_f_at_c!,
+compute_g! = my_compute_g!); # switch to gradient descent at iteration 2
+```
 
 ### Example 4: DNN Training with Knet and KnetNLPModels

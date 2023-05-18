@@ -8,7 +8,7 @@ module MultiPrecisionR2
 
 using ADNLPModels, IntervalArithmetic, NLPModels, Printf, LinearAlgebra, SolverCore
 
-export FPMPNLPModel, MPR2Solver, MPR2Params, solve!, umpt!, objmp, gradmp!, objerrmp, graderrmp, graderrmp!
+export FPMPNLPModel, MPR2Solver, MPR2Params, MPR2State, MPR2Precisions, solve!, umpt!, objReachPrec, gradReachPrec!, objmp, gradmp!, objerrmp, graderrmp, graderrmp!
 
 include("MPNLPModels.jl")
 
@@ -553,10 +553,10 @@ function objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where
     f, ωf = objerrmp(m,x[id],id)
   end
   if id == πmax && f === m.FPList[πmax](Inf)
-    @warn "Objective evaluation overflows with highest FP format at x0"
+    @warn "Objective evaluation overflows with highest FP format"
   end
   if id == πmax && ωf === m.FPList[πmax](Inf)
-    "Objective evaluation overflows with highest FP format at x0"
+    "Objective evaluation error overflows with highest FP format"
   end
   return H(f), H(ωf), id
 end
@@ -717,10 +717,14 @@ end
 function compute_f_at_c_default!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T) where {H, L, E, T <: Tuple}
   prec_fail = false
   ωfBound = p.η₀*st.ΔT
-  selectPif!(m, st, π, ωfBound) # default strategy, could be a callback
+  selectPif!(m, st, π, ωfBound) # select precision evaluation 
   st.f⁺, st.ωf⁺, π.πf⁺ = objReachPrec(m, c, ωfBound, π = π.πf⁺)
   if st.f⁺ === m.FPList[end](Inf) || st.ωf⁺ === m.FPList[end](Inf)
-    @warn "Objective evaluation error at c too big to ensure convergence"
+    @warn "Objective evaluation or error at c overflow"
+    prec_fail = true
+  end
+  if st.ωf⁺ > ωfBound
+    @warn "Objective evaluation error at c too big"
     prec_fail = true
   end
   return prec_fail
@@ -743,6 +747,12 @@ function compute_f_at_x_default!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2
       π.πf += 1 # default strategy
       st.f, st.ωf, π.πf = objReachPrec(m, x, ωfBound, π = π.πf)
       if st.f === m.FPList[end](Inf) ||  st.ωf === m.FPList[end](Inf)
+        @warn "Objective evaluation or error overflow at x"
+        st.status = :exception
+        prec_fail = true
+        return prec_fail
+      end
+      if st.ωf > ωfBound
         @warn "Objective evaluation error at x too big to ensure convergence"
         st.status = :exception
         prec_fail = true

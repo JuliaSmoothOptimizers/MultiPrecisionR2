@@ -403,7 +403,9 @@ function fRelList_test(MList::Vector{M}, ωfRelErr::Vector{H}) where {H,M<:Abstr
   end
 
 """
-Tests dimensions match of MList and ωgRelErr
+    gRelList_test(MList::Vector, ωgRelErr::Vector)
+
+Tests dimensions match of MList and ωgRelErr.
 """
 function gRelList_test(MList::Vector{M}, ωgRelErr::Vector{H}) where {H,M<:AbstractNLPModel}
   err_msg = "MList and ωgRelErr dimension mismatch"

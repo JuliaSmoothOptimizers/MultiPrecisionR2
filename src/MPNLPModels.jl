@@ -1,4 +1,3 @@
-using ForwardDiff
 using LinearAlgebra
 
 import NLPModels: obj, grad, grad!, objgrad!, objgrad

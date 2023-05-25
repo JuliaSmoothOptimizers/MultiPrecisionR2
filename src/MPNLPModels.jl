@@ -1,21 +1,7 @@
-using ForwardDiff
 using LinearAlgebra
 
-"""
-Extends ADNLPModels.grad to IntervalBox argument.
-"""
-function NLPModels.grad(nlp::ADNLPModel,X::Vector{Interval{S}}) where S
-  G = similar(X)
-  grad!(nlp,X,G)
-  return G
-end
+import NLPModels: obj, grad, grad!, objgrad!, objgrad
 
-function NLPModels.grad!(nlp::ADNLPModel,X::Vector{Interval{S}},G::Vector{Interval{S}}) where S
-  nlp.counters.neval_grad+=1
-  ForwardDiff.gradient!(G,nlp.f,X)
-end
-
-NLPModels.grad!
 const INT_ERR = 0
 const REL_ERR = 1
 

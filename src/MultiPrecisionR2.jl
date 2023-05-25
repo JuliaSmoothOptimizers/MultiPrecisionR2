@@ -212,7 +212,7 @@ function solve!(
   atol::H = H(sqrt(eps(MPnlp.FPList[end]))),
   rtol::H = H(sqrt(eps(MPnlp.FPList[end]))),
   max_iter::Int = 1000,
-  σmin::S = sqrt(MPnlp.FPList[end](MPnlp.EpsList[end])),
+  σmin::H = H(sqrt(MPnlp.FPList[end](MPnlp.EpsList[end]))),
   verbose::Int=0,
   e::E = nothing,
   compute_f_at_x! = compute_f_at_x_default!,
@@ -220,7 +220,7 @@ function solve!(
   compute_g! = compute_g_default!,
   recompute_g! = recompute_g_default!,
   selectPic! = selectPic_default!
-) where {S, V <:Vector{S}, H, T, E}
+) where {S<:AbstractFloat, V <:Vector{S}, H, T, E}
   start_time = time()
   elapsed_time = 0.0
   # check for ill initialized parameters
@@ -247,7 +247,7 @@ function solve!(
   U = MPnlp.UList
   state.iter=0
   done = false
-  state.status = :exception
+  state.status = :unknown
   γfunc = MPnlp.γfunc
   βfunc(n::Int,u::H) = max(abs(1-sqrt(1-γfunc(n+2,u))),abs(1-sqrt(1+γfunc(n,u)))) # error bound on euclidean norm
   # initial evaluation, check for overflow
@@ -273,7 +273,7 @@ function solve!(
     done = true
     state.status = :first_order
   end
-  if verbose ≥ 0
+  if verbose > 0
     infoline = @sprintf "%6s  %9s  %9s  %9s  %9s  %9s  %7s  %7s  %7s  %7s %7s  %2s  %2s  %2s  %2s\n" "iter" "f(x)" "ωf(x)" "f(c)" "ωf(c)" "‖g‖" "ωg" "σ" "μ" "ϕ" "ρ" "πx" "πc" "πf" "πg"
     @info infoline
   end
@@ -299,14 +299,14 @@ function solve!(
       break
     end
     g_recomp, prec_fail = recompute_g!(MPnlp,state,π,par,e,x,g,s)
+    if state.status == :small_step
+      break
+    end
     if prec_fail 
       state.status = :exception
       break
     end
     if g_recomp
-      if state.status == :small_step
-        break
-      end
       umpt!(g,g[π.πg])
       computeStep!(s, g, state.σ, FP, π)
       if isinf(s[1][1]) # overflow or underflow occured, stop the loop
@@ -338,7 +338,7 @@ function solve!(
       break
     end
     state.ρ = ( H(state.f) - H(state.f⁺) ) / H(state.ΔT)
-    if verbose ≥ 0
+    if verbose > 0
       infoline = @sprintf "%6d  %9.2e  %9.2e  %9.2e  %9.2e  %9.2e  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %2d  %2d  %2d  %2d \n" state.iter state.f state.ωf state.f⁺ state.ωf⁺ state.g_norm state.ωg state.σ state.μ state.ϕ state.ρ π.πx π.πc π.πf π.πg
       @info infoline
     end
@@ -372,7 +372,7 @@ function solve!(
       state.status = :first_order
       done = true
     end
-    if state.iter > max_iter
+    if state.iter >= max_iter
       state.status = :max_iter
       done = true
     end
@@ -687,7 +687,7 @@ Evaluation is predicted as:
 function selectPif!(m::FPMPNLPModel{H}, s::MPR2State{H}, π::MPR2Precisions, ωfBound::H) where H
   πmax = length(m.MList)
   πmin_no_ov = findfirst(x -> x > abs(s.f) - s.ΔT, m.OFList) # lowest precision level such that predicted f(ck) ≈ fk+gk'ck does not overflow
-  if isempty(πmin_no_ov)
+  if πmin_no_ov === nothing
     π.πf⁺ = πmax
     return π
   end
@@ -787,6 +787,7 @@ function recompute_g_default!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Pre
   if isempty(prec) # step size too small compared to incumbent
     @warn "Algo stops because the step size is too small compare to the incumbent, addition unstable (due to rounding error or absorbtion) with highest precision level"
     st.status = :small_step
+    return false, false
   end
   st.μ = computeMu(m, st, π)
   while st.μ > p.κₘ && !prec_fail

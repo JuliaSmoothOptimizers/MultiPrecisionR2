@@ -6,7 +6,7 @@
   x0 = zeros(2)
   # Test FP format model order in MList
   Formats = [Float64,Float32]
-  nlpList = [ADNLPModel(f,fp.(x0)) for fp in Formats]
+  nlpList = [ADNLPModel(f,fp.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for fp in Formats]
   try
     #@test_logs (:error,"MList: wrong models FP formats precision order")
     FPMPNLPModel(nlpList)
@@ -36,7 +36,7 @@ end
   f1(x) = x[1]+x[2]
   f2(x) = x[1]
   x0 = zeros(2)
-  nlpList = [ADNLPModel(f1,x0),ADNLPModel(f2,[1.0])]
+  nlpList = [ADNLPModel(f1,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient),ADNLPModel(f2,[1.0], gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
   try
     FPMPNLPModel(nlpList)
     @test false
@@ -51,7 +51,7 @@ end
 @testset "ωfRelErr and ωgRelErr mismatch dimensions" begin
   f3(x) = x[1]+x[2]
   x0 = zeros(2)
-  nlpList = [ADNLPModel(f3,x0),ADNLPModel(f3,x0)]
+  nlpList = [ADNLPModel(f3,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient),ADNLPModel(f3,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
   ωfRelErr = [0.0]
   try
     FPMPNLPModel(nlpList,ωfRelErr=ωfRelErr)
@@ -77,7 +77,7 @@ end
 @testset "γfunc callback test" begin
   f4(x) = x[1]+x[2]
   x0 = zeros(2)
-  nlpList = [ADNLPModel(f4,x0)]
+  nlpList = [ADNLPModel(f4,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
   γfunc = 0
   try
     FPMPNLPModel(nlpList,γfunc = γfunc)
@@ -89,7 +89,7 @@ end
     @test err_msg == "Wrong γfunc template, expected template: γfunc(n::Int,u::Float) -> Float"
   end
   x0 = Float16.(zeros(Int32(round(3/eps(Float16)))))
-  nlpList = [ADNLPModel(f4,x0)]
+  nlpList = [ADNLPModel(f4,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
   try
     FPMPNLPModel(nlpList)
     @test false
@@ -105,7 +105,7 @@ end
   f5(x) = x[1]+x[2]
   x0 = zeros(2)
   Formats = [Float32,Float64]
-  nlpList = [ADNLPModel(f5,fp.(x0)) for fp in Formats]
+  nlpList = [ADNLPModel(f5,fp.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for fp in Formats]
   @test_logs (:info,"Interval evaluation used by default for objective error evaluation: might significantly increase computation time")
   (:info,"Interval evaluation used by default for gradient error evaluation: might significantly increase computation time")
   MPnlp=FPMPNLPModel(nlpList)
@@ -119,7 +119,7 @@ end
     f6(x) = x[1]+x[2]
     x0 = zeros(2)
     Formats = [Float32,Float64]
-    nlpList = [ADNLPModel(f6,fp.(x0)) for fp in Formats]
+    nlpList = [ADNLPModel(f6,fp.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for fp in Formats]
     MPnlp=FPMPNLPModel(nlpList)
     funclist = [MultiPrecisionR2.objmp,MultiPrecisionR2.objerrmp,MultiPrecisionR2.gradmp,MultiPrecisionR2.graderrmp]
     for f in funclist
@@ -148,7 +148,7 @@ end
     f7(x) = x[1]+x[2]
     x0 = zeros(2)
     Formats = [Float16,Float32,Float64]
-    nlpList = [ADNLPModel(f7,fp.(x0)) for fp in Formats]
+    nlpList = [ADNLPModel(f7,fp.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for fp in Formats]
     MPnlp=FPMPNLPModel(nlpList)
     for i in 1:length(Formats)
       fp = Formats[i]
@@ -168,7 +168,7 @@ end
     #obj test
     f8(x) = c*x[1]
     x0 = ones(2)
-    nlpList = [ADNLPModel(f8,Format.(x0))]
+    nlpList = [ADNLPModel(f8,Format.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
     MPnlp=FPMPNLPModel(nlpList)
     @test MultiPrecisionR2.objerrmp(MPnlp,Format.(x0),1) == (0,Inf)
     #grad testf(x) = c+x[1]
@@ -181,12 +181,12 @@ end
     #obj test
     f9(x) = (10/eps(Format)+c)*x[1]
     x0 = ones(1)
-    nlpList = [ADNLPModel(f9,Format.(x0))]
+    nlpList = [ADNLPModel(f9,Format.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
     ωfRelErr = [0.0]
     ωgRelErr = [0.0]
     MPnlp=FPMPNLPModel(nlpList, ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)
     @test MultiPrecisionR2.objerrmp(MPnlp,Format.(x0),1) == (Inf,Inf)
-    #grad testf(x) = c+x[1]
+    #grad test f(x) = c+x[1]
     @test MultiPrecisionR2.graderrmp(MPnlp,Format.(x0),1)[2] == Inf
   end
 end

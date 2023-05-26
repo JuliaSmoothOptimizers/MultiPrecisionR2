@@ -1,6 +1,5 @@
 using MultiPrecisionR2
 
-using ForwardDiff
 using LinearAlgebra
 using Logging
 using Test

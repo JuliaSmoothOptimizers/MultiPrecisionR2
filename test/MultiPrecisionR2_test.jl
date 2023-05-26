@@ -4,7 +4,7 @@
     setrounding(Interval,:slow)
     f1(x) = x[1]+x[2]
     x₀ = [1/10,1/10]
-    nlpList = [ADNLPModel(f1,Float32.(x₀)),ADNLPModel(f1,Float64.(x₀))]
+    nlpList = [ADNLPModel(f1,Float32.(x₀), gradient_backend = ADNLPModels.GenericForwardDiffADGradient),ADNLPModel(f1,Float64.(x₀), gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
     γfunc(n,u) = 0.0 # ignore rounding errors for the tests
     mpmodel = FPMPNLPModel(nlpList, γfunc = γfunc)
     x = (Float32.(x₀),x₀)
@@ -26,7 +26,7 @@
     x = (Float32.(x₀),x₀)
     ωfRelErr = [1.0,0.0]
     ωgRelErr = [1.0,0.0]
-    nlpList = [ADNLPModel(f2,x[1]),ADNLPModel(f2,x[2])]
+    nlpList = [ADNLPModel(f2,x[1], gradient_backend = ADNLPModels.GenericForwardDiffADGradient),ADNLPModel(f2,x[2], gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
     γfunc(n,u) = 0.0 # ignore rounding errors for the tests
     mpmodel = FPMPNLPModel(nlpList,ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr,γfunc = γfunc)
     #obj test
@@ -52,7 +52,7 @@ end
     ωfRelErr = HPFormat[1.0]
     ωgRelErr = HPFormat[2.0]
     x0 = Float16.([2])
-    nlpList = [ADNLPModel(f3,x0)]
+    nlpList = [ADNLPModel(f3,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
     mpmodel = FPMPNLPModel(nlpList, HPFormat = Float16, ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)
     solver = MPR2Solver(mpmodel)
     # objective function evaluation overflow
@@ -212,7 +212,7 @@ end
   # quadratic
   f4(x) = x[1]^2 + x[2]^2
   x₀ = ones(2)
-  nlpList = [ADNLPModel(f4,fp.(x₀)) for fp in FP]
+  nlpList = [ADNLPModel(f4,fp.(x₀), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for fp in FP]
   mpmodel = FPMPNLPModel(nlpList)
   solver = MPR2Solver(mpmodel)
   stat = MultiPrecisionR2.solve!(solver,mpmodel)

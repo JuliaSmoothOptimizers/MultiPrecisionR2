@@ -63,14 +63,14 @@ end
     @test stat.objective === Float16(Inf)
     # objective function error overflow
     x0 = Float16.([1.0])
-    stat = solve!(solver,mpmodel,x₀ = x0)
+    stat = MultiPrecisionR2.solve!(solver,mpmodel,x₀ = x0)
     @test stat.status == :exception
     @test stat.iter == 0
     @test stat.solution == x0
     @test stat.objective === prevfloat(typemax(Float16))
     #gradient overflow
     x0 = Float16.([1.0])
-    stat = solve!(solver,mpmodel,x₀ = x0)
+    stat = MultiPrecisionR2.solve!(solver,mpmodel,x₀ = x0)
     @test stat.status == :exception
     @test stat.iter == 0
     @test stat.solution == x0
@@ -215,7 +215,7 @@ end
   nlpList = [ADNLPModel(f4,fp.(x₀)) for fp in FP]
   mpmodel = FPMPNLPModel(nlpList)
   solver = MPR2Solver(mpmodel)
-  stat = solve!(solver,mpmodel)
+  stat = MultiPrecisionR2.solve!(solver,mpmodel)
   @test isapprox(stat.solution,[0.0,0.0],atol=1e-6)
   #rosenbrock
   # f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2
@@ -226,3 +226,4 @@ end
   # stat = solve!(solver,mpmodel)
   # @test isapprox(stat.solution,[1.0,1.0],atol=1e-6)
 end
+

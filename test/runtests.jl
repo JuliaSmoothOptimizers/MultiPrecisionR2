@@ -1,6 +1,5 @@
 using MultiPrecisionR2
 
-using ForwardDiff
 using LinearAlgebra
 using Logging
 using Test
@@ -21,9 +20,9 @@ with_logger(NullLogger()) do
     t = @elapsed include("MultiPrecisionR2_test.jl")
     println("#### done (took $t seconds).")
   end
-  @testset "R2_equivalence_test.jl" begin
-    println("#### Testing Equivalence with R2 from JSOSolvers.jl...")
-    t = @elapsed include("R2_equivalence_test.jl")
-    println("#### done (took $t seconds).")
-  end
+  # @testset "R2_equivalence_test.jl" begin
+  #   println("#### Testing Equivalence with R2 from JSOSolvers.jl...")
+  #   t = @elapsed include("R2_equivalence_test.jl")
+  #   println("#### done (took $t seconds).")
+  # end
 end

@@ -648,28 +648,29 @@ Does not make the over/underflow check as in main loop, since it is a repetition
 * b : true if gradient has been modified, false otherwise
 See [`recomputeMuPrecSelection`](@ref)
 """
-function recomputeMu!(m::FPMPNLPModel{H}, x::T, g::T, stp::T, s::MPR2State{H}, π::MPR2Precisions, πr::MPR2Precisions) where {T <: Tuple, H}
+function recomputeMu!(m::FPMPNLPModel{H}, x::T, g::T, s::T, st::MPR2State{H}, π::MPR2Precisions, πr::MPR2Precisions) where {T <: Tuple, H}
   g_recompute = false
-  βfunc(n::Int,u::H) = max(abs(1-sqrt(1-γfunc(n+2,u))),abs(1-sqrt(1+γfunc(n,u)))) # error bound on euclidean norm
+  n = m.MList[1].meta.nvar
+  βfunc(n::Int,u::H) = max(abs(1-sqrt(1-m.γfunc(n+2,u))),abs(1-sqrt(1+m.γfunc(n,u)))) # error bound on euclidean norm
   if π.πΔ != πr.πΔ # recompute model decrease
-    s.ΔT = computeModelDecrease!(g, stp, m.FPList, πr)
+    st.ΔT = computeModelDecrease!(g, s, m.FPList, πr)
   end
   if π.πnx != πr.πnx || π.πns != πr.πns # recompute x, s norm and ϕ
     if π.πnx != πr.πnx
-      s.x_norm = H(norm(x[πr.πnx]))
+      st.x_norm = H(norm(x[πr.πnx]))
     end
     if π.πns != πr.πns
-      s.s_norm = H(norm(s[πr.πns]))
+      st.s_norm = H(norm(s[πr.πns]))
     end
-    s.ϕhat = s.x_norm/s.s_norm
-    s.ϕ = s.ϕhat * (1+βfunc(n,U[πr.πnx]))/(1-βfunc(n,m.UList[πr.πns]))
+    st.ϕhat = st.x_norm/st.s_norm
+    st.ϕ = st.ϕhat * (1+βfunc(n,m.UList[πr.πnx]))/(1-βfunc(n,m.UList[πr.πns]))
   end
   if π.πg != πr.πg
-    s.ωg = graderrmp!(m, x[πr.πg], g[πr.πg], πr.πg)
+    st.ωg = graderrmp!(m, x[πr.πg], g[πr.πg], πr.πg)
     g_recompute = true
     umpt!(g,g[π.πg])
   end
-  s.μ = computeMu(m, s, πr)
+  st.μ = computeMu(m, s, πr)
   return g_recompute
 end
   
@@ -684,21 +685,21 @@ Evaluation is predicted as:
   + Interval evaluation error depends linearly with unit-roundoff 
 * Other: Lowest precision that does not cast candidate in a lower prec FP format and f(c) predicted does not overflow
 """
-function selectPif!(m::FPMPNLPModel{H}, s::MPR2State{H}, π::MPR2Precisions, ωfBound::H) where H
+function selectPif!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, ωfBound::H) where H
   πmax = length(m.MList)
-  πmin_no_ov = findfirst(x -> x > abs(s.f) - s.ΔT, m.OFList) # lowest precision level such that predicted f(ck) ≈ fk+gk'ck does not overflow
+  πmin_no_ov = findfirst(x -> x > abs(st.f) - st.ΔT, m.OFList) # lowest precision level such that predicted f(ck) ≈ fk+gk'ck does not overflow
   if πmin_no_ov === nothing
     π.πf⁺ = πmax
     return π
   end
   πmin = max(π.πc,πmin_no_ov) # lower bound on πf⁺ to avoid casting error on c and possible overflow
-  f⁺_pred = s.f-s.ΔT 
+  f⁺_pred = st.f-st.ΔT 
   ωf⁺_pred = 0
   if m.ObjEvalMode == REL_ERR
     ωf⁺_pred = f⁺_pred .* m.ωfRelErr
   elseif m.ObjEvalMode == INT_ERR 
-    r = abs(f⁺_pred)/abs(s.f)
-    ωf⁺_pred = s.ωf * r * m.UList ./ m.UList[π.πf]
+    r = abs(f⁺_pred)/abs(st.f)
+    ωf⁺_pred = st.ωf * r * m.UList ./ m.UList[π.πf]
   else 
     π.πf⁺ = πmin
     return π

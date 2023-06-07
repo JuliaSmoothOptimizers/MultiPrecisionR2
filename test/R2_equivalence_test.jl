@@ -16,22 +16,22 @@
   mpr2param.γ₂ = γ2
   mpr2param.η₁ = η1
   mpr2param.η₂ = η2
-  problems = setdiff(names(OptimizationProblems.ADNLPProblems), [:ADNLPProblems])
-  for s in problems
-    nlp = eval(s)(type = Val(T),n = nvar);
-    if nlp.meta.ncon == 0 && sum(isinf.(nlp.meta.uvar)) == nlp.meta.nvar && sum(isinf.(nlp.meta.lvar)) == nlp.meta.nvar # unconstrained problems
-      nlpList = [nlp]
-      mpmodel = FPMPNLPModel(nlpList,HPFormat=HPFormat,ωfRelErr=omega,ωgRelErr=omega,γfunc=γfunc);
-      mpr2solver = MPR2Solver(mpmodel);
-      @testset "Testing $(nlp.meta.name)" begin
-        statr2 = R2(nlp,γ1 = γ1,η1 = η1, η2 = η2,max_time = max_time,σmin = σmin,max_eval = max_iter,verbose=0)
-        statmpr2 = MultiPrecisionR2.solve!(mpr2solver,mpmodel,par = mpr2param,max_iter = max_iter,σmin = σmin,verbose=0)
-        if (statmpr2.status != :exception # might happen that mpr2 stops if μ too big (μ ≠ 0 even if ωg = 0), or under/overflow
-          && statmpr2.status != :small_step) # mpr2 returns small_step if relative step size is too small, r2 if absolute step size too small
-          @test statr2.iter == statmpr2.iter
-          @test statr2.dual_feas == statmpr2.dual_feas
-          @test statr2.solution == statmpr2.solution
-        end
+  
+  meta = OptimizationProblems.meta
+  names_pb_vars = meta[(meta.has_bounds .== false) .& (meta.ncon .== 0), [:nvar, :name]] #select unconstrained problems
+  for pb in eachrow(names_pb_vars)
+    nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(n=$nvar,type=Val(Float64))"))
+    nlpList = [nlp]
+    mpmodel = FPMPNLPModel(nlpList,HPFormat=HPFormat,ωfRelErr=omega,ωgRelErr=omega,γfunc=γfunc);
+    mpr2solver = MPR2Solver(mpmodel);
+    @testset "Testing $(nlp.meta.name)" begin
+      statr2 = R2(nlp,γ1 = γ1,η1 = η1, η2 = η2,max_time = max_time,σmin = σmin,max_eval = max_iter)
+      statmpr2 = MultiPrecisionR2.solve!(mpr2solver,mpmodel,par = mpr2param,max_iter = max_iter,σmin = σmin)
+      if (statmpr2.status != :exception # might happen that mpr2 stops if μ too big (μ ≠ 0 even if ωg = 0), or under/overflow
+        && statmpr2.status != :small_step) # mpr2 returns small_step if relative step size is too small, r2 if absolute step size too small
+        @test statr2.iter == statmpr2.iter
+        @test statr2.dual_feas == statmpr2.dual_feas
+        @test statr2.solution == statmpr2.solution
       end
     end
   end

@@ -252,7 +252,7 @@ function solve!(
   βfunc(n::Int,u::H) = max(abs(1-sqrt(1-γfunc(n+2,u))),abs(1-sqrt(1+γfunc(n,u)))) # error bound on euclidean norm
   # initial evaluation, check for overflow
   compute_f_at_x!(MPnlp,state,π,par,e,x)
-  if state.f === FP[end](Inf) || state.ωf === FP[end](Inf)
+  if isinf(state.f) || isinf(state.ωf)
     @warn "Objective or ojective error overflow at x0"
     state.status = :exception
     done = true
@@ -280,6 +280,7 @@ function solve!(
   #main loop
   while(!done)
     state.iter += 1
+    π.πs = π.πg
     computeStep!(s, g, state.σ, FP, π)
     if isinf(s[1][1]) # overflow or underflow occured, stop the loop
       @warn "Step over/underflow"
@@ -293,7 +294,7 @@ function solve!(
       break
     end
     state.ΔT = H(computeModelDecrease!(g, s, FP, π))
-    if state.ΔT == Inf || state.ΔT == 0.0 # overflow or underflow occured, stop the loop
+    if isinf(state.ΔT) || state.ΔT == 0.0 # overflow or underflow occured, stop the loop
       @warn "Model decrease over/underflow"
       state.status = :exception
       break
@@ -306,7 +307,7 @@ function solve!(
       state.status = :exception
       break
     end
-    if g_recomp
+    if g_recomp #have to recompute everything depending on g
       umpt!(g,g[π.πg])
       computeStep!(s, g, state.σ, FP, π)
       if isinf(s[1][1]) # overflow or underflow occured, stop the loop
@@ -337,7 +338,7 @@ function solve!(
       state.status = :exception
       break
     end
-    state.ρ = ( H(state.f) - H(state.f⁺) ) / H(state.ΔT)
+    state.ρ = ( H(state.f) - H(state.f⁺)) / H(state.ΔT)
     if verbose > 0
       infoline = @sprintf "%6d  %9.2e  %9.2e  %9.2e  %9.2e  %9.2e  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %2d  %2d  %2d  %2d \n" state.iter state.f state.ωf state.f⁺ state.ωf⁺ state.g_norm state.ωg state.σ state.μ state.ϕ state.ρ π.πx π.πc π.πf π.πg
       @info infoline
@@ -431,32 +432,26 @@ If underflow or overflow happens with the highest precision FP format (FP[end]),
 """
 function computeStep!(s::T, g::T, σ::H, FP::Vector{DataType}, π::MPR2Precisions) where {T <: Tuple, H}
   πmax = length(FP)
-  πs = π.πg
-  while FP[πs](σ) === FP[πs](0) || FP[πs](σ) === FP[πs](Inf) # σ cast underflow or overflow
-    πs += 1
-    if πs == πmax +1 # over/underflow at max prec FP
+  while FP[π.πs](σ) === FP[π.πs](0) || isinf(FP[π.πs](σ)) # σ cast underflow or overflow
+    if π.πs == πmax # over/underflow at max prec FP
       @error "over/underflow of σ with maximum precision FP format ($(FP[πmax]))"
-      π.πs = πmax
       umpt!(s,FP[1].([Inf for _ in eachindex(s[1])]))
-      return s, π
+      return
     end
+    π.πs += 1
   end
-  s[πs] .= - g[πs]/FP[πs](σ)
-  umpt!(s, s[πs])
+  s[π.πs] .= - g[π.πs]/FP[π.πs](σ)
   # increase FP prec until no overflow or underflow occurs
-  while findall(x->x==0.0,s[πs]) != findall(x->x==0.0,g[π.πg]) || findfirst(x->isinf(x),s[πs]) !== nothing 
-    if πs == πmax #not enough precision to avoid over/underflow 
+  while findall(x->x==0.0,s[π.πs]) != findall(x->x==0.0,g[π.πg]) || findfirst(x->isinf(x),s[π.πs]) !== nothing 
+    if π.πs == πmax #not enough precision to avoid over/underflow 
       @error "over/underflow with maximum precision FP format ($(FP[πmax]))"
       umpt!(s, FP[1].([ Inf for _ in eachindex(s[1])] )) 
-      π.πs = πs
       break
     end
-    πs +=1 
-    s[πs] .= - g[πs] / FP[πs](σ)
-    umpt!(s, s[πs])
+    π.πs +=1 
+    s[π.πs] .= - g[π.πs] / FP[π.πs](σ)
   end
-  π.πs = πs
-  return s, π
+  umpt!(s, s[π.πs])
 end
 
 """
@@ -493,7 +488,6 @@ function computeCandidate!(c::T, x::T, s::T, FP::Vector{DataType}, π::MPR2Preci
     umpt!(c, c[πc])
   end
   π.πc = πc
-  return c, π
 end
 
 """
@@ -606,11 +600,11 @@ end
 """
 Compute μ value for gradient error ωg, ratio ϕ = ||x||/||s|| and rounding error models
 """
-function computeMu(m::FPMPNLPModel{H}, s::MPR2State{H}, π::MPR2Precisions) where H
+function computeMu(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions) where H
   n = m.MList[1].meta.nvar
   αfunc(n::Int,u::H) = 1/(1-m.γfunc(n,u))
   u = π.πc >= π.πs ? m.UList[π.πc] : m.UList[π.πc] + m.UList[π.πs] + m.UList[π.πc]*m.UList[π.πs]
-  return ( αfunc(n+1,m.UList[π.πΔ]) * H(s.ωg) * (m.UList[π.πc] + s.ϕ * u +1) + αfunc(n+1,m.UList[π.πΔ]) * u * (s.ϕ +1) + m.UList[π.πg] + m.γfunc(n+2,m.UList[π.πΔ]) * αfunc(n+1,m.UList[π.πΔ]) ) / (1-m.UList[π.πg])
+  return ( αfunc(n+1,m.UList[π.πΔ]) * H(st.ωg) * (m.UList[π.πc] + st.ϕ * u +1) + αfunc(n+1,m.UList[π.πΔ]) * u * (st.ϕ +1) + m.UList[π.πg] + m.γfunc(n+2,m.UList[π.πΔ]) * αfunc(n+1,m.UList[π.πΔ]) ) / (1-m.UList[π.πs])
 end
 
 """ Default strategy to select new precisions to recompute μ in the case where μ > κₘ
@@ -626,11 +620,13 @@ function recomputeMuPrecSelection!(π::MPR2Precisions, πr::MPR2Precisions, πma
     πr.πnx = max(π.πnx,minprec+1)
     πr.πns = max(π.πns,minprec+1)
   # Priority #3 strategy: increase πc
+  elseif π.πs < πmax
+    πr.πs = π.πs + 1
   elseif π.πc < πmax
-    πr.πc = π.πc +1
+    πr.πc = π.πc + 1
   # Priority #4 strategy: recompute gradient
   elseif π.πg < πmax
-    πr.πg = π.πg+1
+    πr.πg = π.πg + 1
   else
     πr.πx = -1 # max precision reached code
   end
@@ -640,6 +636,7 @@ end
 Performs only necessary steps of solve! main loop to recompute mu. 
 Possible step to recompute are:
 - recompute ϕhat and ϕ with higher FP format for norm computation of x and s
+- recompute step with greater precision: decrease μ denominator
 - recompute gradient with higher precision to decrease ωg
 - recompute candidate with higher prec FP format to decrease u
 - recompute model reduction with higher precision to decrease αfunc(n,U[π.πΔ])
@@ -665,12 +662,15 @@ function recomputeMu!(m::FPMPNLPModel{H}, x::T, g::T, s::T, st::MPR2State{H}, π
     st.ϕhat = st.x_norm/st.s_norm
     st.ϕ = st.ϕhat * (1+βfunc(n,m.UList[πr.πnx]))/(1-βfunc(n,m.UList[πr.πns]))
   end
+  if π.πs != πr.πs
+    computeStep!(s,g,st.σ,m.FPList,πr)
+  end
   if π.πg != πr.πg
     st.ωg = graderrmp!(m, x[πr.πg], g[πr.πg], πr.πg)
     g_recompute = true
     umpt!(g,g[π.πg])
   end
-  st.μ = computeMu(m, s, πr)
+  st.μ = computeMu(m, st, πr)
   return g_recompute
 end
   
@@ -720,7 +720,7 @@ function compute_f_at_c_default!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2P
   ωfBound = p.η₀*st.ΔT
   selectPif!(m, st, π, ωfBound) # select precision evaluation 
   st.f⁺, st.ωf⁺, π.πf⁺ = objReachPrec(m, c, ωfBound, π = π.πf⁺)
-  if st.f⁺ === m.FPList[end](Inf) || st.ωf⁺ === m.FPList[end](Inf)
+  if isinf(st.f⁺) || isinf(st.ωf⁺)
     @warn "Objective evaluation or error at c overflow"
     prec_fail = true
   end
@@ -747,7 +747,7 @@ function compute_f_at_x_default!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2
       end
       π.πf += 1 # default strategy
       st.f, st.ωf, π.πf = objReachPrec(m, x, ωfBound, π = π.πf)
-      if st.f === m.FPList[end](Inf) ||  st.ωf === m.FPList[end](Inf)
+      if isinf(st.f) ||  isinf(st.ωf)
         @warn "Objective evaluation or error overflow at x"
         st.status = :exception
         prec_fail = true

@@ -186,7 +186,7 @@ function objerrmp(m::FPMPNLPModel, x::V, id::Int, ::Val{INT_ERR}) where {S,V<:Ab
     m.X[id][i] = x[i] .. x[i] # ::Vector{Interval{S}}
   end
   F = obj(m.MList[id],m.X[id]) # ::Interval{S}
-  if diam(F) == Inf #overflow case
+  if isinf(diam(F)) #overflow case
     return S(0.0), Inf
   else
     return mid(F), radius(F) #::S, ::S
@@ -196,7 +196,7 @@ end
 @doc (@doc objerrmp)
 function objerrmp(m::FPMPNLPModel{H}, x::V, id::Int, ::Val{REL_ERR}) where {H, S, V<:AbstractVector{S}}
   f = obj(m.MList[id],x) #:: S
-  if f === S(Inf) #overflow case
+  if isinf(f) || isnan(f) #overflow case
     return f, Inf
   else
     ωf = H(abs(f))*m.ωfRelErr[id] # Computed with H ≈> exact evaluation 
@@ -236,7 +236,7 @@ function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, id::Int, ::Val{INT_ERR}) whe
     m.X[id][i] = x[i] .. x[i] # ::Vector{Interval{S}}
   end
   grad!(m.MList[id],m.X[id],m.G[id]) # ::IntervalBox{S}
-  if findfirst(x->diam(x) === S(Inf),m.G[id]) !== nothing  #overflow case
+  if findfirst(x->isinf(diam(x)),m.G[id]) !== nothing  #overflow case
     g .= zero(S)
     return Inf
   end
@@ -259,7 +259,7 @@ end
 @doc( @doc graderrmp!)
 function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, id::Int, ::Val{REL_ERR}) where {H, S, V<:AbstractVector{S}}
   grad!(m.MList[id],x,g) # ::Vector{S}
-  if findfirst(x->x===S(Inf),g) !== nothing # one element of g overflow
+  if findfirst(x->isinf(x) || isnan(x),g) !== nothing  # one element of g overflow
     return Inf
   end
   g_norm = norm(g) #::S ! computed with finite precision in S FP format

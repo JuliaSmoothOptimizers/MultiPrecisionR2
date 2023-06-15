@@ -8,8 +8,11 @@ module MultiPrecisionR2
 
 using ADNLPModels, IntervalArithmetic, NLPModels, Printf, LinearAlgebra, SolverCore
 
-export FPMPNLPModel, MPR2Solver, MPR2Params, MPR2State, MPR2Precisions, solve!, umpt!, objReachPrec, gradReachPrec!, objmp, gradmp!, objerrmp, graderrmp, graderrmp!
+export MPR2, MPR2Solver, MPR2Params, MPR2State, MPR2Precisions, solve!, umpt!, objReachPrec, gradReachPrec!, AbstractMPNLPModel, MPCounters
 
+abstract type AbstractMPNLPModel{T,S} <: AbstractNLPModel{T,S} end # ugly patch, need this type to be defined for MPCounters.jl. Waiting for MPNLPModels to be a package...
+
+include("MPCounters.jl")
 include("MPNLPModels.jl")
 
 """
@@ -19,7 +22,7 @@ An implementation of the quadratic regularization algorithm with dynamic selecti
 # Arguments
 - `MPnlp::FPMPNLPModel{H}` : Multi precision model, see `FPMPNLPModel`
 Keyword agruments:
-- `x₀::V = MPnlp.MList[end].meta.x0` : initial guess 
+- `x₀::V = MPnlp.Model.meta.x0` : initial guess 
 - `par::MPR2Params = MPR2Params(MPnlp.FPList[1],H)` : MPR2 parameters, see `MPR2Params` for details
 - `atol::H = H(sqrt(eps(T)))` : absolute tolerance on first order criterion 
 - `rtol::H = H(sqrt(eps(T)))` : relative tolerance on first order criterion
@@ -54,8 +57,7 @@ mutable struct MPR2Solver{T <: Tuple
 end
 
 function MPR2Solver(MPnlp::M) where { M <: FPMPNLPModel }
-  nvar = MPnlp.MList[1].meta.nvar
-  # ElType = typeof(MPnlp.MList[end].meta.x0[1])
+  nvar = MPnlp.meta.nvar
   x = Tuple(Vector{ElType}(undef,nvar) for ElType in MPnlp.FPList)
   s = Tuple(Vector{ElType}(undef,nvar) for ElType in MPnlp.FPList)
   c = Tuple(Vector{ElType}(undef,nvar) for ElType in MPnlp.FPList)
@@ -63,9 +65,9 @@ function MPR2Solver(MPnlp::M) where { M <: FPMPNLPModel }
   return MPR2Solver(x, s, c, g)
 end
 
-@doc (@doc MPR2Solver) function mpr2s(
+@doc (@doc MPR2Solver) function MPR2(
   MPnlp::FPMPNLPModel;
-  x₀::V = MPnlp.MList[end].meta.x0,
+  x₀::V = MPnlp.meta.x0,
   kwargs...
 ) where V
   solver = MPR2Solver(MPnlp)
@@ -155,7 +157,7 @@ function update!(π::MPR2Precisions,πnewval::MPR2Precisions)
   for f in fieldnames(MPR2Precisions)
     setfield!(π,f,getfield(πnewval,f))
   end
-end 
+end
 
 """
 Intermediate variables used by MPR2 solver. This structure stores the "state" of the algorithm, can be used in callback functions to select evaluation precision.
@@ -198,7 +200,7 @@ mutable struct MPR2State{H}
   σ::H
   iter::Int
   status
-end  
+end
 
 function MPR2State(HPFormat::DataType)
   return MPR2State([HPFormat(0) for _ in 1:fieldcount(MPR2State)-2]...,0,:exception)
@@ -207,7 +209,7 @@ end
 function solve!(
   solver::MPR2Solver{T},
   MPnlp::FPMPNLPModel{H};
-  x₀::V = MPnlp.MList[end].meta.x0,
+  x₀::V = MPnlp.meta.x0,
   par::MPR2Params = MPR2Params(MPnlp.FPList[1],H),
   atol::H = H(sqrt(eps(MPnlp.FPList[end]))),
   rtol::H = H(sqrt(eps(MPnlp.FPList[end]))),
@@ -239,10 +241,10 @@ function solve!(
   s = solver.s
   c = solver.c
   #initialize precisions
-  πmax = length(MPnlp.MList)
+  πmax = length(MPnlp.FPList)
   π = MPR2Precisions(πmax)
   #misc initialization
-  n = MPnlp.MList[1].meta.nvar
+  n = MPnlp.meta.nvar
   FP = MPnlp.FPList
   U = MPnlp.UList
   state.iter=0
@@ -380,7 +382,7 @@ function solve!(
   end
   elapsed_time = time() - start_time
   return GenericExecutionStats(
-    MPnlp.MList[end],
+    MPnlp.Model,
     status = state.status,
     solution = x[end],
     objective = MPnlp.FPList[end](state.f),
@@ -530,21 +532,21 @@ end
 """
 Evaluates objective and increase model precision to reach necessary error bound.
 ##### Inputs
-* `π`: Initial ''guess'' for NLPModel in m.MList that can provide evaluation error lower than `err_bound`, use 1 by default (lowest precision)
+* `π`: Initial ''guess'' precision level that can provide evaluation error lower than `err_bound`, use 1 by default (lowest precision)
 ##### Outputs
 * `f`: objective value at `x`
 * `ωf`: objective evaluation error
-* `id`: id-th model(`m.MList[id]`) provided `ωf ≤ err_bound`.
-There is no guarantee that `ωf ≤ err_bound`, happens if highest precision model (`m.MList[end]`) is not accurate enough.
-If overflow occurs with highest precision model(`m.MList[end]`), see [`objerrmp`](@ref) for returned values
+
+There is no guarantee that `ωf ≤ err_bound`, happens if highest precision FP format is not accurate enough.
+If overflow occurs with highest precision FP format, see [`objerrmp`](@ref) for returned values
 """
 function objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
   id = π
-  πmax = length(m.MList)
-  f, ωf = objerrmp(m,x[id],id)
+  πmax = length(m.FPList)
+  f, ωf = objerrmp(m,x[id])
   while ωf > err_bound && id ≤ πmax-1
     id += 1
-    f, ωf = objerrmp(m,x[id],id)
+    f, ωf = objerrmp(m,x[id])
   end
   if id == πmax && f === m.FPList[πmax](Inf)
     @warn "Objective evaluation overflows with highest FP format"
@@ -558,26 +560,21 @@ end
 """
 Evaluates gradient and increase model precision until necessary error bound is reached.
 # Inputs
-* `π`: Initial ''gess'' for NLPModel in m.MList that can provide evaluation error lower than `err_bound`, uses 1 by default (lowest precision)
+* `π`: Initial ''gess'' for precision level that can provide evaluation error lower than `err_bound`, uses 1 by default (lowest precision)
 # Outputs
 * `ωg`: objective evaluation error
-* `id`: id-th model(`m.MList[id]`) provided `ωg ≤ err_bound`.
-There is no guarantee that `ωg ≤ err_bound`, happens if highest precision model (`m.MList[end]`) is not accurate enough.
-If overflow occurs with highest precision model(`m.MList[end]`), see [`objerrmp`](@ref) for returned values
+There is no guarantee that `ωg ≤ err_bound`, happens if highest precision FP format is not accurate enough.
+If overflow occurs with highest precision FP format, see [`objerrmp`](@ref) for returned values
 """
 function gradReachPrec!(m::FPMPNLPModel{H}, x::T, g::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
   id = π
-  πmax = length(m.MList)
-  ωg = graderrmp!(m, x[id], g[id], id)
+  πmax = length(m.FPList)
+  ωg = graderrmp!(m, x[id], g[id])
   umpt!(g, g[id])
-  # fp = m.FPList[id]
-  # g, ωg = graderrmp(m,fp.(x),id)
   while ωg > err_bound && id ≤ πmax-1
     id += 1
-    ωg = graderrmp!(m, x[id], g[id], id)
+    ωg = graderrmp!(m, x[id], g[id])
     umpt!(g, g[id])
-    # fp = m.FPList[id]
-    # g, ωg = graderrmp(m,fp.(x),id)
   end
   if findfirst(x->x==Inf,g) !== nothing
     @warn "Gradient evaluation overflows with highest FP format at x0"
@@ -601,7 +598,7 @@ end
 Compute μ value for gradient error ωg, ratio ϕ = ||x||/||s|| and rounding error models
 """
 function computeMu(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions) where H
-  n = m.MList[1].meta.nvar
+  n = m.meta.nvar
   αfunc(n::Int,u::H) = 1/(1-m.γfunc(n,u))
   u = π.πc >= π.πs ? m.UList[π.πc] : m.UList[π.πc] + m.UList[π.πs] + m.UList[π.πc]*m.UList[π.πs]
   return ( αfunc(n+1,m.UList[π.πΔ]) * H(st.ωg) * (m.UList[π.πc] + st.ϕ * u +1) + αfunc(n+1,m.UList[π.πΔ]) * u * (st.ϕ +1) + m.UList[π.πg] + m.γfunc(n+2,m.UList[π.πΔ]) * αfunc(n+1,m.UList[π.πΔ]) ) / (1-m.UList[π.πs])
@@ -647,7 +644,7 @@ See [`recomputeMuPrecSelection`](@ref)
 """
 function recomputeMu!(m::FPMPNLPModel{H}, x::T, g::T, s::T, st::MPR2State{H}, π::MPR2Precisions, πr::MPR2Precisions) where {T <: Tuple, H}
   g_recompute = false
-  n = m.MList[1].meta.nvar
+  n = m.meta.nvar
   βfunc(n::Int,u::H) = max(abs(1-sqrt(1-m.γfunc(n+2,u))),abs(1-sqrt(1+m.γfunc(n,u)))) # error bound on euclidean norm
   if π.πΔ != πr.πΔ # recompute model decrease
     st.ΔT = computeModelDecrease!(g, s, m.FPList, πr)
@@ -666,7 +663,7 @@ function recomputeMu!(m::FPMPNLPModel{H}, x::T, g::T, s::T, st::MPR2State{H}, π
     computeStep!(s,g,st.σ,m.FPList,πr)
   end
   if π.πg != πr.πg
-    st.ωg = graderrmp!(m, x[πr.πg], g[πr.πg], πr.πg)
+    st.ωg = graderrmp!(m, x[πr.πg], g[πr.πg])
     g_recompute = true
     umpt!(g,g[π.πg])
   end
@@ -686,7 +683,7 @@ Evaluation is predicted as:
 * Other: Lowest precision that does not cast candidate in a lower prec FP format and f(c) predicted does not overflow
 """
 function selectPif!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, ωfBound::H) where H
-  πmax = length(m.MList)
+  πmax = length(m.FPList)
   πmin_no_ov = findfirst(x -> x > abs(st.f) - st.ΔT, m.OFList) # lowest precision level such that predicted f(ck) ≈ fk+gk'ck does not overflow
   if πmin_no_ov === nothing
     π.πf⁺ = πmax
@@ -733,7 +730,7 @@ end
 
 function compute_f_at_x_default!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, x::T) where {H, L, E, T <: Tuple}
   prec_fail = false
-  πmax = length(m.EpsList)
+  πmax = length(m.FPList)
   if st.iter == 0
     st.f, st.ωf, π.πf = objReachPrec(m, x, m.OFList[end], π = π.πf)
   else
@@ -774,7 +771,7 @@ function recompute_g_default!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Pre
   g_recompute = false
   prec_fail = false
   πmax = length(m.FPList)
-  n = m.MList[1].meta.nvar
+  n = m.meta.nvar
   βfunc(n::Int,u::H) = max(abs(1-sqrt(1-m.γfunc(n+2,u))),abs(1-sqrt(1+m.γfunc(n,u)))) # error bound on euclidean norm
   ##### default choice, can be put in a callback for alternative strategy ####
   π.πnx = min(π.πx+1,πmax) # use better prec to lower βn and therefore phik therefore muk

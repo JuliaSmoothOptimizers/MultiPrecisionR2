@@ -46,12 +46,10 @@ using IntervalArithmetic
 
 setrounding(Interval,:accurate)
 FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
-f4(x) = x[1]^2 + x[2]^2 # some objective function
-x₀ = ones(2) # initial point
-nlpList = [ADNLPModel(f4,fp.(x₀), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for fp in FP] # instanciate a list of ADNLPModel, one for each floating point format
-mpmodel = FPMPNLPModel(nlpList); # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
-solver = MPR2Solver(mpmodel); # instaciate the algorithm structure
-stat = solve!(solver,mpmodel) # run the algorithm
+f(x) = x[1]^2 + x[2]^2 # some objective function
+x0 = ones(Float32,2) # initial point
+mpmodel = FPMPNLPModel(f,x0,FP); # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
+stat = MPR2(mpmodel) # run the algorithm
 ```
 
 ```julia
@@ -64,10 +62,9 @@ using OptimizationProblems.ADNLPProblems
 setrounding(Interval,:accurate)
 FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
 s = :woods # select problem
-nlpList = [eval(s)(n=12,type = Val(F), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for F ∈ FP] # instanciate a list of ADNLPModel, one for each floating point format
-mpmodel = FPMPNLPModel(nlpList); # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
-solver = MPR2Solver(mpmodel); # instaciate the algorithm structure
-stat = solve!(solver,mpmodel) # run the algorithm
+nlp = eval(s)(n=12,type = Val(FP[end]), gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
+mpmodel = FPMPNLPModel(nlp,FP); # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
+stat = MPR2(mpmodel) # run the algorithm
 ```
 
 **Warnings**
@@ -102,16 +99,15 @@ max_iter = 1000
 meta = OptimizationProblems.meta
 names_pb_vars = meta[(meta.has_bounds .== false) .& (meta.ncon .== 0), [:nvar, :name]] #select unconstrained problems
 for pb in eachrow(names_pb_vars)
-  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(n=$nvar,type=Val(Float64))"))
-  nlpList = [eval(Meta.parse("ADNLPProblems.$(pb[:name])(n=$nvar,type=Val($T))")) for T in FP]
-  mpmodel = FPMPNLPModel(nlpList,ωfRelErr=omega,ωgRelErr=omega);
-  mpr2solver = MPR2Solver(mpmodel);
-  statmpr2 = MultiPrecisionR2.solve!(mpr2solver,mpmodel,max_iter = max_iter)
-  statr2 = R2(nlp,max_iter=max_iter)
+  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(n=$nvar,type=Val(Float64),gradient_backend = ADNLPModels.GenericForwardDiffADGradient)"))
+  mpmodel = FPMPNLPModel(nlp,FP,ωfRelErr=omega,ωgRelErr=omega);
+  statr2 = R2(nlp,max_eval=max_iter)
   r2_obj_eval .+= nlp.counters.neval_obj
   r2_grad_eval .+= nlp.counters.neval_grad
-  mpr2_obj_eval .+= [mpmodel.MList[i].counters.neval_obj for i in eachindex(FP)]
-  mpr2_grad_eval .+= [mpmodel.MList[i].counters.neval_grad for i in eachindex(FP)]
+  statmpr2 = MPR2(mpmodel,max_iter = max_iter)
+  @show mpmodel.counters.neval_obj mpmodel.counters.neval_grad
+  mpr2_obj_eval .+= [haskey(mpmodel.counters.neval_obj,fp) ? mpmodel.counters.neval_obj[fp] : 0 for fp in FP]
+  mpr2_grad_eval .+= [haskey(mpmodel.counters.neval_grad,fp) ? mpmodel.counters.neval_grad[fp] : 0 for fp in FP]
 end
 mpr2_obj_time = sum(mpr2_obj_eval.*[1/4,1/2,1])
 obj_time_save = mpr2_obj_time/r2_obj_eval[1]
@@ -277,17 +273,16 @@ using IntervalArithmetic
 using ADNLPModels
 
 setrounding(Interval,:accurate)
-T = [Float16, Float32] # selected FP formats
+FP = [Float16, Float32] # selected FP formats
 f(x) = x[1]^2 + x[2]^2 # objective function
 x = ones(2) # initial point
 x16 = Float16.(x) # initial point in Float16
 x32 = Float32.(x) # initial point in Float32
-MList = [ADNLPModel(f,t.(x), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for t in T]; # list of models 
-MPmodel = FPMPNLPModel(MList); # will use interval arithmetic for error evaluation
-f16, omega_f16 = objerrmp(MPmodel,x16,1) # evaluate objective and error bound at x with T[1] = Float16 FP model
-f32, omega_f32 = objerrmp(MPmodel,x32,2) # evaluate objective and error bound at x with T[1] = Float16 FP model
-g16, omega_g16 = graderrmp(MPmodel,x16,1) # evaluate gradient and error bound at x with T[2] = Float32 FP model
-g32, omega_g32 = graderrmp(MPmodel,x32,2) # evaluate gradient and error bound at x with T[2] = Float32 FP model
+MPmodel = FPMPNLPModel(f,x32,FP); # will use interval arithmetic for error evaluation
+f16, omega_f16 = objerrmp(MPmodel,x16) # evaluate objective and error bound at x with T[1] = Float16 FP model
+f32, omega_f32 = objerrmp(MPmodel,x32) # evaluate objective and error bound at x with T[1] = Float16 FP model
+g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x with T[2] = Float32 FP model
+g32, omega_g32 = graderrmp(MPmodel,x32) # evaluate gradient and error bound at x with T[2] = Float32 FP model
 ```
 
 **FPMPNLPModel Example 2: Relative error bounds**
@@ -295,16 +290,16 @@ g32, omega_g32 = graderrmp(MPmodel,x32,2) # evaluate gradient and error bound at
 using MultiPrecisionR2
 using ADNLPModels
 
-T = [Float16, Float32] # selected FP formats
+FP = [Float16, Float32] # selected FP formats
 f(x) = x[1]^2 + x[2]^2 # objective function
 x = ones(2) # initial point
 x16 = Float16.(x) # initial point in Float16
 x32 = Float32.(x) # initial point in Float32
-MList = [ADNLPModel(f,t.(x)) for t in T]; # list of models
 ωfRelErr = [0.1,0.01] # objective error: 10% with Float16 and 1% with Float32
 ωgRelErr = [0.05,0.02] # gradient error (norm): 5% with Float16 and 2% with Float32
-f32, omega_f32 = objerrmp(MPmodel,x32,2) # evaluate objective and error bound at x with T[1] = Float32 FP model
-g16, omega_g16 = graderrmp(MPmodel,x16,1) # evaluate gradient and error bound at x with T[2] = Float16 FP model
+MPmodel = FPMPNLPModel(f,x32,FP;ωfRelErr=ωfRelErr,ωgRelErr=ωgRelErr);
+f32, omega_f32 = objerrmp(MPmodel,x32) # evaluate objective and error bound at x with T[1] = Float32 FP model
+g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x with T[2] = Float16 FP model
 ```
 
 **FPMPNLPModel Example 3: Mixed Interval/Relative Error Bounds**
@@ -314,16 +309,15 @@ using IntervalArithmetic
 using ADNLPModels
 
 setrounding(Interval,:accurate)
-T = [Float16, Float32] # selected FP formats
+FP = [Float16, Float32] # selected FP formats
 f(x) = x[1]^2 + x[2]^2 # objective function
 x = ones(2) # initial point
 x16 = Float16.(x) # initial point in Float16
 x32 = Float32.(x) # initial point in Float32
-MList = [ADNLPModel(f,t.(x)) for t in T]; # list of models
 ωgRelErr = [0.05,0.02] # gradient error (norm): 5% with Float16 and 2% with Float32
-MPmodel = FPMPNLPModel(MList, ωgRelErr = ωgRelErr) # use interval for objective error bound and relative error bound for gradient
-f32, omega_f32 = objerrmp(MPmodel,x32,2) # evaluate objective and error bound with interval at x with T[1] = Float32 FP model
-g16, omega_g16 = graderrmp(MPmodel,x16,1) # evaluate gradient and error bound at x with T[2] = Float16 FP model
+MPmodel = FPMPNLPModel(f,x32,FP; ωgRelErr = ωgRelErr) # use interval for objective error bound and relative error bound for gradient
+f32, omega_f32 = objerrmp(MPmodel,x32) # evaluate objective and error bound with interval at x with T[1] = Float32 FP model
+g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x with T[2] = Float16 FP model
 ```
 
 **FPMPNLPModel Example 4: Interval evaluation is slow**
@@ -333,26 +327,25 @@ using IntervalArithmetic
 using ADNLPModels
 
 setrounding(Interval,:accurate)
-T = [Float32] # selected FP formats
+FP = [Float32] # selected FP formats
 n = 1000
 f(x) = sum([x[i]^2 for i =1:n])  # objective function
 x = ones(n) # initial point
 x32 = Float32.(x) # initial point in Float32
-MList = [ADNLPModel(f,t.(x), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for t in T]; # list of models
-MPmodelInterval = FPMPNLPModel(MList) # use interval for objective and gradient error bounds
+MPmodelInterval = FPMPNLPModel(f,x32,FP) # use interval for objective and gradient error bounds
 ωfRelErr = [Float64(sqrt(eps(Float32)))] # objective error
 ωgRelErr = [Float64(sqrt(eps(Float32)))] # gradient error (norm)
-MPmodelRelative = FPMPNLPModel(MList,ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr) # will use relative error bounds
+MPmodelRelative = FPMPNLPModel(f,x32,FP,ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr) # will use relative error bounds
 # precompile
-objerrmp(MPmodelInterval,x32,1)
-objerrmp(MPmodelRelative,x32,1)
-graderrmp(MPmodelInterval,x32,1)
-graderrmp(MPmodelRelative,x32,1)
+objerrmp(MPmodelInterval,x32)
+objerrmp(MPmodelRelative,x32)
+graderrmp(MPmodelInterval,x32)
+graderrmp(MPmodelRelative,x32)
 
-@time objerrmp(MPmodelInterval,x32,1) # interval evaluation of objective
-@time objerrmp(MPmodelRelative,x32,1) # classic evaluation of objective
-@time graderrmp(MPmodelInterval,x32,1) # interval evaluation of gradient
-@time graderrmp(MPmodelRelative,x32,1) # classic evaluation of gradient
+@time objerrmp(MPmodelInterval,x32) # interval evaluation of objective
+@time objerrmp(MPmodelRelative,x32) # classic evaluation of objective
+@time graderrmp(MPmodelInterval,x32) # interval evaluation of gradient
+@time graderrmp(MPmodelRelative,x32) # classic evaluation of gradient
 ```
 
 ### **High Precision Format**
@@ -368,12 +361,11 @@ using IntervalArithmetic
 using ADNLPModels
 
 setrounding(Interval,:accurate)
-T = [Float16, Float32, Float64] # selected FP formats, max eval precision is Float64
+FP = [Float16, Float32, Float64] # selected FP formats, max eval precision is Float64
 f(x) = x[1]^2 + x[2]^2 # objective function
 x = ones(2) # initial point
-MList = [ADNLPModel(f,t.(x), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for t in T]; # list of models
-MPmodel = FPMPNLPModel(MList); # throws warning
-MPmodel = FPMPNLPModel(MList,HPFormat = Float32); # throws error
+MPmodel = FPMPNLPModel(f,x,FP); # throws warning
+MPmodel = FPMPNLPModel(f,x,FP,HPFormat = Float32); # throws error
 ```
 
 ### **Gradient and Dot Product Error**: Gamma Callback Function
@@ -389,19 +381,18 @@ using IntervalArithmetic
 using ADNLPModels
 
 setrounding(Interval,:accurate)
-T = [Float16] # limits the size of the problem to n = 1/eps(Float16) (= 1000)
+FP = [Float16] # limits the size of the problem to n = 1/eps(Float16) (= 1000)
 dim = 2000 # dimension of the problem too large
 f(x) =sum([x[i]^2 for i=1:dim]) # objective function
-x = ones(dim) # initial point
-MList = [ADNLPModel(f,t.(x), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for t in T]; # list of models
-MPmodel = FPMPNLPModel(MList); # throw error
+x = ones(Float16,dim) # initial point
+MPmodel = FPMPNLPModel(f,x,FP); # throw error
 ```
 
 The user can provide a less pressimistic $\gamma$ function for dot product error bound.
 **Warning:** Providing your own $\gamma$ function can break the convergence properties of MPR2.
 ```julia
 gamma(n,u) = sqrt(n)*u # user defined γ function, less pessimistic than n*u used by default
-MPmodel = FPMPNLPModel(MList,γfunc = gamma); # no error since sqrt(dim)*eps(Float16) < 1
+MPmodel = FPMPNLPModel(f,x,FP,γfunc = gamma); # no error since sqrt(dim)*eps(Float16) < 1
 ```
 
 ## **MPR2Solver**
@@ -426,14 +417,13 @@ using IntervalArithmetic
 using ADNLPModels
 
 setrounding(Interval,:accurate)
-T = [Float16, Float32] # selected FP formats, max eval precision is Float64
+FP = [Float16, Float32] # selected FP formats, max eval precision is Float64
 f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
-x = 1.5*ones(2) # initial point
-MList = [ADNLPModel(f,t.(x), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for t in T]; # list of models
+x = Float32.(1.5*ones(2)) # initial point
 HPFormat = Float64
-MPmodel = FPMPNLPModel(MList,HPFormat = HPFormat);
+MPmodel = FPMPNLPModel(f,x,FP,HPFormat = HPFormat);
 solver = MPR2Solver(MPmodel);
-stat = solve!(solver,MPmodel) 
+stat = MPR2(MPmodel) 
 ```
 Running the above code block returns a warning indicating that R2 stops because the error on the objective function is too big to ensure convergence. The problem can be overcome in this example by tolerating more error on the objective by increasing $\eta_0$.
 
@@ -445,7 +435,7 @@ Running the above code block returns a warning indicating that R2 stops because 
 γ₁ = Float16(1/2) # must be FP format of lowest evaluation precision for numerical stability
 γ₂ = Float16(2) # must be FP format of lowest evaluation precision for numerical stability
 param = MPR2Params(η₀,η₁,η₂,κₘ,γ₁,γ₂)
-stat = solve!(solver,MPmodel,par = param) 
+stat = MPR2(MPmodel,par = param) 
 ```
 Now MPR2 converges to a first order critical point since we tolerate enough error on the objective evaluation.
 
@@ -569,7 +559,7 @@ In practice, $x_k$, $s_k$, $c_k$, $g_k$ are implemented as tuple of vectors of t
 Here is a simple callback function for computing the objective function that does not take evaluation error into account.
 ```julia
 function my_compute_f_at_c!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T) where {H, L, E, T <: Tuple}
-  st.f⁺ = objmp(m, c[π.πc], π.πc) # c[π.πc] FP format matches m.MList[π.πc] that will be called for obj evaluation.
+  st.f⁺ = objmp(m, c[π.πc]) # FP format m.FPList[π.πc] will be used for obj evaluation.
 end
 ```
 
@@ -582,9 +572,9 @@ If the precision `π.πx` = 2, it means that the `x[i]`s vectors are up-to-date 
 **Example: Container Update**
 ```julia
 using MultiPrecisionR2
-FPList = [Float16,Float32,Float64]
+FP = [Float16,Float32,Float64]
 xini = ones(5)
-x = Tuple(fp.(xini) for fp in FPList)
+x = Tuple(fp.(xini) for fp in FP)
 xnew = Float32.(zeros(5))
 umpt!(x,xnew)
 x # only x[2] and x[3] are updated
@@ -676,6 +666,8 @@ This example implements a precision selection strategy for the objective and gra
 The callback functions must handles precision selection for evaluations and optionally error/warning messages if evaluation fails (typically overflow or lack of precision)
 
 ```julia
+using LinearAlgebra
+
 function my_compute_f_at_c!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T) where {H, L, E, T <: Tuple}
   πmax = length(m.FPList) # get maximal allowed precision
   eval_prec = findfirst(u -> sqrt(u) < st.s_norm, m.UList) # select precision according to the criterion
@@ -685,7 +677,7 @@ function my_compute_f_at_c!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precis
     return true
   end
   π.πf⁺ = max(eval_prec,π.πc) # evaluation precision should be greater or equal to the FP format of the candidate (see forbidden evaluation)
-  st.f⁺ = objmp(m,c[π.πf⁺],π.πf⁺) # eval objective only. solve!() made sure c[π.πf⁺] is up-to-date (see containers section)
+  st.f⁺ = obj(m,c[π.πf⁺]) # eval objective only. solve!() made sure c[π.πf⁺] is up-to-date (see containers section)
   while st.f⁺ == Inf # check for overflow
     π.πf⁺ += 1
     if π.πf⁺ > πmax
@@ -693,7 +685,7 @@ function my_compute_f_at_c!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precis
       st.status = :exception
       return true # objective overflow with highest precision FP format: this is a fail
     end
-    st.f⁺ = objmp(m,c[π.πf⁺],π.πf⁺)
+    st.f⁺ = obj(m,c[π.πf⁺])
   end
   return false
 end
@@ -711,7 +703,7 @@ function my_compute_f_at_x!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Preci
     end
     π.πf = max(eval_prec,π.πx) # evaluation precision should be greater or equal to the FP format of the current solution (see forbidden evaluation)
   end
-  st.f = objmp(m,x[π.πf],π.πf) # eval objective only. solve!() made sure x[π.πf] is up-to-date (see containers section)
+  st.f = obj(m,x[π.πf]) # eval objective only. solve!() made sure x[π.πf] is up-to-date (see containers section)
   while st.f == Inf # check for overflow
     π.πf += 1
     if π.πf > πmax
@@ -719,7 +711,7 @@ function my_compute_f_at_x!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Preci
       st.status = :exception
       return true # objective overflow with highest precision FP format: this is a fail
     end
-    st.f = objmp(m,x[π.πf],π.πf)
+    st.f = obj(m,x[π.πf])
   end
   return false
 end
@@ -737,7 +729,7 @@ function my_compute_g!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions
     end
     π.πg = max(eval_prec,π.πg) # evaluation precision should be greater or equal to the FP format of the candidate (see forbidden evaluation)
   end
-  gradmp!(m,c[π.πg],π.πg,g[π.πg]) # eval gradient only. solve!() made sure x[π.πg] is up-to-date (see containers section)
+  grad!(m,c[π.πg],g[π.πg]) # eval gradient only. solve!() made sure x[π.πg] is up-to-date (see containers section)
   while findfirst(elem->elem == Inf,g[π.πg]) !== nothing # check for overflow, gradient vector version
     π.πg += 1
     if π.πg > πmax
@@ -745,7 +737,7 @@ function my_compute_g!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions
       st.status = :exception
       return true # objective overflow with highest precision FP format: this is a fail
     end
-    gradmp!(m,c[π.πg],π)
+    grad!(m,c[π.πg])
   end
   return false
 end
@@ -771,14 +763,12 @@ end
 Let's try this implementation on a simple quadratic objective.
 
 ```julia
-T = [Float16, Float32] # selected FP formats,
+FP = [Float16, Float32] # selected FP formats,
 f(x) = x[1]^2 + x[2]^2 # objective function
 omega = [0.0,0.0]
-x = 1.5*ones(2) # initial point
-MList = [ADNLPModel(f,t.(x)) for t in T]; # list of models
-MPmodel = FPMPNLPModel(MList, ωfRelErr = omega, ωgRelErr = omega); # indicates the use of relative error only to avoid interval evaluation, relative errors will not be computed with above callbacks
-solver = MPR2Solver(MPmodel);
-stat = solve!(solver,MPmodel;
+x = Float32.(1.5*ones(2)) # initial point
+MPmodel = FPMPNLPModel(f,x,FP, ωfRelErr = omega, ωgRelErr = omega); # indicates the use of relative error only to avoid interval evaluation, relative errors will not be computed with above callbacks
+stat = MPR2(MPmodel;
 compute_f_at_x! = my_compute_f_at_x!,
 compute_f_at_c! = my_compute_f_at_c!,
 compute_g! = my_compute_g!,
@@ -789,14 +779,12 @@ stat  # first-order stationary point has been found
 Let's now try our implementation on the Rosenbrock function.
 
 ```julia
-T = [Float16, Float32] # selected FP formats,
+FP = [Float16, Float32] # selected FP formats,
 f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
 omega = [0.0,0.0]
-x = 1.5*ones(2) # initial point
-MList = [ADNLPModel(f,t.(x)) for t in T]; # list of models
-MPmodel = FPMPNLPModel(MList, ωfRelErr = omega, ωgRelErr = omega); # indicates the use of relative error only to avoid interval evaluation, relative errors will not be computed with above callbacks
-solver = MPR2Solver(MPmodel);
-stat = solve!(solver,MPmodel;
+x = Float32.(1.5*ones(2)) # initial point
+MPmodel = FPMPNLPModel(f,x,FP, ωfRelErr = omega, ωgRelErr = omega); # indicates the use of relative error only to avoid interval evaluation, relative errors will not be computed with above callbacks
+stat = MPR2(MPmodel;
 compute_f_at_x! = my_compute_f_at_x!,
 compute_f_at_c! = my_compute_f_at_c!,
 compute_g! = my_compute_g!,
@@ -878,37 +866,31 @@ function my_compute_g!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions
   return false
 end
 ```
-Let us first run `solve!()` with the default implementation and relative evaluation error.
+Let us first run `MPR2()` with the default implementation and relative evaluation error.
 ```julia
-T = [Float16, Float32] # selected FP formats,
-#f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
-f(x) = x[1]^2 + x[2]^2
-omegaf = Float64.([0.1,0.011])
-omegag = Float64.([0.05,0.01])
-x = 1.5*ones(2) # initial point
-MList = [ADNLPModel(f,t.(x)) for t in T]; # list of models
-MPmodel = FPMPNLPModel(MList, ωfRelErr = omegaf, ωgRelErr = omegag);
-solver = MPR2Solver(MPmodel);
-stat = solve!(solver,MPmodel); # stops at iteration 7, throw lack of precision warning
-```
-
-We run `solve!()` with the callback functions defined above and the default callbacks for `compute_g!()` and `recompute_g!()`. We use relative objective and gradient error.
-```julia
-T = [Float16, Float32] # selected FP formats,
+FP = [Float16, Float32] # selected FP formats,
 #f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
 f(x) = x[1]^2 + x[2]^2 +0.5
 omegaf = Float64.([0.01,0.005])
 omegag = Float64.([0.05,0.01])
-x = 1*ones(2) # initial point
-MList = [ADNLPModel(f,t.(x)) for t in T]; # list of models
-MPmodel = FPMPNLPModel(MList, ωfRelErr = omegaf, ωgRelErr = omegag);
-solver = MPR2Solver(MPmodel);
+x = Float32.(1.5*ones(2)) # initial point
+MPmodel = FPMPNLPModel(f,x,FP, ωfRelErr = omegaf, ωgRelErr = omegag);
+stat = MPR2(MPmodel,verbose=1); # stops at iteration 3, throw lack of precision warning
+```
+
+We run `MPR2()` with the callback functions defined above and the default callbacks for `compute_g!()` and `recompute_g!()`. We use relative objective and gradient error.
+```julia
+FP = [Float16, Float32] # selected FP formats,
+#f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
+f(x) = x[1]^2 + x[2]^2 +0.5
+omegaf = Float64.([0.01,0.005])
+omegag = Float64.([0.05,0.01])
+x = ones(Float32,2) # initial point
+MPmodel = FPMPNLPModel(f,x,FP, ωfRelErr = omegaf, ωgRelErr = omegag);
 e = my_struct(false,1e-2)
-stat = solve!(solver,MPmodel;
+stat = MPR2(MPmodel;
 e = e,
 compute_f_at_x! = my_compute_f_at_x!,
 compute_f_at_c! = my_compute_f_at_c!,
-compute_g! = my_compute_g!); # switch to gradient descent at iteration 2
+compute_g! = my_compute_g!); # switch to gradient descent at iteration 3, converges to first order critical point
 ```
-
-### Example 4: DNN Training with Knet and KnetNLPModels

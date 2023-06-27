@@ -129,6 +129,18 @@ function MPR2Params(LPFormat::DataType, HPFormat::DataType)
   γ₂ = LPFormat(2)
   return MPR2Params(η₀, η₁, η₂, κₘ, γ₁, γ₂)
 end
+
+"""
+Check if the MPR2 parameters conditions are satified.
+See [`MPR2Params`](@ref) for parameter conditions.
+"""
+function CheckMPR2ParamConditions(p::MPR2Params{H}) where{H}
+  0 ≤ p.η₀ ≤ 1/2*p.η₁       || error("Expected 0 ≤ η₀ ≤ 1/2*η₁")
+  p.η₁ ≤ p.η₂ < 1           || error("Expected η₁ ≤ η₂ < 1")
+  p.η₀+p.κₘ/2 ≤0.5*(1-p.η₂) || error("Expected η₀+κₘ/2 ≤0.5*(1-η₂)")
+  p.η₂<1                    || error("Expected η₂<1")
+  0<p.γ₁<1<p.γ₂             || error("Expected 0<γ₁<1<γ₂")
+end
  
 """
 Precision of variables and precision evaluation of obj, grad and model reduction.
@@ -390,18 +402,6 @@ function solve!(
     elapsed_time = elapsed_time,
     iter = state.iter,
   )
-end
-
-"""
-Check if the MPR2 parameters conditions are satified.
-See [`MPR2Params`](@ref) for parameter conditions.
-"""
-function CheckMPR2ParamConditions(p::MPR2Params{H}) where{H}
-  0 ≤ p.η₀ ≤ 1/2*p.η₁       || error("Expected 0 ≤ η₀ ≤ 1/2*η₁")
-  p.η₁ ≤ p.η₂ < 1           || error("Expected η₁ ≤ η₂ < 1")
-  p.η₀+p.κₘ/2 ≤0.5*(1-p.η₂) || error("Expected η₀+κₘ/2 ≤0.5*(1-η₂)")
-  p.η₂<1                    || error("Expected η₂<1")
-  0<p.γ₁<1<p.γ₂             || error("Expected 0<γ₁<1<γ₂")
 end
 
 """

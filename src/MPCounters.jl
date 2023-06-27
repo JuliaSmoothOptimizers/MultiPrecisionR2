@@ -33,8 +33,8 @@ mutable struct MPCounters
   neval_jhess::Dict{DataType,Int}  # Number of individual Lagrangian Hessian evaluations.
   neval_jhprod::Dict{DataType,Int}  # Number of individual constraint Hessian-vector products.
 
-  function MPCounters()
-    return new([Dict{DataType,Int}() for _ in fieldnames(MPCounters)]...)
+  function MPCounters(FPformats::Vector{DataType})
+    return new([Dict([f => 0 for f in FPformats]) for _ in fieldnames(MPCounters)]...)
   end
 end
 
@@ -63,11 +63,7 @@ end
 for fun in fieldnames(MPCounters)
   @eval begin 
     function increment!(nlp::AbstractMPNLPModel, ::Val{$(Meta.quot(fun))}, T::DataType)
-      if haskey(nlp.counters.$fun,T)
-        nlp.counters.$fun[T] += 1
-      else
-        push!(nlp.counters.$fun,T=>1)
-      end
+      nlp.counters.$fun[T] += 1
     end
   end
 end

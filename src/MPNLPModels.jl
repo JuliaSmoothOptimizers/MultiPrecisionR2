@@ -140,7 +140,7 @@ function FPMPNLPModel(Model::AbstractNLPModel{D,S},FPList::Vector{K};
   NLPModels.reset!(Model)
   EpsList[end] >= eps(HPFormat) || error("HPFormat ($HPFormat) must be a FP format with precision equal or greater than NLPModels (max prec NLPModel: $(FPList[end]))")
   EpsList[end] != eps(HPFormat) || @warn "HPFormat ($HPFormat) is the same format than highest accuracy NLPModel: chances of numerical instability increased"
-  FPMPNLPModel(Model,Model.meta,MPCounters(),FPList,EpsList,UList,OFList,γfunc,ωfRelErr,ωgRelErr,ObjEvalMode,GradEvalMode,X,G)
+  FPMPNLPModel(Model,Model.meta,MPCounters(FPList),FPList,EpsList,UList,OFList,γfunc,ωfRelErr,ωgRelErr,ObjEvalMode,GradEvalMode,X,G)
 end
 
 function FPMPNLPModel(s::Symbol,
@@ -170,17 +170,20 @@ function Base.show(io::IO, m::FPMPNLPModel)
 end
 
 function NLPModels.obj(m::FPMPNLPModel,x::AbstractVector)
-  increment!(m,:neval_obj,eltype(x))
+  et = eltype(x)
+  et<:Interval ? increment!(m,:neval_obj,typeof(x[1].lo)) : increment!(m,:neval_obj,eltype(x))
   obj(m.Model,x)
 end
 
 function grad(m::FPMPNLPModel,x::AbstractVector)
-  increment!(m,:neval_grad,eltype(x))
+  et = eltype(x)
+  et<:Interval ? increment!(m,:neval_obj,typeof(x[1].lo)) : increment!(m,:neval_obj,eltype(x))
   grad(m.Model,x)
 end
 
 function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where S<:AbstractVector
-  increment!(m,:neval_grad,eltype(x))
+  et = eltype(x)
+  et<:Interval ? increment!(m,:neval_obj,typeof(x[1].lo)) : increment!(m,:neval_obj,eltype(x))
   grad!(m.Model,x,g)
 end
 

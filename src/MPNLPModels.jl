@@ -8,6 +8,8 @@ const INT_ERR = 0
 const REL_ERR = 1
 
 """
+    FPMPNLPModel(Model::AbstractNLPModel{D,S},FPList::Vector{K}; kwargs...) where {D,S,K<:DataType}
+
 Floating-Point Multi-Precision Non Linear Model structure. This structure is intended to be used as MPR2Solver input.
 
 Primairly stores NLPmodels instanciated with different Floating Point formats and provide errors on objective function and grandient evaluation (see `objerrmp` and `graderrmp`).
@@ -181,7 +183,10 @@ function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where S<:AbstractVector
   increment!(m,:neval_grad,eltype(x))
   grad!(m.Model,x,g)
 end
+
 """
+    objerrmp(m::FPMPNLPModel, x::V) where {S,V<:AbstractVector{S}}
+
 Evaluate the objective and the evaluation error of the id-th model of m.
 Inputs: x::Vector{S}
 Outputs: ̂f::S, ωf <: AbstractFloat, with |f(x)-̂f| ≤ ωf
@@ -223,6 +228,8 @@ function objerrmp(m::FPMPNLPModel{H}, x::V, ::Val{REL_ERR}) where {H, S, V<:Abst
 end
 
 """
+    graderrmp!(m::FPMPNLPModel{H}, x::V, g::V) where {H, S, V<:AbstractVector{S}}
+
 Evaluate the gradient g and the relative evaluation error ωg of the id-th model of m.
 Inputs: x::Vector{S} with S in m.FPList
 Outputs: g::Vector{S}, ωg <: AbstractFloat satisfying: ||∇f(x) - g||₂ ≤ ωg||g||₂
@@ -286,6 +293,8 @@ function graderrmp(m::FPMPNLPModel, x::V) where {S,V<:AbstractVector{S}}
 end
 
 """
+    ObjIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
+
 Test interval evaluation of objective for all formats in `FPList`.
 Test fails and return an error if:
   * Interval evaluation returns an error
@@ -313,6 +322,8 @@ function ObjIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
 end
 
 """
+    GradIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
+
 Test interval evaluation of gradient for all FP formats.
 Test fails and return an error if:
   * Interval evaluation returns an error
@@ -340,6 +351,8 @@ function GradIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
 end
 
 """
+    γfunc_test_template(γfunc)
+
 Tests if γfunc callback function is properly implemented.
 Expected template: γfunc(n::Int,u::Float) -> Float
 """    
@@ -353,10 +366,11 @@ function γfunc_test_template(γfunc)
 end
 
 """
+    γfunc_test_error_bound(n::Int,eps::AbstractFloat,γfunc)
+
 Tests if γfunc callback provides strictly less than 100% error for dot product error of vector
 of size the dimension of the problem and the lowest machine epsilon.
 """
-
 function γfunc_test_error_bound(n::Int,eps::AbstractFloat,γfunc)
   err_msg = "γfunc: dot product error greater than 100% with highest precision. Consider using higher precision floating point format, or provide a different callback function for γfunc (last option might cause numerical instability)."
   if γfunc(n,eps) >= 1.0

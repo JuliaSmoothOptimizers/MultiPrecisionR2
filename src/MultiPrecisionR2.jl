@@ -16,7 +16,7 @@ include("MPCounters.jl")
 include("MPNLPModels.jl")
 
 """
-    mpr2s(MPnlp; kwargs...)
+    MPR2(MPnlp; kwargs...)
 An implementation of the quadratic regularization algorithm with dynamic selection of floating point format for objective and gradient evaluation, robust against finite precision rounding errors.
 
 # Arguments
@@ -76,6 +76,7 @@ end
 
 
 """
+    MPR2Params(LPFormat::DataType, HPFormat::DataType)
 MPR2 parameters.
 
 # Fields
@@ -87,8 +88,8 @@ MPR2 parameters.
 - `γ₂::L` : σk+1 = σk * γ₂ if ρ < η₁
 
 # Parameters
-- `H` must correspond to `MPnlp.HPFormat` with `MPnlp` given as input of `mpr2s`
-- `L` must correspond to `MPnlp.FPList[1]`, i.e the lowest precision floating point format used by `MPmodel` given as input of `mpr2s`
+- `H` must correspond to `MPnlp.HPFormat` with `MPnlp` given as input of `MPR2`
+- `L` must correspond to `MPnlp.FPList[1]`, i.e the lowest precision floating point format used by `MPnlp` given as input of `MPR2`
 
 # Conditions 
 Parameters must statisfy the following conditions:
@@ -97,11 +98,6 @@ Parameters must statisfy the following conditions:
 * η₀+κₘ/2 ≤0.5*(1-η₂)
 * η₂<1 
 * 0<γ₁<1<γ₂
-
-# Constructor
-`MPR2Params(LPFormat::DataType,HPFormat::DataType)` : 
-- `LPFormat` : lowest precision FP format of the FPMPNLPModel to be solved
-- `HPFormat` : high precision format of the FPMPNLPModel to be solved
 
 Instiates default values:
 - `η₀::H = 0.01`
@@ -131,6 +127,8 @@ function MPR2Params(LPFormat::DataType, HPFormat::DataType)
 end
 
 """
+    CheckMPR2ParamConditions(p::MPR2Params{H})
+
 Check if the MPR2 parameters conditions are satified.
 See [`MPR2Params`](@ref) for parameter conditions.
 """
@@ -143,6 +141,8 @@ function CheckMPR2ParamConditions(p::MPR2Params{H}) where{H}
 end
  
 """
+    function MPR2Precisions(π::Int)
+
 Precision of variables and precision evaluation of obj, grad and model reduction.
 Precisions are represented as integer, and correspond to FP format of corresponding index in FPList of FPMPNLPModel.
 See [`FPMPNLPModel`](@ref)
@@ -172,6 +172,8 @@ function update!(π::MPR2Precisions,πnewval::MPR2Precisions)
 end
 
 """
+    MPR2State(HPFormat::DataType)
+
 Intermediate variables used by MPR2 solver. This structure stores the "state" of the algorithm, can be used in callback functions to select evaluation precision.
 ## Fields
 * x_norm: norm of current point x (estimated with FP computation with πx precision)
@@ -298,7 +300,7 @@ function solve!(
     computeStep!(s, g, state.σ, FP, π)
     computeCandidate!(c, x, s, FP, π)
     state.ΔT = H(computeModelDecrease!(g, s, FP, π))
-    CheckUnderOverflow(state,s,c,state.ΔT)
+    CheckUnderOverflow(state,s,c)
     g_recomp, prec_fail = recompute_g!(MPnlp,state,π,par,e,x,g,s)
     if prec_fail 
       state.status = :exception
@@ -308,7 +310,7 @@ function solve!(
       computeStep!(s, g, state.σ, FP, π)
       computeCandidate!(c, x, s, FP, π)
       state.ΔT = H(computeModelDecrease!(g, s, FP, π))
-      CheckUnderOverflow(state,s,c,state.ΔT)
+      CheckUnderOverflow(state,s,c)
     end
     prec_fail = compute_f_at_x!(MPnlp,state,π,par,e,x)
     if prec_fail
@@ -383,6 +385,8 @@ function CheckUnderOverflow(state::MPR2State,s::Tuple,c::Tuple) where D
 end
 
 """
+    umpt!(x::Tuple, y::Vector{S})
+
 Update multi precision containers. 
 Update is occuring only if precision input vector y is lower or equal to the one of the element of the container (vector) to avoid rounding error due to conversion. 
 """
@@ -394,6 +398,8 @@ end
 
 ####### Robust implementation of step, candidate and model decrease computation. #####
 """
+    computeStep!(s::T, g::T, σ::H, FP::Vector{DataType}, π::MPR2Precisions) where {T <: Tuple, H}
+
 Compute step with FP format avoiding underflow and overflow
 # Arguments
 * `s::Vector{T}` : step 
@@ -435,6 +441,8 @@ function computeStep!(s::T, g::T, σ::H, FP::Vector{DataType}, π::MPR2Precision
 end
 
 """
+    computeCandidate!(c::T, x::T, s::T, FP::Vector{DataType}, π::MPR2Precisions) where {T <: Tuple}
+
 Compute candidate with FP format avoiding underflow and overflow
 ###### Inputs
 * x::Vector{T} : incumbent 
@@ -472,6 +480,8 @@ end
 
 
 """
+    computeModelDecrease!(g::T,s::T,FP::Vector{DataType},π::MPR2Precisions) where {T <: Tuple}
+
 Compute model decrease with FP format avoiding underflow and overflow
 ###### Inputs
 * s::Vector{T} : step
@@ -509,6 +519,8 @@ end
 ####### Objective and Grandient evaluation with prescribed error bounds ########
 
 """
+    objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
+
 Evaluates objective and increase model precision to reach necessary error bound.
 ##### Inputs
 * `π`: Initial ''guess'' precision level that can provide evaluation error lower than `err_bound`, use 1 by default (lowest precision)
@@ -537,6 +549,8 @@ function objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where
 end
 
 """
+    gradReachPrec!(m::FPMPNLPModel{H}, x::T, g::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
+
 Evaluates gradient and increase model precision until necessary error bound is reached.
 # Inputs
 * `π`: Initial ''gess'' for precision level that can provide evaluation error lower than `err_bound`, uses 1 by default (lowest precision)
@@ -574,6 +588,8 @@ end
 
 ####### Default strategy for precision selections #######
 """
+    computeMu(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions) where H
+
 Compute μ value for gradient error ωg, ratio ϕ = ||x||/||s|| and rounding error models
 """
 function computeMu(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions) where H
@@ -583,7 +599,10 @@ function computeMu(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions) whe
   return ( αfunc(n+1,m.UList[π.πΔ]) * H(st.ωg) * (m.UList[π.πc] + st.ϕ * u +1) + αfunc(n+1,m.UList[π.πΔ]) * u * (st.ϕ +1) + m.UList[π.πg] + m.γfunc(n+2,m.UList[π.πΔ]) * αfunc(n+1,m.UList[π.πΔ]) ) / (1-m.UList[π.πs])
 end
 
-""" Default strategy to select new precisions to recompute μ in the case where μ > κₘ
+"""
+    recomputeMuPrecSelection!(π::MPR2Precisions, πr::MPR2Precisions, πmax::Int64)
+
+Default strategy to select new precisions to recompute μ in the case where μ > κₘ
 Returns a MPR2Precisions containing new precisions with which to recompute mu.
 """
 function recomputeMuPrecSelection!(π::MPR2Precisions, πr::MPR2Precisions, πmax::Int64)
@@ -608,7 +627,10 @@ function recomputeMuPrecSelection!(π::MPR2Precisions, πr::MPR2Precisions, πma
   end
 end
 
-""" Recompute mu based on new precision levels. 
+""" 
+    recomputeMu!(m::FPMPNLPModel{H}, x::T, g::T, s::T, st::MPR2State{H}, π::MPR2Precisions, πr::MPR2Precisions) where {T <: Tuple, H}
+
+Recompute mu based on new precision levels. 
 Performs only necessary steps of solve! main loop to recompute mu. 
 Possible step to recompute are:
 - recompute ϕhat and ϕ with higher FP format for norm computation of x and s
@@ -650,7 +672,10 @@ function recomputeMu!(m::FPMPNLPModel{H}, x::T, g::T, s::T, st::MPR2State{H}, π
   return g_recompute
 end
   
-""" Select a precision for objective evaluation for candidate based on predicted evaluation error.
+""" 
+    selectPif!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, ωfBound::H) where H
+
+Select a precision for objective evaluation for candidate based on predicted evaluation error.
 Evaluation is predicted as:
 * Relative error:
   + Predicted value of objective at c: f(c) ≈ f(x) - ΔTk

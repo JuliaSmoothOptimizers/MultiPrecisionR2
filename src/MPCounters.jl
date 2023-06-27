@@ -103,7 +103,7 @@ end
 # sum_counters(nlp::AbstractNLPModel) = sum_counters(nlp.counters)
 
 """
-    reset!(counters)
+    reset!(counters::MPCounters)
 
 Reset evaluation counters
 """
@@ -117,7 +117,7 @@ function reset!(counters::MPCounters)
 end
 
 """
-    reset!(nlp)
+    reset!(nlp::AbstractMPNLPModel)
 
 Reset evaluation count and model data (if appropriate) in `nlp`.
 """

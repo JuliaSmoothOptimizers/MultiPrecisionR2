@@ -10,7 +10,7 @@ using ADNLPModels, IntervalArithmetic, NLPModels, Printf, LinearAlgebra, SolverC
 
 export MPR2, MPR2Solver, MPR2Params, MPR2State, MPR2Precisions, solve!, umpt!, objReachPrec, gradReachPrec!, AbstractMPNLPModel, MPCounters
 
-abstract type AbstractMPNLPModel{T,S} <: AbstractNLPModel{T,S} end # ugly patch, need this type to be defined for MPCounters.jl. Waiting for MPNLPModels to be a package...
+abstract type AbstractMPNLPModel{T,S} <: AbstractNLPModel{T,S} end
 
 include("MPCounters.jl")
 include("MPNLPModels.jl")

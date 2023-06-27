@@ -296,61 +296,27 @@ function solve!(
     state.iter += 1
     π.πs = π.πg
     computeStep!(s, g, state.σ, FP, π)
-    if isinf(s[1][1]) # overflow or underflow occured, stop the loop
-      @warn "Step over/underflow"
-      state.status = :exception
-      break
-    end
     computeCandidate!(c, x, s, FP, π)
-    if isinf(c[1][1]) # overflow occured, stop the loop
-      @warn "Candidate over/underflow"
-      state.status = :exception
-      break
-    end
     state.ΔT = H(computeModelDecrease!(g, s, FP, π))
-    if isinf(state.ΔT) || state.ΔT == 0.0 # overflow or underflow occured, stop the loop
-      @warn "Model decrease over/underflow"
-      state.status = :exception
-      break
-    end
+    CheckUnderOverflow(state,s,c,state.ΔT)
     g_recomp, prec_fail = recompute_g!(MPnlp,state,π,par,e,x,g,s)
-    if state.status == :small_step
-      break
-    end
     if prec_fail 
       state.status = :exception
-      break
     end
     if g_recomp #have to recompute everything depending on g
       umpt!(g,g[π.πg])
       computeStep!(s, g, state.σ, FP, π)
-      if isinf(s[1][1]) # overflow or underflow occured, stop the loop
-        @warn "Step over/underflow"
-        state.status = :exception
-        break
-      end
       computeCandidate!(c, x, s, FP, π)
-      if isinf(c[1][1]) # overflow occured, stop the loop
-        @warn "Candidate over/underflow"
-        state.status = :exception
-        break
-      end
       state.ΔT = H(computeModelDecrease!(g, s, FP, π))
-      if state.ΔT == Inf || state.ΔT == 0.0 # overflow or underflow occured, stop the loop
-        @warn "Model decrease over/underflow"
-        state.status = :exception
-        break
-      end
+      CheckUnderOverflow(state,s,c,state.ΔT)
     end
     prec_fail = compute_f_at_x!(MPnlp,state,π,par,e,x)
     if prec_fail
       state.status = :exception
-      break
     end
     prec_fail = compute_f_at_c!(MPnlp,state,π,par,e,c)
     if prec_fail
       state.status = :exception
-      break
     end
     state.ρ = ( H(state.f) - H(state.f⁺)) / H(state.ΔT)
     if verbose > 0
@@ -367,13 +333,11 @@ function solve!(
       prec_fail = compute_g!(MPnlp,state,π,par,e,c,g)
       if prec_fail 
         state.status = :exception
-        break
       end
       umpt!(g,g[π.πg])
       if findfirst(x->x === FP[end](Inf), g[end]) !== nothing || state.ωg == FP[end](Inf)
         @warn "gradient evaluation error at c too big to ensure convergence"
         state.status = :exception
-        break
       end
       state.g_norm = H(norm(g[π.πg]))
       umpt!(x,c[π.πc])
@@ -385,12 +349,11 @@ function solve!(
     end
     if state.g_norm ≤1/(1+βfunc(n,U[π.πg]))*ϵ/(1+H(state.ωg))
       state.status = :first_order
-      done = true
     end
     if state.iter >= max_iter
       state.status = :max_iter
-      done = true
     end
+    done = !(state.status == :unknown)
   end
   elapsed_time = time() - start_time
   return GenericExecutionStats(
@@ -402,6 +365,21 @@ function solve!(
     elapsed_time = elapsed_time,
     iter = state.iter,
   )
+end
+
+function CheckUnderOverflow(state::MPR2State,s::Tuple,c::Tuple) where D
+  if isinf(s[1][1]) # overflow or underflow occured, stop the loop
+    @warn "Step over/underflow"
+    state.status = :exception
+  end
+  if isinf(c[1][1]) # overflow occured, stop the loop
+    @warn "Candidate over/underflow"
+    state.status = :exception
+  end
+  if isinf(state.ΔT) || state.ΔT == 0.0 # overflow or underflow occured, stop the loop
+    @warn "Model decrease over/underflow"
+    state.status = :exception
+  end
 end
 
 """
@@ -491,6 +469,7 @@ function computeCandidate!(c::T, x::T, s::T, FP::Vector{DataType}, π::MPR2Preci
   end
   π.πc = πc
 end
+
 
 """
 Compute model decrease with FP format avoiding underflow and overflow

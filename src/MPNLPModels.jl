@@ -177,7 +177,7 @@ function grad(m::FPMPNLPModel,x::AbstractVector)
   grad(m.Model,x)
 end
 
-function grad!(m::FPMPNLPModel,x::S,g::S) where S<:AbstractVector
+function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where S<:AbstractVector
   increment!(m,:neval_grad,eltype(x))
   grad!(m.Model,x,g)
 end

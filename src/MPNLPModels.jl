@@ -167,7 +167,7 @@ function Base.show(io::IO, m::FPMPNLPModel)
   print(io,m.Model)
 end
 
-function obj(m::FPMPNLPModel,x::AbstractVector)
+function NLPModels.obj(m::FPMPNLPModel,x::AbstractVector)
   increment!(m,:neval_obj,eltype(x))
   obj(m.Model,x)
 end

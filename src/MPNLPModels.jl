@@ -169,9 +169,13 @@ function Base.show(io::IO, m::FPMPNLPModel)
   print(io,m.Model)
 end
 
-function NLPModels.obj(m::FPMPNLPModel,x::AbstractVector)
-  et = eltype(x)
-  et<:Interval ? increment!(m,:neval_obj,typeof(x[1].lo)) : increment!(m,:neval_obj,eltype(x))
+function NLPModels.obj(m::FPMPNLPModel,x::AbstractVector{T}) where T
+  increment!(m,:neval_obj,T)
+  obj(m.Model,x)
+end
+
+function NLPModels.obj(m::FPMPNLPModel,x::AbstractVector{Interval{T}}) where T
+  increment!(m,:neval_obj,T)
   obj(m.Model,x)
 end
 

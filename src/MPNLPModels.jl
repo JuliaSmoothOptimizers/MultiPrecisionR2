@@ -189,12 +189,12 @@ function grad(m::FPMPNLPModel,x::AbstractVector{Interval{T}}) where T
   grad(m.Model,x)
 end
 
-function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where {S<:AbstractVector{T},T}
+function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where {T,S<:AbstractVector{T}}
   increment!(m,:neval_grad,T)
   grad!(m.Model,x,g)
 end
 
-function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where {S<:AbstractVector{Interval{T}},T}
+function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where {T,S<:AbstractVector{Interval{T}}}
   increment!(m,:neval_grad,T)
   grad!(m.Model,x,g)
 end

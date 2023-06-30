@@ -26,12 +26,10 @@ using IntervalArithmetic
 
 setrounding(Interval,:accurate)
 FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
-f4(x) = x[1]^2 + x[2]^2 # some objective function
-x₀ = ones(2) # initial point
-nlpList = [ADNLPModel(f4,fp.(x₀)) for fp in FP] # instanciate a list of ADNLPModel, one for each floating point format
-mpmodel = FPMPNLPModel(nlpList) # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
-solver = MPR2Solver(mpmodel); # instaciate the algorithm structure
-stat = solve!(solver,mpmodel) # run the algorithm
+f(x) = x[1]^2 + x[2]^2 # some objective function
+x0 = ones(Float32,2) # initial point
+mpmodel = FPMPNLPModel(f,x0,FP); # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
+stat = MPR2(mpmodel) # run the algorithm
 ```
 
 ```julia
@@ -44,10 +42,9 @@ using OptimizationProblems.ADNLPProblems
 setrounding(Interval,:accurate)
 FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
 s = :woods # select problem
-nlpList = [eval(s)(n=12,type = Val(F)) for F ∈ FP] # instanciate a list of ADNLPModel, one for each floating point format
-mpmodel = FPMPNLPModel(nlpList) # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
-solver = MPR2Solver(mpmodel); # instaciate the algorithm structure
-stat = solve!(solver,mpmodel) # run the algorithm
+nlp = eval(s)(n=12,type = Val(FP[end]), gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
+mpmodel = FPMPNLPModel(nlp,FP); # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
+stat = MPR2(mpmodel) # run the algorithm
 ```
 
 ## Warnings

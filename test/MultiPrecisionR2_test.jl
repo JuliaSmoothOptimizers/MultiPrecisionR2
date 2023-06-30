@@ -4,9 +4,9 @@
     setrounding(Interval,:slow)
     f1(x) = x[1]+x[2]
     x₀ = [1/10,1/10]
-    nlpList = [ADNLPModel(f1,Float32.(x₀), gradient_backend = ADNLPModels.GenericForwardDiffADGradient),ADNLPModel(f1,Float64.(x₀), gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
+    Formats = [Float32,Float64]
     γfunc(n,u) = 0.0 # ignore rounding errors for the tests
-    mpmodel = FPMPNLPModel(nlpList, γfunc = γfunc)
+    mpmodel = FPMPNLPModel(f1,x₀,Formats, γfunc = γfunc)
     x = (Float32.(x₀),x₀)
     #obj test
     fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 2.0*eps(Float64))
@@ -23,12 +23,12 @@
   @testset "Relative error" begin
     f2(x) = x[1]+x[2]
     x₀ = ones(2)
-    x = (Float32.(x₀),x₀)
+    Formats = [Float32,Float64]
     ωfRelErr = [1.0,0.0]
     ωgRelErr = [1.0,0.0]
-    nlpList = [ADNLPModel(f2,x[1], gradient_backend = ADNLPModels.GenericForwardDiffADGradient),ADNLPModel(f2,x[2], gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
     γfunc(n,u) = 0.0 # ignore rounding errors for the tests
-    mpmodel = FPMPNLPModel(nlpList,ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr,γfunc = γfunc)
+    x = (Float32.(x₀),x₀)
+    mpmodel = FPMPNLPModel(f2,x₀,Formats,ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr,γfunc = γfunc)
     #obj test
     fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 1.0)
     @test ωf == 0.0
@@ -47,13 +47,13 @@
 end
 @testset verbose = true "solve!" begin
   @testset "First eval overflow" begin
-    f3(x) = prevfloat(typemax(Float16))*x[1]^2
-    HPFormat = Float16 # set HPFormat to Float16 to force gradient error evaluation to overflow
+    Format = Float16
+    f3(x) = prevfloat(typemax(Format))*x[1]^2
+    HPFormat = Format # set HPFormat to Float16 to force gradient error evaluation to overflow
     ωfRelErr = HPFormat[1.0]
     ωgRelErr = HPFormat[2.0]
-    x0 = Float16.([2])
-    nlpList = [ADNLPModel(f3,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
-    mpmodel = FPMPNLPModel(nlpList, HPFormat = Float16, ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)
+    x0 = Format.([2])
+    mpmodel = FPMPNLPModel(f3,x0,[Format], HPFormat = HPFormat, ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)
     solver = MPR2Solver(mpmodel)
     # objective function evaluation overflow
     stat = MultiPrecisionR2.solve!(solver,mpmodel)
@@ -207,13 +207,12 @@ end
 end
 @testset "Minimal problem tests" begin
   setrounding(Interval,:accurate)
-  # FP = [Float16,Float32,Float64], test error due to Float 16
-  FP = [Float32,Float64]
+  # Formats = [Float16,Float32,Float64], test error due to Float 16
+  Formats = [Float32,Float64]
   # quadratic
   f4(x) = x[1]^2 + x[2]^2
   x₀ = ones(2)
-  nlpList = [ADNLPModel(f4,fp.(x₀), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for fp in FP]
-  mpmodel = FPMPNLPModel(nlpList)
+  mpmodel = FPMPNLPModel(f4,x₀,Formats)
   solver = MPR2Solver(mpmodel)
   stat = MultiPrecisionR2.solve!(solver,mpmodel)
   @test isapprox(stat.solution,[0.0,0.0],atol=1e-6)

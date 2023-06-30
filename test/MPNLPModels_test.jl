@@ -1,28 +1,25 @@
 # Try to run 2 times if some tests do not pass
 
-
 @testset "Warnings and errors for FP formats ill-initialization" begin
   f(x) = x[1]+x[2]
   x0 = zeros(2)
-  # Test FP format model order in MList
+  # Test FP format model order in FPList
   Formats = [Float64,Float32]
-  nlpList = [ADNLPModel(f,fp.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for fp in Formats]
   try
-    #@test_logs (:error,"MList: wrong models FP formats precision order")
-    FPMPNLPModel(nlpList)
+    FPMPNLPModel(f,x0,Formats)
     @test false
   catch e
     buf = IOBuffer()
     showerror(buf,e)
     err_msg = String(take!(buf))
-    @test err_msg == "MList: wrong models FP formats precision order"
+    @test err_msg == "FList must be ordered by increasing precision order (e.g [Float16,Float32,Float64])"
   end
   # Test HPFormat 
-  reverse!(nlpList)
-  @test_logs (:warn,"HPFormat (Float64) is the same format than highest accuracy NLPModel: chances of numerical instability increased") min_level=Logging.Warn FPMPNLPModel(nlpList)
+  reverse!(Formats)
+  @test_logs (:warn,"HPFormat (Float64) is the same format than highest accuracy NLPModel: chances of numerical instability increased") min_level=Logging.Warn FPMPNLPModel(f,x0,Formats)
   HPFormat = Float32
   try
-    FPMPNLPModel(nlpList,HPFormat=HPFormat)
+    FPMPNLPModel(f,x0,Formats,HPFormat=HPFormat)
     @test false
   catch e
     buf = IOBuffer()
@@ -30,57 +27,52 @@
     err_msg = String(take!(buf))
     @test err_msg == "HPFormat ($HPFormat) must be a FP format with precision equal or greater than NLPModels (max prec NLPModel: Float64)" 
   end
-end
-
-@testset "MList test mismatch nlps dimension initialization" begin
-  f1(x) = x[1]+x[2]
-  f2(x) = x[1]
-  x0 = zeros(2)
-  nlpList = [ADNLPModel(f1,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient),ADNLPModel(f2,[1.0], gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
+  type = Float16
+  x0 = type.(x0)
   try
-    FPMPNLPModel(nlpList)
+    FPMPNLPModel(f,x0,Formats)
     @test false
   catch e
     buf = IOBuffer()
     showerror(buf,e)
     err_msg = String(take!(buf))
-    @test err_msg == "FPMPModel.MList NLPModels dimensions mismatch"
+    @test err_msg == "eltype of x0 ($type) must be in FPList ($Formats)" 
   end
 end
 
 @testset "ωfRelErr and ωgRelErr mismatch dimensions" begin
+  Formats = [Float32,Float64]
   f3(x) = x[1]+x[2]
   x0 = zeros(2)
-  nlpList = [ADNLPModel(f3,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient),ADNLPModel(f3,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
   ωfRelErr = [0.0]
   try
-    FPMPNLPModel(nlpList,ωfRelErr=ωfRelErr)
+    FPMPNLPModel(f3,x0,Formats,ωfRelErr=ωfRelErr)
     @test false
   catch e
     buf = IOBuffer()
     showerror(buf,e)
     err_msg = String(take!(buf))
-    @test err_msg == "MList and ωfRelErr dimension mismatch"
+    @test err_msg == "DimensionError: Input ωfRelErr should have length 2 not 1"
   end
   ωgRelErr = [0.0]
   try
-    FPMPNLPModel(nlpList,ωgRelErr=ωgRelErr)
+    FPMPNLPModel(f3,x0,Formats,ωgRelErr=ωgRelErr)
     @test false
   catch e
     buf = IOBuffer()
     showerror(buf,e)
     err_msg = String(take!(buf))
-    @test err_msg == "MList and ωgRelErr dimension mismatch"
+    @test err_msg == "DimensionError: Input ωgRelErr should have length 2 not 1"
   end
 end
 
 @testset "γfunc callback test" begin
+  Formats = [Float64]
   f4(x) = x[1]+x[2]
   x0 = zeros(2)
-  nlpList = [ADNLPModel(f4,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
   γfunc = 0
   try
-    FPMPNLPModel(nlpList,γfunc = γfunc)
+    FPMPNLPModel(f4,x0,Formats,γfunc = γfunc)
     @test false
   catch e
     buf = IOBuffer()
@@ -88,10 +80,10 @@ end
     err_msg = String(take!(buf))
     @test err_msg == "Wrong γfunc template, expected template: γfunc(n::Int,u::Float) -> Float"
   end
+  Formats = [Float16]
   x0 = Float16.(zeros(Int32(round(3/eps(Float16)))))
-  nlpList = [ADNLPModel(f4,x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
   try
-    FPMPNLPModel(nlpList)
+    FPMPNLPModel(f4,x0,Formats)
     @test false
   catch e
     buf = IOBuffer()
@@ -105,10 +97,9 @@ end
   f5(x) = x[1]+x[2]
   x0 = zeros(2)
   Formats = [Float32,Float64]
-  nlpList = [ADNLPModel(f5,fp.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for fp in Formats]
   @test_logs (:info,"Interval evaluation used by default for objective error evaluation: might significantly increase computation time")
   (:info,"Interval evaluation used by default for gradient error evaluation: might significantly increase computation time")
-  MPnlp=FPMPNLPModel(nlpList)
+  MPnlp=FPMPNLPModel(f5,x0,Formats)
   @test MPnlp.ωfRelErr == Vector{Float64}()
   @test MPnlp.ωgRelErr == Vector{Float64}()
 end
@@ -119,46 +110,25 @@ end
     f6(x) = x[1]+x[2]
     x0 = zeros(2)
     Formats = [Float32,Float64]
-    nlpList = [ADNLPModel(f6,fp.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for fp in Formats]
-    MPnlp=FPMPNLPModel(nlpList)
-    funclist = [MultiPrecisionR2.objmp,MultiPrecisionR2.objerrmp,MultiPrecisionR2.gradmp,MultiPrecisionR2.graderrmp]
-    for f in funclist
-      try 
-        f(MPnlp,x0,1)
-        @test false
-      catch e
-        buf = IOBuffer()
-        showerror(buf,e)
-        err_msg = String(take!(buf))
-        @test err_msg == "Expected input format Float32 for x but got Float64"
-      end
-    end
+    MPnlp=FPMPNLPModel(f6,x0,Formats)
+    x16 = Float16.(x0)
     try 
-      MultiPrecisionR2.gradmp!(MPnlp,x0,1,copy(x0))
+      objerrmp(MPnlp,x16)
       @test false
     catch e
       buf = IOBuffer()
       showerror(buf,e)
       err_msg = String(take!(buf))
-      @test err_msg == "Expected input format Float32 for x but got Float64"
+      @test err_msg == "Floating point format of x (Float16) not supported by the multiprecison model (FP formats supported: $(Formats))"
     end
-  end
-  @testset "Outputs FP formats consistency" begin
-    setrounding(Interval,:accurate)
-    f7(x) = x[1]+x[2]
-    x0 = zeros(2)
-    Formats = [Float16,Float32,Float64]
-    nlpList = [ADNLPModel(f7,fp.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient) for fp in Formats]
-    MPnlp=FPMPNLPModel(nlpList)
-    for i in 1:length(Formats)
-      fp = Formats[i]
-      @test typeof(MultiPrecisionR2.objmp(MPnlp,fp.(x0),i)) == Formats[i]
-      @test typeof(MultiPrecisionR2.objerrmp(MPnlp,fp.(x0),i)[1]) == Formats[i]
-      @test typeof(MultiPrecisionR2.gradmp(MPnlp,fp.(x0),i)) == Vector{Formats[i]}
-      @test typeof(MultiPrecisionR2.graderrmp(MPnlp,fp.(x0),i)[1]) == Vector{Formats[i]}
-      g = copy(fp.(x0))
-      MultiPrecisionR2.gradmp!(MPnlp,fp.(x0),i,g)
-      @test typeof(g) == Vector{Formats[i]}
+    try 
+      graderrmp(MPnlp,x16)
+      @test false
+    catch e
+      buf = IOBuffer()
+      showerror(buf,e)
+      err_msg = String(take!(buf))
+      @test err_msg == "Floating point format of x (Float16) not supported by the multiprecison model (FP formats supported: $(Formats))"
     end
   end
   @testset "Overflow interval eval" begin
@@ -168,11 +138,10 @@ end
     #obj test
     f8(x) = c*x[1]
     x0 = ones(2)
-    nlpList = [ADNLPModel(f8,Format.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
-    MPnlp=FPMPNLPModel(nlpList)
-    @test MultiPrecisionR2.objerrmp(MPnlp,Format.(x0),1) == (0,Inf)
+    MPnlp=FPMPNLPModel(f8,Format.(x0),[Format])
+    @test objerrmp(MPnlp,Format.(x0)) == (0,Inf)
     #grad testf(x) = c+x[1]
-    @test MultiPrecisionR2.graderrmp(MPnlp,Format.(x0),1) == (zeros(2),Inf)
+    @test graderrmp(MPnlp,Format.(x0)) == (zeros(2),Inf)
   end
   @testset "Overflow floating point eval" begin
     Format = Float16
@@ -181,12 +150,11 @@ end
     #obj test
     f9(x) = (10/eps(Format)+c)*x[1]
     x0 = ones(1)
-    nlpList = [ADNLPModel(f9,Format.(x0), gradient_backend = ADNLPModels.GenericForwardDiffADGradient)]
     ωfRelErr = [0.0]
     ωgRelErr = [0.0]
-    MPnlp=FPMPNLPModel(nlpList, ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)
-    @test MultiPrecisionR2.objerrmp(MPnlp,Format.(x0),1) == (Inf,Inf)
+    MPnlp=FPMPNLPModel(f9,Format.(x0),[Format], ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)
+    @test objerrmp(MPnlp,Format.(x0)) == (Inf,Inf)
     #grad test f(x) = c+x[1]
-    @test MultiPrecisionR2.graderrmp(MPnlp,Format.(x0),1)[2] == Inf
+    @test graderrmp(MPnlp,Format.(x0))[2] == Inf
   end
 end

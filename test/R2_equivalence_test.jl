@@ -21,8 +21,7 @@
   names_pb_vars = meta[(meta.has_bounds .== false) .& (meta.ncon .== 0), [:nvar, :name]] #select unconstrained problems
   for pb in eachrow(names_pb_vars)
     nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(n=$nvar,type=Val(Float64))"))
-    nlpList = [nlp]
-    mpmodel = FPMPNLPModel(nlpList,HPFormat=HPFormat,ωfRelErr=omega,ωgRelErr=omega,γfunc=γfunc);
+    mpmodel = FPMPNLPModel(nlp,[T],HPFormat=HPFormat,ωfRelErr=omega,ωgRelErr=omega,γfunc=γfunc);
     mpr2solver = MPR2Solver(mpmodel);
     @testset "Testing $(nlp.meta.name)" begin
       statr2 = R2(nlp,γ1 = γ1,η1 = η1, η2 = η2,max_time = max_time,σmin = σmin,max_eval = max_iter)

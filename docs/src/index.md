@@ -105,7 +105,6 @@ for pb in eachrow(names_pb_vars)
   r2_obj_eval .+= nlp.counters.neval_obj
   r2_grad_eval .+= nlp.counters.neval_grad
   statmpr2 = MPR2(mpmodel,max_iter = max_iter)
-  @show mpmodel.counters.neval_obj mpmodel.counters.neval_grad
   mpr2_obj_eval .+= [haskey(mpmodel.counters.neval_obj,fp) ? mpmodel.counters.neval_obj[fp] : 0 for fp in FP]
   mpr2_grad_eval .+= [haskey(mpmodel.counters.neval_grad,fp) ? mpmodel.counters.neval_grad[fp] : 0 for fp in FP]
 end
@@ -151,7 +150,7 @@ In the algorithm, *compute* means compute with finite-precision machine computat
   * List of FP formats (*e.g* [Float16, Float32, Float64])
 
 **Outputs**
-  * $x_s$ such that $\nabla f(x_s) \leq \epsilon \|\nabla f(x_0)\|$
+  * $x_k$ such that $\nabla f(x_k) \leq \epsilon \|\nabla f(x_0)\|$
 
 **Initialization**
 1. Compute $f_0 = \hat{f}(x_0,\pi_f)$
@@ -181,9 +180,9 @@ In the algorithm, *compute* means compute with finite-precision machine computat
 11. Compute $f_k^+ = \hat{f}(c_k,\pi_f^+)$
 12. Compute $\rho_k = \dfrac{f_k - f_k^+}{\Delta T_k}$
 
-* **If**  Define $\rho_k \geq \eta_1$ # step acceptance
+* **If** $\rho_k \geq \eta_1$ # step acceptance
   
-  13. $x_{k+1} = c_k$, $f_{k+1} = f_k^+$, $g_{k+1} = g_k$
+  13. $x_{k+1} = c_k$, $f_{k+1} = f_k^+$
 
 * **End If**
 

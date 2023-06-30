@@ -9,6 +9,7 @@ const REL_ERR = 1
 
 """
     FPMPNLPModel(Model::AbstractNLPModel{D,S},FPList::Vector{K}; kwargs...) where {D,S,K<:DataType}
+    FPMPNLPModel(f,x0, FPList::Vector{DataType})
 
 Floating-Point Multi-Precision Non Linear Model structure. This structure is intended to be used as MPR2Solver input.
 
@@ -64,13 +65,6 @@ T = [Float16, Float32]
 f(x) = x[1]^2 + x[2]^2
 x = zeros(2)
 MPmodel = FPMPNLPModel(f,x0,T)
-```
-
-```julia
-T = [Float16, Float32]
-problems = setdiff(names(OptimizationProblems.ADNLPProblems), [:ADNLPProblems])
-s = problem[end]
-MPmodel = FPMPNLPModel(s,T)
 ```
 """
 struct FPMPNLPModel{H,T<:Tuple,D,S} <: AbstractMPNLPModel{D,S}
@@ -143,14 +137,14 @@ function FPMPNLPModel(Model::AbstractNLPModel{D,S},FPList::Vector{K};
   FPMPNLPModel(Model,Model.meta,MPCounters(FPList),FPList,EpsList,UList,OFList,γfunc,ωfRelErr,ωgRelErr,ObjEvalMode,GradEvalMode,X,G)
 end
 
-function FPMPNLPModel(s::Symbol,
-  FPList::Vector{DataType};
-  nvar::Int=100,
-  kwargs...
-)
-  Model = eval(s)(type = Val(FPList[end]),n=nvar,gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
-  FPMPNLPModel(Model,kwargs...)
-end
+# function FPMPNLPModel(s::Symbol,
+#   FPList::Vector{DataType};
+#   nvar::Int=100,
+#   kwargs...
+# )
+#   Model = eval(s)(type = Val(FPList[end]),n=nvar,gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
+#   FPMPNLPModel(Model,FPList;kwargs...)
+# end
 
 function FPMPNLPModel(f,x0,
   FPList::Vector{DataType};
@@ -177,16 +171,6 @@ end
 function NLPModels.obj(m::FPMPNLPModel,x::AbstractVector{Interval{T}}) where T
   increment!(m,:neval_obj,T)
   obj(m.Model,x)
-end
-
-function grad(m::FPMPNLPModel,x::AbstractVector{T}) where T
-  increment!(m,:neval_grad,T) 
-  grad(m.Model,x)
-end
-
-function grad(m::FPMPNLPModel,x::AbstractVector{Interval{T}}) where T
-  increment!(m,:neval_grad,T) 
-  grad(m.Model,x)
 end
 
 function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where {T,S<:AbstractVector{T}}

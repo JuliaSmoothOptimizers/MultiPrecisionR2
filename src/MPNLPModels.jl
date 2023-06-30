@@ -179,15 +179,6 @@ function NLPModels.obj(m::FPMPNLPModel,x::AbstractVector{Interval{T}}) where T
   obj(m.Model,x)
 end
 
-function grad(m::FPMPNLPModel,x::AbstractVector{T}) where T
-  increment!(m,:neval_grad,T) 
-  grad(m.Model,x)
-end
-
-function grad(m::FPMPNLPModel,x::AbstractVector{Interval{T}}) where T
-  increment!(m,:neval_grad,T) 
-  grad(m.Model,x)
-end
 
 function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where {T,S<:AbstractVector{T}}
   increment!(m,:neval_grad,T)

@@ -39,8 +39,11 @@ The error models are :
 
 # Constructors:
 - `FPMPModel(Model::AbstractNLPModel, FPList::Vector{DataType}; nvar=100, kwargs...)` : create a FPMPModel from Model with FPList precisions
-- `FPMPModel(s::symbol,FPList::Vector{DataType}; nvar=100, kwargs...)` : create a FPMPModel from a symbol linked to an AbstractNLPModel.
 - `FPModels`(f,x0::Vector,FPList::Vector{DataType}; nvar=100, kwargs...)
+
+Using OptimizationProblems.jl loads an additional constructor:
+
+- `FPMPModel(s::symbol,FPList::Vector{DataType}; nvar=100, kwargs...)` : create a FPMPModel from a symbol linked to an AbstractNLPModel.
 
 Keyword arguments: 
 - nvar: dimension of the problem (if scalable)
@@ -137,14 +140,18 @@ function FPMPNLPModel(Model::AbstractNLPModel{D,S},FPList::Vector{K};
   FPMPNLPModel(Model,Model.meta,MPCounters(FPList),FPList,EpsList,UList,OFList,γfunc,ωfRelErr,ωgRelErr,ObjEvalMode,GradEvalMode,X,G)
 end
 
-# function FPMPNLPModel(s::Symbol,
-#   FPList::Vector{DataType};
-#   nvar::Int=100,
-#   kwargs...
-# )
-#   Model = eval(s)(type = Val(FPList[end]),n=nvar,gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
-#   FPMPNLPModel(Model,FPList;kwargs...)
-# end
+@init begin
+  @require OptimizationProblems = "5049e819-d29b-5fba-b941-0eee7e64c1c6" begin
+    function FPMPNLPModel(s::Symbol,
+      FPList::Vector{DataType};
+      nvar::Int=100,
+      kwargs...
+    )
+      Model = eval(s)(type = Val(FPList[end]),n=nvar,gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
+      FPMPNLPModel(Model,FPList;kwargs...)
+    end
+  end
+end
 
 function FPMPNLPModel(f,x0,
   FPList::Vector{DataType};

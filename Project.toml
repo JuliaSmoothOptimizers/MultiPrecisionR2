@@ -29,4 +29,4 @@ SolverBenchmark = "581a75fa-a23a-52d0-a590-d6201de2218a"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Logging", "OptimizationProblems", "Test", "JSOSolvers"]
+test = ["JSOSolvers", "Logging", "OptimizationProblems", "SolverBenchmark", "Test"]

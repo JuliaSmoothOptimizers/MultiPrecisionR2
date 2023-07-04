@@ -3,13 +3,21 @@ export MPCounters, increment!, reset!
 """
     MPCounters
 
-Struct for storing the number of function evaluations with each FP formats.
+Struct for storing the number of function evaluations with each floating point format.
+The fields are the same as [NLPModels.Counters](https://jso.dev/NLPModels.jl/stable/reference/#NLPModels.Counters),
+but contains a `Dict{DataType,Int}`.
 
 ---
 
-    MPCounters()
+    MPCounters(FPformats::Vector{DataType})
 
-Creates an empty Counters struct.
+Creates an empty MPCounters struct for types in the vector `FPformats`.
+
+```julia
+using MultiPrecisionR2.jl
+FPformats = [Float16, Float32]
+cntrs = MPCounters(FPformats)
+```
 """
 mutable struct MPCounters
   neval_obj::Dict{DataType,Int}  # Number of objective evaluations.

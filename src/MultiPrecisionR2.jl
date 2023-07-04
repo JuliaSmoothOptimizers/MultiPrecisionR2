@@ -6,7 +6,9 @@
 
 module MultiPrecisionR2
 
-using ADNLPModels, IntervalArithmetic, NLPModels, Printf, LinearAlgebra, SolverCore
+using IntervalArithmetic, LinearAlgebra, Printf, Requires
+# JSO
+using ADNLPModels, NLPModels, SolverCore
 
 export MPR2, MPR2Solver, MPR2Params, MPR2State, MPR2Precisions, solve!, umpt!, objReachPrec, gradReachPrec!, AbstractMPNLPModel, MPCounters
 

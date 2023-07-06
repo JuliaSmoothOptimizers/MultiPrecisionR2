@@ -163,13 +163,13 @@ function Base.show(io::IO, m::FPMPNLPModel)
   print(io,m.Model)
 end
 
-function NLPModels.obj(m::FPMPNLPModel,x::Union{AbstractVector{T},AbstractVector{Interval{T}}}) where T
+function NLPModels.obj(m::FPMPNLPModel,x::Union{AbstractVector{T},AbstractVector{Interval{T}}}) where {T <: AbstractFloat}
   increment!(m,:neval_obj,T)
   obj(m.Model,x)
 end
 
 
-function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where {T,S<:Union{AbstractVector{T},AbstractVector{Interval{T}}}}
+function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where {T <: AbstractFloat,S<:Union{AbstractVector{T},AbstractVector{Interval{T}}}}
   increment!(m,:neval_grad,T)
   grad!(m.Model,x,g)
 end

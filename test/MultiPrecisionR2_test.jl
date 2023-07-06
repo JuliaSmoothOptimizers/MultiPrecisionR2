@@ -54,23 +54,22 @@ end
     ωgRelErr = HPFormat[2.0]
     x0 = Format.([2])
     mpmodel = FPMPNLPModel(f3,x0,[Format], HPFormat = HPFormat, ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr)
-    solver = MPR2Solver(mpmodel)
     # objective function evaluation overflow
-    stat = MultiPrecisionR2.solve!(solver,mpmodel)
+    stat = MPR2(mpmodel)
     @test stat.status == :exception
     @test stat.iter == 0
     @test stat.solution == Float16.(x0)
     @test stat.objective === Float16(Inf)
     # objective function error overflow
     x0 = Float16.([1.0])
-    stat = MultiPrecisionR2.solve!(solver,mpmodel,x₀ = x0)
+    stat = MPR2(mpmodel,x₀ = x0)
     @test stat.status == :exception
     @test stat.iter == 0
     @test stat.solution == x0
     @test stat.objective === prevfloat(typemax(Float16))
     #gradient overflow
     x0 = Float16.([1.0])
-    stat = MultiPrecisionR2.solve!(solver,mpmodel,x₀ = x0)
+    stat = MPR2(mpmodel,x₀ = x0)
     @test stat.status == :exception
     @test stat.iter == 0
     @test stat.solution == x0
@@ -213,9 +212,8 @@ end
   f4(x) = x[1]^2 + x[2]^2
   x₀ = ones(2)
   mpmodel = FPMPNLPModel(f4,x₀,Formats)
-  solver = MPR2Solver(mpmodel)
-  stat = MultiPrecisionR2.solve!(solver,mpmodel)
-  @test isapprox(stat.solution,[0.0,0.0],atol=1e-6)
+  stats = MPR2(mpmodel)
+  @test isapprox(stats.solution,[0.0,0.0],atol=1e-6)
   #rosenbrock
   # f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2
   # x₀ = zeros(2)

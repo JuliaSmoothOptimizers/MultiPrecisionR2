@@ -163,51 +163,48 @@ function Base.show(io::IO, m::FPMPNLPModel)
   print(io,m.Model)
 end
 
-function NLPModels.obj(m::FPMPNLPModel,x::AbstractVector{T}) where T
+function NLPModels.obj(m::FPMPNLPModel,x::Union{AbstractVector{T},AbstractVector{Interval{T}}}) where T
   increment!(m,:neval_obj,T)
   obj(m.Model,x)
 end
 
-function NLPModels.obj(m::FPMPNLPModel,x::AbstractVector{Interval{T}}) where T
-  increment!(m,:neval_obj,T)
-  obj(m.Model,x)
-end
 
-function NLPModels.grad!(m::FPMPNLPModel,x::AbstractVector{T},g::AbstractVector{T}) where {T}
+function NLPModels.grad!(m::FPMPNLPModel,x::S,g::S) where {T,S<:Union{AbstractVector{T},AbstractVector{Interval{T}}}}
   increment!(m,:neval_grad,T)
   grad!(m.Model,x,g)
 end
 
-function NLPModels.grad!(m::FPMPNLPModel,x::AbstractVector{Interval{T}},g::AbstractVector{Interval{T}}) where {T}
-  increment!(m,:neval_grad,T)
-  grad!(m.Model,x,g)
+function get_id(m::FPMPNLPModel,FPFormat::DataType)
+  return findfirst(t->t==FPFormat,m.FPList)
 end
 
 """
-    objerrmp(m::FPMPNLPModel, x::V) where {S,V<:AbstractVector{S}}
+    objerrmp(m::FPMPNLPModel, x::AbstractVector{T})
+    objerrmp(m::FPMPNLPModel, x::AbstractVector{S}, ::Val{INT_ERR})
+    objerrmp(m::FPMPNLPModel, x::AbstractVector{S}, ::Val{REL_ERR})
 
-Evaluate the objective and the evaluation error of the id-th model of m.
-Inputs: x::Vector{S}
-Outputs: ̂f::S, ωf <: AbstractFloat, with |f(x)-̂f| ≤ ωf
+Evaluates the objective and the evaluation error. The two functions with the extra argument ::Val{INT_ERR} and ::Val{REL_ERR} handles the interval and "classic" evaluation of the objective and the error, respectively.
+Inputs: x::Vector{S}, can be either a vector of AbstractFloat or a vector of Intervals.
+Outputs: fl(f(x)), ωf <: AbstractFloat, where |f(x)-fl(f(x))| ≤ ωf with fl() the floating point evaluation.
 Overflow cases:
 * Interval evaluation: overflow occurs if the diameter of the interval enclosing f(x) is Inf. Returns 0, Inf
 * Classical evaluation:
   + If obj(x) = Inf: returns: Inf, Inf
   + If obj(x) != Inf and ωf = Inf, returns: obj(x), Inf  
 """
-function objerrmp(m::FPMPNLPModel, x::V) where {S,V<:AbstractVector{S}}
-  findfirst(t->t==S,m.FPList) !== nothing || error("Floating point format of x ($S) not supported by the multiprecison model (FP formats supported: $(m.FPList))")
+function objerrmp(m::FPMPNLPModel, x::AbstractVector{S}) where S
+  get_id(m,S) !== nothing || error("Floating point format of x ($S) not supported by the multiprecison model (FP formats supported: $(m.FPList))")
   objerrmp(m, x, Val(m.ObjEvalMode))
 end
 
 @doc (@doc objerrmp)
-function objerrmp(m::FPMPNLPModel, x::V, ::Val{INT_ERR}) where {S,V<:AbstractVector{S}}
-  id = findfirst(t->t==S,m.FPList)
+function objerrmp(m::FPMPNLPModel, x::AbstractVector{S}, ::Val{INT_ERR}) where S
+  id = get_id(m,S)
   for i in eachindex(x) # this is the proper way to instanciate interval vector, see issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
     m.X[id][i] = x[i] .. x[i] # ::Vector{Interval{S}}
   end
   F = obj(m,m.X[id]) # ::Interval{S}
-  if isinf(diam(F)) #overflow case
+  if check_overflow(F) #overflow case
     return S(0.0), Inf
   else
     return mid(F), radius(F) #::S, ::S
@@ -215,12 +212,12 @@ function objerrmp(m::FPMPNLPModel, x::V, ::Val{INT_ERR}) where {S,V<:AbstractVec
 end
 
 @doc (@doc objerrmp)
-function objerrmp(m::FPMPNLPModel{H}, x::V, ::Val{REL_ERR}) where {H, S, V<:AbstractVector{S}}
-  f = obj(m,x) #:: S
-  if isinf(f) || isnan(f) #overflow case
+function objerrmp(m::FPMPNLPModel{H}, x::AbstractVector{S}, ::Val{REL_ERR}) where {H, S}
+  f = obj(m,x)
+  if check_overflow(f) #overflow case
     return f, Inf
   else
-    id = findfirst(t->t==S,m.FPList)
+    id = get_id(m,S)
     ωf = H(abs(f))*m.ωfRelErr[id] # Computed with H ≈> exact evaluation 
     return f, ωf # FP format of second returned value is H 
   end
@@ -228,28 +225,30 @@ end
 
 """
     graderrmp!(m::FPMPNLPModel{H}, x::V, g::V) where {H, S, V<:AbstractVector{S}}
+    graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, ::Val{INT_ERR}) where {H, S, V<:AbstractVector{S}}
+    graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, ::Val{REL_ERR}) where {H, S, V<:AbstractVector{S}}
 
-Evaluate the gradient g and the relative evaluation error ωg of the id-th model of m.
+Evaluates the gradient g and the relative evaluation error ωg. The two functions with the extra argument ::Val{INT_ERR} and ::Val{REL_ERR} handles the interval and "classic" evaluation of the objective and the error, respectively.
 Inputs: x::Vector{S} with S in m.FPList
-Outputs: g::Vector{S}, ωg <: AbstractFloat satisfying: ||∇f(x) - g||₂ ≤ ωg||g||₂
+Outputs: g::Vector{S}, ωg <: AbstractFloat satisfying: ||∇f(x) - fl(∇f(x))||₂ ≤ ωg||g||₂ with fl() the floating point evaluation.
 Note: ωg FP format may be different than S
 Overflow cases:
 * Interval evaluation: if at least one element of g has infinite diameter, returns [0]ⁿ, Inf
 * Classical evaluation: if one element of g overflow, returns g, Inf 
 """
 function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V) where {H, S, V<:AbstractVector{S}}
-  findfirst(t->t==S,m.FPList) !== nothing || error("Floating point format of x ($S) not supported by the multiprecison model (FP formats supported: $(m.FPList))")
+  get_id(m,S) !== nothing || error("Floating point format of x ($S) not supported by the multiprecison model (FP formats supported: $(m.FPList))")
   graderrmp!(m, x, g, Val(m.GradEvalMode))
 end
 
 @doc( @doc graderrmp!)
 function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, ::Val{INT_ERR}) where {H, S, V<:AbstractVector{S}}
-  id = findfirst(t->t==S,m.FPList)
+  id = get_id(m,S)
   for i in eachindex(x) # this is the proper way to instanciate interval vector, see issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
     m.X[id][i] = x[i] .. x[i] # ::Vector{Interval{S}}
   end
   grad!(m,m.X[id],m.G[id]) # ::IntervalBox{S}
-  if findfirst(x->isinf(diam(x)),m.G[id]) !== nothing  #overflow case
+  if check_overflow(m.G[id])  #overflow case
     g .= zero(S)
     return Inf
   end
@@ -272,12 +271,12 @@ end
 @doc( @doc graderrmp!)
 function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, ::Val{REL_ERR}) where {H, S, V<:AbstractVector{S}}
   grad!(m,x,g) # ::Vector{S}
-  if findfirst(x->isinf(x) || isnan(x),g) !== nothing  # one element of g overflow
+  if check_overflow(g)
     return Inf
   end
   g_norm = norm(g) #::S ! computed with finite precision in S FP format
-  n=m.Model.meta.nvar # ::Int
-  id = findfirst(t->t==S,m.FPList)
+  n=m.meta.nvar # ::Int
+  id = get_id(m,S)
   u = m.UList[id] # ::H
   γₙ = m.γfunc(n,u) # ::H
   ωg = m.ωgRelErr[id] * (1+γₙ)/(1-γₙ) # ::H. Accounting for norm computation rounding errors, evaluated with HPFormat ≈> exact computation
@@ -289,90 +288,4 @@ function graderrmp(m::FPMPNLPModel, x::V) where {S,V<:AbstractVector{S}}
   g = similar(x)
   ωg =  graderrmp!(m, x, g)
   return g, ωg
-end
-
-"""
-    ObjIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
-
-Test interval evaluation of objective for all formats in `FPList`.
-Test fails and return an error if:
-  * Interval evaluation returns an error
-  * Interval evaluation is not type stable
-See [`FPMPNLPModel`](@ref), [`AbstractNLPModel`](@ref)
-"""
-function ObjIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
-  for fp in FPList
-    @debug "Testing objective interval evaluation with $fp "
-    try
-      X0 = [fp(xi)..fp(xi) for xi ∈ nlp.meta.x0]
-      intype = fp
-      output = obj(nlp,X0) # ! obj(nlp,X0::IntervalBox{T}) returns either ::T or Interval{T}
-      outtype = typeof(output) <: AbstractFloat ? typeof(output) : typeof(output.lo) 
-      if intype != outtype
-        @error "Interval evaluation of objective function not type stable ($intype -> $outtype)"
-        error("Interval evaluation of objective function not type stable ($intype -> $outtype)")
-      end
-    catch e
-      error("Objective function evaluation error with interval, error model must be provided.\n 
-      Error detail:")
-      @show e
-    end
-  end
-end
-
-"""
-    GradIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
-
-Test interval evaluation of gradient for all FP formats.
-Test fails and return an error if:
-  * Interval evaluation returns an error
-  * Interval evaluation is not type stable
-See [`FPMPNLPModel`](@ref), [`AbstractNLPModel`](@ref)
-"""
-function GradIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
-  for fp in FPList
-    @debug "Testing grad interval evaluation with $fp"
-    try 
-      X0 = [fp(xi)..fp(xi) for xi ∈ nlp.meta.x0]
-      intype = fp
-      output = grad(nlp,X0)
-      outtype = typeof(output[1]) <: AbstractFloat ? typeof(output[1]) : typeof(output[1].lo) 
-      if intype != outtype
-        @error "Interval evaluation of gradient not type stable ($intype -> $outtype)"
-        error("Interval evaluation of gradient not type stable ($intype -> $outtype)")
-      end
-    catch e
-      error("Gradient evaluation error with interval, error model must be provided.\n 
-      Error detail:")
-      @show e
-    end
-  end
-end
-
-"""
-    γfunc_test_template(γfunc)
-
-Tests if γfunc callback function is properly implemented.
-Expected template: γfunc(n::Int,u::Float) -> Float
-"""    
-function γfunc_test_template(γfunc)
-  err_msg = "Wrong γfunc template, expected template: γfunc(n::Int,u::Float) -> Float"
-  try
-    typeof(γfunc(1,1.0)) <: AbstractFloat  || error(err_msg)
-  catch e
-    error(err_msg)
-  end
-end
-
-"""
-    γfunc_test_error_bound(n::Int,eps::AbstractFloat,γfunc)
-
-Tests if γfunc callback provides strictly less than 100% error for dot product error of vector
-of size the dimension of the problem and the lowest machine epsilon.
-"""
-function γfunc_test_error_bound(n::Int,eps::AbstractFloat,γfunc)
-  err_msg = "γfunc: dot product error greater than 100% with highest precision. Consider using higher precision floating point format, or provide a different callback function for γfunc (last option might cause numerical instability)."
-  if γfunc(n,eps) >= 1.0
-    error(err_msg)
-  end
 end

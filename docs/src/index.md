@@ -438,6 +438,22 @@ stat = MPR2(MPmodel,par = param)
 ```
 Now MPR2 converges to a first order critical point since we tolerate enough error on the objective evaluation.
 
+### **Evaluation Counters**
+
+MPR2 counts the number of objective and gradient evaluations are counted for each FP formats. They are stored in `counters` field of the `FPNLPModel` structure. The `counters` field is a `MPCounters`.
+
+```julia
+setrounding(Interval,:accurate)
+FP = [Float16, Float32, Float64]
+f(x) = sum(x.^2) 
+x0 = ones(10)
+HPFormat = Float64
+MPmodel = FPMPNLPModel(f,x0,FP,HPFormat = HPFormat);
+MPR2(MPmodel,verbose=1)
+@show MPmodel.counters.neval_obj # numbers of objective evaluations 
+@show MPmodel.counters.neval_grad # numbers of gradient evaluations
+```
+
 # Advanced Use
 
 `MultiPrecisionR2.jl` does more than implementing MPR2 algorithm as describes in Section [MPR2 Algorithm General Description](#mpr2-algorithm-general-description). `MPR2Precision.jl` enables the user to define its own strategy to select evaluation precisions and to handle evaluation errors. This is made possible by using callback functions when calling `MultiPrecisionR2.solve!()`. The default implementation of `MultiPrecisionR2.solve!()` relies on specific implementation of these callback functions, which are included in the package. The user is free to provide its own callback functions to change the behavior of the algorithm. 

@@ -52,9 +52,9 @@ for mpcounter in fieldnames(MPCounters)
     """
         $($mpcounter)(nlp)
 
-    Get the number of `$(split("$($mpcounter)", "_")[2])` evaluations.
+    Get the total number (all FP formats) of `$(split("$($mpcounter)", "_")[2])` evaluations.
     """
-    $mpcounter(nlp::AbstractMPNLPModel) = nlp.counters.$mpcounter
+    NLPModels.$mpcounter(nlp::AbstractMPNLPModel) = sum(collect(values(nlp.counters.$mpcounter)))
     export $mpcounter
   end
 end
@@ -76,35 +76,42 @@ for fun in fieldnames(MPCounters)
   end
 end
 
-# """
-#     decrement!(nlp, s)
+"""
+    decrement!(nlp, s)
+    decrement!(nlp, s, FPFormat)
 
-# Decrement counter `s` of problem `nlp`.
-# """
-# function decrement!(nlp::AbstractNLPModel, s::Symbol)
-#   setproperty!(nlp.counters, s, getproperty(nlp.counters, s) - 1)
-# end
+Decrement counter `s` of problem `nlp` for the given FPFormat if provided, either decrements for all FP formats of the dictionnary.
+"""
+function decrement!(nlp::AbstractNLPModel, s::Symbol)
+  setproperty!(nlp.counters, s, getproperty(nlp.counters, s) .- 1)
+end
 
-# """
-#     sum_counters(counters)
+function decrement!(nlp::AbstractNLPModel, s::Symbol, FPFormat::DataType)
+  counter = getproperty(nlp.counters, s)
+  counter[FPFormat] -= 1
+  setproperty!(nlp.counters, s, counter)
+end
 
-# Sum all counters of `counters` except `cons`, `jac`, `jprod` and `jtprod`.
-# """
-# function sum_counters(c::Counters)
-#   sum = 0
-#   for x in fieldnames(Counters)
-#     if !(x in (:neval_cons, :neval_jac, :neval_jprod, :neval_jtprod))
-#       sum += getproperty(c, x)
-#     end
-#   end
-#   return sum
-# end
-# """
-#     sum_counters(nlp)
+"""
+    sum_counters(counters)
 
-# Sum all counters of problem `nlp` except `cons`, `jac`, `jprod` and `jtprod`.
-# """
-# sum_counters(nlp::AbstractNLPModel) = sum_counters(nlp.counters)
+Sum all counters of `counters` except `cons`, `jac`, `jprod` and `jtprod`.
+"""
+function sum_counters(c::MPCounters)
+  sum = Dict{DataType,Int}()
+  for x in fieldnames(MPCounters)
+    if !(x in (:neval_cons, :neval_jac, :neval_jprod, :neval_jtprod))
+      mergewith(+,sum,getproperty(c, x))
+    end
+  end
+  return sum
+end
+"""
+    sum_counters(nlp)
+
+Sum all counters of problem `nlp` except `cons`, `jac`, `jprod` and `jtprod`.
+"""
+sum_counters(nlp::AbstractNLPModel) = sum_counters(nlp.counters)
 
 """
     reset!(counters::MPCounters)

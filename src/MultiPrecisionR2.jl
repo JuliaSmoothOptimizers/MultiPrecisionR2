@@ -14,6 +14,7 @@ abstract type AbstractMPNLPModel{T,S} <: AbstractNLPModel{T,S} end
 
 include("MPCounters.jl")
 include("MPNLPModels.jl")
+include("utils.jl")
 
 """
     MPR2(MPnlp; kwargs...)
@@ -26,6 +27,7 @@ Keyword agruments:
 - `par::MPR2Params = MPR2Params(MPnlp.FPList[1],H)` : MPR2 parameters, see `MPR2Params` for details
 - `atol::H = H(sqrt(eps(T)))` : absolute tolerance on first order criterion 
 - `rtol::H = H(sqrt(eps(T)))` : relative tolerance on first order criterion
+- `max_eval::Int = -1`: maximum number of evaluation of the objective function.
 - `max_iter::Int = 1000` : maximum number of iteration allowed
 - `σmin::T = sqrt(T(MPnlp.EpsList[end]))` : minimal value for regularization parameter. Value must be representable in any of the floating point formats of MPnlp. 
 - `verbose::Int=0` : display iteration information if > 0
@@ -48,8 +50,7 @@ MPnlp = FPMPNLPModel(nlp_list)
 mpr2s(MPnlp) 
 ```
 """
-mutable struct MPR2Solver{T <: Tuple
-} # <: AbstractOptimizationSolver
+mutable struct MPR2Solver{T <: Tuple} <: AbstractOptimizationSolver
   x::T
   g::T
   s::T
@@ -71,7 +72,7 @@ end
   kwargs...
 ) where V
   solver = MPR2Solver(MPnlp)
-  return solve!(solver, MPnlp;x₀ = x₀, kwargs...)
+  return SolverCore.solve!(solver, MPnlp;x₀ = x₀, kwargs...)
 end
 
 
@@ -217,17 +218,24 @@ mutable struct MPR2State{H}
 end
 
 function MPR2State(HPFormat::DataType)
-  return MPR2State([HPFormat(0) for _ in 1:fieldcount(MPR2State)-2]...,0,:exception)
+  return MPR2State([HPFormat(0) for _ in 1:fieldcount(MPR2State)-2]...,0,:unknown)
 end
 
-function solve!(
+function SolverCore.reset!(solver::MPR2Solver{T}) where {T}
+  solver
+end
+
+function SolverCore.solve!(
   solver::MPR2Solver{T},
-  MPnlp::FPMPNLPModel{H};
+  MPnlp::FPMPNLPModel{H},
+  stats::GenericExecutionStats;
   x₀::V = MPnlp.meta.x0,
   par::MPR2Params = MPR2Params(MPnlp.FPList[1],H),
   atol::H = H(sqrt(eps(MPnlp.FPList[end]))),
   rtol::H = H(sqrt(eps(MPnlp.FPList[end]))),
+  max_eval::Int = -1,
   max_iter::Int = 1000,
+  max_time::Float64 = 30.0,
   σmin::H = H(sqrt(MPnlp.FPList[end](MPnlp.EpsList[end]))),
   verbose::Int=0,
   e::E = nothing,
@@ -237,8 +245,13 @@ function solve!(
   recompute_g! = recompute_g_default!,
   selectPic! = selectPic_default!
 ) where {S<:AbstractFloat, V <:Vector{S}, H, T, E}
+
+  unconstrained(MPnlp) || error("MPR2 should only be called on unconstrained problems.")
+  SolverCore.reset!(stats)
+
   start_time = time()
-  elapsed_time = 0.0
+  SolverCore.set_time!(stats, 0.0)
+
   # check for ill initialized parameters
   CheckMPR2ParamConditions(par)
   # instanciate MPR2 states
@@ -254,6 +267,9 @@ function solve!(
   g = solver.g
   s = solver.s
   c = solver.c
+
+  SolverCore.set_iter!(stats, 0)
+
   #initialize precisions
   πmax = length(MPnlp.FPList)
   π = MPR2Precisions(πmax)
@@ -262,45 +278,74 @@ function solve!(
   FP = MPnlp.FPList
   U = MPnlp.UList
   state.iter=0
-  done = false
-  state.status = :unknown
+
+
   γfunc = MPnlp.γfunc
   βfunc(n::Int,u::H) = max(abs(1-sqrt(1-γfunc(n+2,u))),abs(1-sqrt(1+γfunc(n,u)))) # error bound on euclidean norm
+  
   # initial evaluation, check for overflow
   compute_f_at_x!(MPnlp,state,π,par,e,x)
   if isinf(state.f) || isinf(state.ωf)
     @warn "Objective or ojective error overflow at x0"
     state.status = :exception
-    done = true
   end
+  SolverCore.set_objective!(stats, state.f)
+
   compute_g!(MPnlp,state,π,par,e,x,g)
   if findfirst(x->x === FP[end](Inf), g) !== nothing || state.ωg == FP[end](Inf)
     @warn "Gradient or gradient error overflow at x0"
     state.status = :exception
-    done = true
   end
   umpt!(g,g[π.πg])
   state.g_norm = H(norm(g[π.πg]))
+  SolverCore.set_dual_residual!(stats,state.g_norm)
+
   σ0 = 2^round(log2(state.g_norm+1)) # ensures ||s_0|| ≈ 1 with sigma_0 = 2^n with n an interger, i.e. sigma_0 is exactly representable in n bits 
   state.σ = H(σ0) # declare σ with the highest precision, convert it when computing sk to keep it at precision πg
+  
   # check first order stopping condition
   ϵ = atol + rtol * state.g_norm
-  if state.g_norm ≤ (1-βfunc(n,U[π.πg]))*ϵ/(1+H(state.ωg))
-    done = true
-    state.status = :first_order
+  optimal = state.g_norm ≤ (1-βfunc(n,U[π.πg]))*ϵ/(1+H(state.ωg))
+  if optimal
+    @info("First order critical point found at initial point")
   end
   if verbose > 0
     infoline = @sprintf "%6s  %9s  %9s  %9s  %9s  %9s  %7s  %7s  %7s  %7s %7s  %2s  %2s  %2s  %2s\n" "iter" "f(x)" "ωf(x)" "f(c)" "ωf(c)" "‖g‖" "ωg" "σ" "μ" "ϕ" "ρ" "πx" "πc" "πf" "πg"
     @info infoline
+    infoline = @sprintf "%6d  %9.2e  %9.2e  %9.2e  %9.2e  %9.2e  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %2d  %2d  %2d  %2d \n" stats.iter state.f state.ωf state.f⁺ state.ωf⁺ state.g_norm state.ωg state.σ state.μ state.ϕ state.ρ π.πx π.πc π.πf π.πg
+    @info infoline
   end
+
+  SolverCore.set_status!(
+    stats,
+    SolverCore.get_status(
+      MPnlp,
+      elapsed_time = stats.elapsed_time,
+      optimal = optimal,
+      max_eval = max_eval,
+      iter = stats.iter,
+      max_iter = max_iter,
+      max_time = max_time,
+    ),
+  )
+  if state.status == :exception
+    set_status!(stats,:exception) # overflow case not covered by get_status()
+  else
+    state.status = stats.status
+  end
+
+  done = stats.status != :unknown
+
   #main loop
   while(!done)
-    state.iter += 1
+    state.iter = stats.iter
+
     π.πs = π.πg
     computeStep!(s, g, state.σ, FP, π)
     computeCandidate!(c, x, s, FP, π)
     state.ΔT = H(computeModelDecrease!(g, s, FP, π))
     CheckUnderOverflow(state,s,c)
+    
     g_recomp, prec_fail = recompute_g!(MPnlp,state,π,par,e,x,g,s)
     if prec_fail 
       state.status = :exception
@@ -312,64 +357,89 @@ function solve!(
       state.ΔT = H(computeModelDecrease!(g, s, FP, π))
       CheckUnderOverflow(state,s,c)
     end
+    SolverCore.set_dual_residual!(stats,state.g_norm)
+    
     prec_fail = compute_f_at_x!(MPnlp,state,π,par,e,x)
     if prec_fail
       state.status = :exception
     end
+    SolverCore.set_objective!(stats, state.f)
+
     prec_fail = compute_f_at_c!(MPnlp,state,π,par,e,c)
     if prec_fail
       state.status = :exception
     end
+
     state.ρ = ( H(state.f) - H(state.f⁺)) / H(state.ΔT)
-    if verbose > 0
-      infoline = @sprintf "%6d  %9.2e  %9.2e  %9.2e  %9.2e  %9.2e  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %2d  %2d  %2d  %2d \n" state.iter state.f state.ωf state.f⁺ state.ωf⁺ state.g_norm state.ωg state.σ state.μ state.ϕ state.ρ π.πx π.πc π.πf π.πg
-      @info infoline
-    end
+    
     if state.ρ ≥ η₂ 
       state.σ = max(σmin,  state.σ*γ₁)
     end
     if state.ρ < η₁
       state.σ = state.σ * γ₂
     end
+
     if state.ρ ≥ η₁
       prec_fail = compute_g!(MPnlp,state,π,par,e,c,g)
       if prec_fail 
         state.status = :exception
       end
       umpt!(g,g[π.πg])
-      if findfirst(x->x === FP[end](Inf), g[end]) !== nothing || state.ωg == FP[end](Inf)
+      
+      if findfirst(x->isinf(x), g[end]) !== nothing || isinf(state.ωg)
         @warn "gradient evaluation error at c too big to ensure convergence"
         state.status = :exception
       end
+      
       state.g_norm = H(norm(g[π.πg]))
       umpt!(x,c[π.πc])
       state.f = state.f⁺
+      SolverCore.set_objective!(stats,state.f⁺)
       state.ωf = state.ωf⁺
+      
       π.πf = π.πf⁺
       π.πx = π.πc
       selectPic!(π)
     end
-    if state.g_norm ≤1/(1+βfunc(n,U[π.πg]))*ϵ/(1+H(state.ωg))
-      state.status = :first_order
+
+    SolverCore.set_iter!(stats, stats.iter + 1)
+    state.iter = stats.iter
+    SolverCore.set_time!(stats, time() - start_time)
+    SolverCore.set_dual_residual!(stats, state.g_norm)
+    optimal = state.g_norm ≤1/(1+βfunc(n,U[π.πg]))*ϵ/(1+H(state.ωg))
+
+    if verbose > 0
+      infoline = @sprintf "%6d  %9.2e  %9.2e  %9.2e  %9.2e  %9.2e  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %2d  %2d  %2d  %2d \n" stats.iter state.f state.ωf state.f⁺ state.ωf⁺ state.g_norm state.ωg state.σ state.μ state.ϕ state.ρ π.πx π.πc π.πf π.πg
+      @info infoline
     end
-    if state.iter >= max_iter
-      state.status = :max_iter
+
+    SolverCore.set_status!(
+      stats,
+      SolverCore.get_status(
+        MPnlp,
+        elapsed_time = stats.elapsed_time,
+        optimal = optimal,
+        max_eval = max_eval,
+        iter = stats.iter,
+        max_iter = max_iter,
+        max_time = max_time,
+      ),
+    )
+    if state.status == :exception
+      set_status!(stats,:exception) # overflow case (exception) not covered by get_status()
+    else
+      state.status = stats.status
     end
-    done = !(state.status == :unknown)
+
+    done = stats.status != :unknown
   end
-  elapsed_time = time() - start_time
-  return GenericExecutionStats(
-    MPnlp.Model,
-    status = state.status,
-    solution = x[end],
-    objective = MPnlp.FPList[end](state.f),
-    dual_feas = MPnlp.FPList[end](state.g_norm),
-    elapsed_time = elapsed_time,
-    iter = state.iter,
-  )
+
+  SolverCore.set_solution!(stats, x[end])
+  return stats
+  
 end
 
-function CheckUnderOverflow(state::MPR2State,s::Tuple,c::Tuple) where D
+function CheckUnderOverflow(state::MPR2State,s::Tuple,c::Tuple)
   if isinf(s[1][1]) # overflow or underflow occured, stop the loop
     @warn "Step over/underflow"
     state.status = :exception

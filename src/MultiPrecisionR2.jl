@@ -236,7 +236,7 @@ function solve!(
   compute_g! = compute_g_default!,
   recompute_g! = recompute_g_default!,
   selectPic! = selectPic_default!
-) where {S<:AbstractFloat, V <:Vector{S}, H, T, E}
+) where {V<:AbstractVector{<:AbstractFloat}, H, T, E}
   start_time = time()
   elapsed_time = 0.0
   # check for ill initialized parameters

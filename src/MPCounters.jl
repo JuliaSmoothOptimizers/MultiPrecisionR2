@@ -51,10 +51,13 @@ for mpcounter in fieldnames(MPCounters)
   @eval begin
     """
         $($mpcounter)(nlp)
+        $($mpcounter)(nlp,T)
 
     Get the total number (all FP formats) of `$(split("$($mpcounter)", "_")[2])` evaluations.
+    If extra argument T is provided, returns  turn number of `$(split("$($mpcounter)", "_")[2])` evaluations for the given FP format T.
     """
     NLPModels.$mpcounter(nlp::AbstractMPNLPModel) = sum(collect(values(nlp.counters.$mpcounter)))
+    NLPModels.$mpcounter(nlp::AbstractMPNLPModel,T::DataType) = nlp.counters.$mpcounter[T]
     export $mpcounter
   end
 end

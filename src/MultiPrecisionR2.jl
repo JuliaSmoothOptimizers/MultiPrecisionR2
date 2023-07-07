@@ -244,11 +244,11 @@ function SolverCore.solve!(
   compute_g! = compute_g_default!,
   recompute_g! = recompute_g_default!,
   selectPic! = selectPic_default!
-) where {S<:AbstractFloat, V <:Vector{S}, H, T, E}
+) where {V<:AbstractVector{<:AbstractFloat}, H, T, E}
 
   unconstrained(MPnlp) || error("MPR2 should only be called on unconstrained problems.")
   SolverCore.reset!(stats)
-
+  
   start_time = time()
   SolverCore.set_time!(stats, 0.0)
 

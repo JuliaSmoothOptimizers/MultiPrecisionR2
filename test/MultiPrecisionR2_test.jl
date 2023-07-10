@@ -102,9 +102,8 @@ end
     gval = nextfloat(Float16(0.0))*ones(2)
     g = (Float16.(gval), Float32.(gval))
     σ = 2 * nextfloat(Float16(0.0))/nextfloat(Float32(0.0))
-    MultiPrecisionR2.computeStep!(s, g, σ, FP, π)
+    @test MultiPrecisionR2.computeStep!(s, g, σ, FP, π) == false
     @test π.πs == 2
-    @test s[π.πs] == [Inf,Inf]
     # σ underflow at Float16
     gval = Float32.(ones(2))
     g = (Float16.(gval), Float32.(gval))
@@ -124,15 +123,13 @@ end
     g = (Float16.(gval), Float32.(gval))
     σ = nextfloat(Float32(0.0))/2.0
     π.πs = 1
-    MultiPrecisionR2.computeStep!(s, g, σ, FP, π)
+    @test MultiPrecisionR2.computeStep!(s, g, σ, FP, π) == false
     @test π.πs == 2
-    @test s[π.πs] == [Inf,Inf]
     # sigma overflow at Float32
     σ = prevfloat(typemax(Float32))*2.0
     π.πs = 1
-    MultiPrecisionR2.computeStep!(s, g, σ, FP, π)
+    @test MultiPrecisionR2.computeStep!(s, g, σ, FP, π) == false
     @test π.πs == 2
-    @test s[π.πs] == [Inf,Inf]
   end
 end
 @testset "computeCandidate!" begin
@@ -160,42 +157,41 @@ end
     xval = prevfloat(typemax(Float32))*ones(2)
     x = (Float16.(xval), Float32.(xval))
     s = (Float16.(xval), Float32.(xval))
-    MultiPrecisionR2.computeCandidate!(c, x, s, FP, π)
+    @test MultiPrecisionR2.computeCandidate!(c, x, s, FP, π) == false
     @test π.πc == 2
-    @test c[π.πc] == [Inf, Inf]
     # underflow at Float32
     xval = ones(2)
     x = (Float16.(xval), Float32.(xval))
     sval = eps(Float32)/2.0*ones(2)
     s = (Float16.(sval), Float32.(sval))
-    MultiPrecisionR2.computeCandidate!(c, x, s, FP, π)
+    @test MultiPrecisionR2.computeCandidate!(c, x, s, FP, π) == false
     @test π.πc == 2
-    @test c[π.πc] == [Inf,Inf]
   end
 end
 @testset "computeModelDecrease!" begin
   FP = [Float16,Float32]
   π = MultiPrecisionR2.MPR2Precisions(1)
+  st = MPR2State(Float64)
   #overflow at Float16
   gval = Float32.(prevfloat(typemax(Float16))*ones(2))
   g = (Float16.(gval), Float32.(gval))
   sval = ones(2)*2.0
   s = (Float16.(sval), Float32.(sval))
-  ΔT = MultiPrecisionR2.computeModelDecrease!(g, s, FP, π)
+  MultiPrecisionR2.computeModelDecrease!(g, s, st, FP, π)
   @test π.πΔ == 2
-  @test ΔT == -dot(g[π.πΔ], s[π.πΔ])
+  @test st.ΔT == -dot(g[π.πΔ], s[π.πΔ])
   #overflow at Float32
   π.πΔ = 1
   gval = prevfloat(typemax(Float32))*ones(2)
   g = (Float16.(gval), Float32.(gval))
-  ΔT = MultiPrecisionR2.computeModelDecrease!(g,s,FP,π)
+  @test MultiPrecisionR2.computeModelDecrease!(g,s,st,FP,π) == false
   @test π.πΔ == 2
-  @test ΔT == -Inf
+  @test st.ΔT == -Inf
   # inconsistent FP format
   π = MultiPrecisionR2.MPR2Precisions(1)
   π.πg = 2 # πg =2 πΔ = 1
   try
-    MultiPrecisionR2.computeModelDecrease!(g,s,FP,π)
+    MultiPrecisionR2.computeModelDecrease!(g,s, st,FP,π)
     @test false
   catch e
     buf = IOBuffer()

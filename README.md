@@ -1,11 +1,11 @@
 
-# MultiPrecisionR2.jl #
+# MultiPrecisionR2 #
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://d-monnet.github.io/MultiPrecisionR2.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://d-monnet.github.io/MultiPrecisionR2.jl/dev)
-[![Build Status](https://github.com/d-monnet/MultiPrecisionR2.jl/workflows/CI/badge.svg)](https://github.com/d-monnet/MultiPrecisionR2.jl/actions)
-[![Build Status](https://api.cirrus-ci.com/github/d-monnet/MultiPrecisionR2.jl.svg)](https://cirrus-ci.com/github/d-monnet/MultiPrecisionR2.jl)
-[![Coverage](https://codecov.io/gh/d-monnet/MultiPrecisionR2.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/d-monnet/MultiPrecisionR2.jl)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaSmoothOptimizers.github.io/MultiPrecisionR2/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaSmoothOptimizers.github.io/MultiPrecisionR2/dev)
+[![Build Status](https://github.com/JuliaSmoothOptimizers/MultiPrecisionR2/workflows/CI/badge.svg)](https://github.com/JuliaSmoothOptimizers/MultiPrecisionR2/actions)
+[![Build Status](https://api.cirrus-ci.com/github/JuliaSmoothOptimizers/MultiPrecisionR2.svg)](https://cirrus-ci.com/github/JuliaSmoothOptimizers/MultiPrecisionR2)
+[![Coverage](https://codecov.io/gh/JuliaSmoothOptimizers/MultiPrecisionR2/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaSmoothOptimizers/MultiPrecisionR2)
 
 MultiPrecisionR2 is a package that implements a multi-precion version of the Quadratic Regularization (R2) algorithm for solving non-convex, continuous, smooth optimization problems. The evaluation precision of the objective function and the gradient is adapted dynamically to use low precision Floating Point (FP) as much as possible while ensuring convergence and numerical stability.
 
@@ -16,7 +16,7 @@ MultiPrecisionR2 ensures numerical stability by using interval evaluations of th
 ## Installation
 ```julia
 using Pkg
-Pkg.add("MultiPrecisionR2.jl")
+Pkg.add("MultiPrecisionR2")
 ```
 ## Minimal examples
 ```julia
@@ -48,14 +48,14 @@ stat = MPR2(mpmodel) # run the algorithm
 ```
 
 ## Warnings
-1. MultiPrecisionR2.jl works only with Floating Point formats.
+1. MultiPrecisionR2 works only with Floating Point formats.
 2. Unfortunately, other modes than `:accurate` for interval evaluation are not guaranteed to work with FP formats different from Float32 and Float64. 
 3. If interval evaluation mode is used, interval evaluation for the objective and the gradient is automatically tested upon FPMPNLPModel instanciation.  An error is thrown if the evaluation fails. This might happen for several reasons related to [IntervalArithmetic.jl](https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md) package.
 
 
 ## Bug reports and discussions
 
-If you think you found a bug, feel free to open an [issue](https://github.com/JuliaSmoothOptimizers/JSOTemplate.jl/issues).
+If you think you found a bug, feel free to open an [issue](https://github.com/JuliaSmoothOptimizers/MultiPrecisionR2/issues).
 Focused suggestions and requests can also be opened as issues. Before opening a pull request, start an issue or a discussion on the topic, please.
 
 If you want to ask a question not suited for a bug report, feel free to start a discussion [here](https://github.com/JuliaSmoothOptimizers/Organization/discussions). This forum is for general discussion about this repository and the [JuliaSmoothOptimizers](https://github.com/JuliaSmoothOptimizers) organization, so questions about any of our packages are welcome.

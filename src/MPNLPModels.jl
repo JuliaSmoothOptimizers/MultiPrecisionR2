@@ -2,7 +2,7 @@ using LinearAlgebra
 
 import NLPModels: obj, grad, grad!, objgrad!, objgrad
 
-export AbstractMPNLPModel, FPMPNLPModel, obj, grad, grad!, objerrmp, graderrmp, graderrmp!
+export AbstractMPNLPModel, FPMPNLPModel, obj, grad, grad!, objerrmp, graderrmp, graderrmp!, objReachPrec, gradReachPrec!, AbstractMPNLPModel
 
 const INT_ERR = 0
 const REL_ERR = 1
@@ -288,4 +288,74 @@ function graderrmp(m::FPMPNLPModel, x::V) where {S,V<:AbstractVector{S}}
   g = similar(x)
   ωg =  graderrmp!(m, x, g)
   return g, ωg
+end
+
+####### Objective and Grandient evaluation with prescribed error bounds ########
+
+"""
+    objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
+
+Evaluates objective and increase model precision to reach necessary error bound or to avoid overflow.
+##### Inputs
+* `π`: Initial ''guess'' precision level that can provide evaluation error lower than `err_bound`, use 1 by default (lowest precision)
+##### Outputs
+* `f`: objective value at `x`
+* `ωf`: objective evaluation error
+
+There is no guarantee that `ωf ≤ err_bound`, happens if highest precision FP format is not accurate enough.
+If overflow occurs with highest precision FP format, see [`objerrmp`](@ref) for returned values
+"""
+function objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
+  id = π
+  πmax = length(m.FPList)
+  f, ωf = objerrmp(m,x[id])
+  while ωf > err_bound && id ≤ πmax-1
+    id += 1
+    f, ωf = objerrmp(m,x[id])
+  end
+  if id == πmax && f === m.FPList[πmax](Inf)
+    @warn "Objective evaluation overflows with highest FP format"
+  end
+  if id == πmax && ωf === m.FPList[πmax](Inf)
+    "Objective evaluation error overflows with highest FP format"
+  end
+  return H(f), H(ωf), id
+end
+
+"""
+    gradReachPrec!(m::FPMPNLPModel{H}, x::T, g::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
+
+Evaluates gradient and increase model precision to reach necessary error bound or to avoid overflow.
+# Inputs
+* `π`: Initial ''gess'' for precision level that can provide evaluation error lower than `err_bound`, uses 1 by default (lowest precision)
+# Outputs
+* `ωg`: objective evaluation error
+There is no guarantee that `ωg ≤ err_bound`. This case happens if the highest precision FP format is not accurate enough.
+If overflow occurs with highest precision FP format, see [`objerrmp`](@ref) for returned values
+"""
+function gradReachPrec!(m::FPMPNLPModel{H}, x::T, g::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
+  id = π
+  πmax = length(m.FPList)
+  ωg = graderrmp!(m, x[id], g[id])
+  umpt!(g, g[id])
+  while ωg > err_bound && id ≤ πmax-1
+    id += 1
+    ωg = graderrmp!(m, x[id], g[id])
+    umpt!(g, g[id])
+  end
+  if findfirst(x->x==Inf,g) !== nothing
+    @warn "Gradient evaluation overflows with highest FP format at x0"
+  end
+  if id == πmax && ωg === m.FPList[id](Inf)
+    "Gradient evaluation overflows with highest FP format at x0"
+  end
+  return H(ωg), id
+end
+
+@doc (@doc gradReachPrec!)
+function gradReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
+  nvar = length(x[1])
+  g = Tuple(Vector{ElType}(undef,nvar) for ElType in m.FPList)
+  ωg, id =  gradReachPrec!(m, x, g, err_bound, π = π)
+  return g, H(ωg), id
 end

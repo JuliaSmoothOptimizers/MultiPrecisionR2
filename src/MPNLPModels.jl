@@ -197,7 +197,6 @@ function objerrmp(m::FPMPNLPModel, x::AbstractVector{S}) where S
   objerrmp(m, x, Val(m.ObjEvalMode))
 end
 
-@doc (@doc objerrmp)
 function objerrmp(m::FPMPNLPModel, x::AbstractVector{S}, ::Val{INT_ERR}) where S
   id = get_id(m,S)
   for i in eachindex(x) # this is the proper way to instanciate interval vector, see issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
@@ -211,7 +210,6 @@ function objerrmp(m::FPMPNLPModel, x::AbstractVector{S}, ::Val{INT_ERR}) where S
   end
 end
 
-@doc (@doc objerrmp)
 function objerrmp(m::FPMPNLPModel{H}, x::AbstractVector{S}, ::Val{REL_ERR}) where {H, S}
   f = obj(m,x)
   if check_overflow(f) #overflow case
@@ -241,7 +239,6 @@ function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V) where {H, S, V<:AbstractVect
   graderrmp!(m, x, g, Val(m.GradEvalMode))
 end
 
-@doc( @doc graderrmp!)
 function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, ::Val{INT_ERR}) where {H, S, V<:AbstractVector{S}}
   id = get_id(m,S)
   for i in eachindex(x) # this is the proper way to instanciate interval vector, see issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
@@ -268,7 +265,6 @@ function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, ::Val{INT_ERR}) where {H, S,
   return ωg
 end
 
-@doc( @doc graderrmp!)
 function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, ::Val{REL_ERR}) where {H, S, V<:AbstractVector{S}}
   grad!(m,x,g) # ::Vector{S}
   if check_overflow(g)
@@ -283,7 +279,7 @@ function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, ::Val{REL_ERR}) where {H, S,
   return ωg #::Vector{S} ::H
 end
 
-@doc( @doc graderrmp!)
+@doc ( @doc graderrmp!)
 function graderrmp(m::FPMPNLPModel, x::V) where {S,V<:AbstractVector{S}}
   g = similar(x)
   ωg =  graderrmp!(m, x, g)

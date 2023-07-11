@@ -1,12 +1,13 @@
  # skip_int = false # waiting to know how to evaluate obj(Vector{AbstractFloat}) with IntervalArithmetic properly. see github issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
 
-@testset "MPR2Precisions" begin
+@testset "MPR2Precisions copy" begin
   p = MPR2Precisions(1)
   q = copy(p)
-  @test p == q
+  @test [getfield(p,f) == getfield(q,f) for f in fieldnames(MPR2Precisions) ] == [true for _ in fieldnames(MPR2Precisions)]
   p = MPR2Precisions(2)
-  update!(p,q)
-  @test p == q
+  update_struct!(p,q)
+  @test [getfield(p,f) == getfield(q,f) for f in fieldnames(MPR2Precisions) ] == [true for _ in fieldnames(MPR2Precisions)]
+  p = MPR2Precisions(2)
 end
 @testset verbose = true "solve!" begin
   @testset "First eval overflow" begin

@@ -8,7 +8,7 @@ module MultiPrecisionR2
 
 using ADNLPModels, IntervalArithmetic, NLPModels, Printf, LinearAlgebra, SolverCore
 
-export MPR2, MPR2Solver, MPR2Params, MPR2State, MPR2Precisions, solve!, umpt!
+export MPR2, MPR2Solver, MPR2Params, MPR2State, MPR2Precisions, solve!, umpt!, update_struct!
 
 abstract type AbstractMPNLPModel{T,S} <: AbstractNLPModel{T,S} end
 
@@ -144,9 +144,9 @@ end
 """
     function MPR2Precisions(π::Int)
 
-Precision of variables and precision evaluation of obj, grad and model reduction.
-Precisions are represented as integer, and correspond to FP format of corresponding index in FPList of FPMPNLPModel.
-See [`FPMPNLPModel`](@ref)
+Precision  of variables and precision evaluation of obj, grad, model reduction and norms.
+Precisions are represented by integers, and correspond to FP format of corresponding index in `FPMPNLPModel.FPList`. i.e., precision `i` correpsonds to FP format `FPMPNLPModel.FPList[i]`
+See `FPMPNLPModel`.
 """
 mutable struct MPR2Precisions
   πx::Int
@@ -167,13 +167,13 @@ end
 Base.copy(π::MPR2Precisions) = MPR2Precisions(π.πx, π.πnx, π.πs, π.πns, π.πc, π.πf, π.πf⁺, π.πg, π.πΔ)
 
 """
-    update!(π::MPR2Precisions,πnewval::MPR2Precisions)
+    update_struct!(str,other_str)
 
-Update the fields of π with the fields of πnewval.
+Update the fields of `str` with the fields of `other_str`.
 """
-function update!(π::MPR2Precisions,πnewval::MPR2Precisions)
+function update_struct!(str::MPR2Precisions,other_str::MPR2Precisions)
   for f in fieldnames(MPR2Precisions)
-    setfield!(π,f,getfield(πnewval,f))
+    setfield!(str,f,getfield(other_str,f))
   end
 end
 
@@ -665,14 +665,14 @@ Possible step to recompute are:
 Does not make the over/underflow check as in main loop, since it is a repetition of the main loop with higher precisions and these issue shouldn't occur
 # Outputs:
 * b : true if gradient has been modified, false otherwise
-See [`recomputeMuPrecSelection`](@ref)
+See [`recomputeMuPrecSelection!`](@ref)
 """
 function recomputeMu!(m::FPMPNLPModel{H}, x::T, g::T, s::T, st::MPR2State{H}, π::MPR2Precisions, πr::MPR2Precisions) where {T <: Tuple, H}
   g_recompute = false
   n = m.meta.nvar
   βfunc(n::Int,u::H) = max(abs(1-sqrt(1-m.γfunc(n+2,u))),abs(1-sqrt(1+m.γfunc(n,u)))) # error bound on euclidean norm
   if π.πΔ != πr.πΔ # recompute model decrease
-    st.ΔT = computeModelDecrease!(g, s, m.FPList, πr)
+    st.ΔT = computeModelDecrease!(g, s, st, m.FPList, πr)
   end
   if π.πnx != πr.πnx || π.πns != πr.πns # recompute x, s norm and ϕ
     if π.πnx != πr.πnx
@@ -825,7 +825,7 @@ function recompute_g_default!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Pre
       return g_recompute, prec_fail
     end
     g_recompute = recomputeMu!(m, x, g, s, st, π, πr)
-    update!(π,πr)
+    update_struct!(π,πr)
   end
   return g_recompute, prec_fail
 end

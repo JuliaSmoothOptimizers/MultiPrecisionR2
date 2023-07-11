@@ -303,7 +303,6 @@ Evaluates objective and increase model precision to reach necessary error bound 
 * `ωf`: objective evaluation error
 
 There is no guarantee that `ωf ≤ err_bound`, happens if highest precision FP format is not accurate enough.
-If overflow occurs with highest precision FP format, see [`objerrmp`](@ref) for returned values
 """
 function objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
   id = π
@@ -331,7 +330,6 @@ Evaluates gradient and increase model precision to reach necessary error bound o
 # Outputs
 * `ωg`: objective evaluation error
 There is no guarantee that `ωg ≤ err_bound`. This case happens if the highest precision FP format is not accurate enough.
-If overflow occurs with highest precision FP format, see [`objerrmp`](@ref) for returned values
 """
 function gradReachPrec!(m::FPMPNLPModel{H}, x::T, g::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
   id = π

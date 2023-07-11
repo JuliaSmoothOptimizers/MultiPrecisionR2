@@ -9,7 +9,7 @@
 
 MultiPrecisionR2 is a package that implements a multi-precion version of the Quadratic Regularization (R2) algorithm for solving non-convex, continuous, smooth optimization problems. The evaluation precision of the objective function and the gradient is adapted dynamically to use low precision Floating Point (FP) as much as possible while ensuring convergence and numerical stability.
 
-MultiPrecisionR2 relies on [Julia Smooth Optimizers (JSO)](https://github.com/JuliaSmoothOptimizers) environment, and in particular works with `NLPModel` implemented in [NLPModels.jl](https://github.com/JuliaSmoothOptimizers/NLPModels.jl) package.
+MultiPrecisionR2 relies on [JuliaSmoothOptimizers (JSO)](https://github.com/JuliaSmoothOptimizers) environment, and in particular works with `NLPModel` implemented in [NLPModels.jl](https://github.com/JuliaSmoothOptimizers/NLPModels.jl) package.
 
 MultiPrecisionR2 ensures numerical stability by using interval evaluations of the objective function and gradient. Interval evaluation relies on [IntervalArithmetic.jl](https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md) package to perform the interval evaluation.
 

@@ -80,23 +80,19 @@ for fun in fieldnames(MPCounters)
 end
 
 """
-    decrement!(nlp, s)
-    decrement!(nlp, s, FPFormat)
+    decrement!(mpnlp, s, FPFormat)
 
-Decrement counter `s` of problem `nlp` for the given FPFormat if provided, either decrements for all FP formats of the dictionnary.
+Decrement counter `s` of problem `mpnlp` for the given FPFormat provided.
 """
-function decrement!(nlp::AbstractNLPModel, s::Symbol)
-  setproperty!(nlp.counters, s, getproperty(nlp.counters, s) .- 1)
-end
 
-function decrement!(nlp::AbstractNLPModel, s::Symbol, FPFormat::DataType)
-  counter = getproperty(nlp.counters, s)
+function decrement!(mpnlp::AbstractNLPModel, s::Symbol, FPFormat::DataType)
+  counter = getproperty(mpnlp.counters, s)
   counter[FPFormat] -= 1
-  setproperty!(nlp.counters, s, counter)
+  setproperty!(mpnlp.counters, s, counter)
 end
 
 """
-    sum_counters(counters)
+    sum_counters(c::MPCounters)
 
 Sum all counters of `counters` except `cons`, `jac`, `jprod` and `jtprod`.
 """
@@ -110,11 +106,11 @@ function sum_counters(c::MPCounters)
   return sum
 end
 """
-    sum_counters(nlp)
+    sum_counters(mpnlp)
 
 Sum all counters of problem `nlp` except `cons`, `jac`, `jprod` and `jtprod`.
 """
-sum_counters(nlp::AbstractNLPModel) = sum_counters(nlp.counters)
+sum_counters(mpnlp::AbstractMPNLPModel) = sum_counters(mpnlp.counters)
 
 """
     reset!(counters::MPCounters)
@@ -131,12 +127,12 @@ function reset!(counters::MPCounters)
 end
 
 """
-    reset!(nlp::AbstractMPNLPModel)
+    reset!(mpnlp::AbstractMPNLPModel)
 
-Reset evaluation count and model data (if appropriate) in `nlp`.
+Reset evaluation count and model data (if appropriate) in `mpnlp`.
 """
-function reset!(nlp::AbstractMPNLPModel)
-  reset!(nlp.counters)
-  reset_data!(nlp.Model)
-  return nlp
+function reset!(mpnlp::AbstractMPNLPModel)
+  reset!(mpnlp.counters)
+  reset_data!(mpnlp.Model)
+  return mpnlp
 end

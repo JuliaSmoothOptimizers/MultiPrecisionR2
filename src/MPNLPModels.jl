@@ -313,10 +313,10 @@ function objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where
     id += 1
     f, ωf = objerrmp(m,x[id])
   end
-  if id == πmax && f === m.FPList[πmax](Inf)
+  if id == πmax && isinf(f)
     @warn "Objective evaluation overflows with highest FP format"
   end
-  if id == πmax && ωf === m.FPList[πmax](Inf)
+  if id == πmax && isinf(ωf)
     "Objective evaluation error overflows with highest FP format"
   end
   return H(f), H(ωf), id
@@ -346,7 +346,7 @@ function gradReachPrec!(m::FPMPNLPModel{H}, x::T, g::T, err_bound::H; π::Int = 
   if findfirst(x->x==Inf,g) !== nothing
     @warn "Gradient evaluation overflows with highest FP format at x0"
   end
-  if id == πmax && ωg === m.FPList[id](Inf)
+  if id == πmax && isinf(ωg)
     "Gradient evaluation overflows with highest FP format at x0"
   end
   return H(ωg), id

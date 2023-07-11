@@ -166,6 +166,11 @@ end
 
 Base.copy(π::MPR2Precisions) = MPR2Precisions(π.πx, π.πnx, π.πs, π.πns, π.πc, π.πf, π.πf⁺, π.πg, π.πΔ)
 
+"""
+    update!(π::MPR2Precisions,πnewval::MPR2Precisions)
+
+Update the fields of π with the fields of πnewval.
+"""
 function update!(π::MPR2Precisions,πnewval::MPR2Precisions)
   for f in fieldnames(MPR2Precisions)
     setfield!(π,f,getfield(πnewval,f))

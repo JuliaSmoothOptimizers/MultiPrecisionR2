@@ -1,49 +1,12 @@
  # skip_int = false # waiting to know how to evaluate obj(Vector{AbstractFloat}) with IntervalArithmetic properly. see github issue https://github.com/JuliaIntervals/IntervalArithmetic.jl/issues/546
-@testset verbose = true "objReachPrec and gradReachPrec test" begin
-  @testset "Interval" begin
-    setrounding(Interval,:slow)
-    f1(x) = x[1]+x[2]
-    x₀ = [1/10,1/10]
-    Formats = [Float32,Float64]
-    γfunc(n,u) = 0.0 # ignore rounding errors for the tests
-    mpmodel = FPMPNLPModel(f1,x₀,Formats, γfunc = γfunc)
-    x = (Float32.(x₀),x₀)
-    #obj test
-    fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 2.0*eps(Float64))
-    @test ωf <= 2*eps(Float64) 
-    @test πf == 2
-    fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 2.0*eps(Float32))
-    @test ωf <= 2*eps(Float32)
-    @test πf == 1
-    #grad test
-    g, ωg, πg = MultiPrecisionR2.gradReachPrec(mpmodel, x, 1.0)
-    @test ωg == 0.0
-    @test πg == 1
-  end
-  @testset "Relative error" begin
-    f2(x) = x[1]+x[2]
-    x₀ = ones(2)
-    Formats = [Float32,Float64]
-    ωfRelErr = [1.0,0.0]
-    ωgRelErr = [1.0,0.0]
-    γfunc(n,u) = 0.0 # ignore rounding errors for the tests
-    x = (Float32.(x₀),x₀)
-    mpmodel = FPMPNLPModel(f2,x₀,Formats,ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr,γfunc = γfunc)
-    #obj test
-    fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 1.0)
-    @test ωf == 0.0
-    @test πf == 2
-    fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 3.0)
-    @test ωf == 2.0
-    @test πf == 1
-    #grad test
-    g, ωg, πg = MultiPrecisionR2.gradReachPrec(mpmodel, x, 0.0)
-    @test ωg == 0.0
-    @test πg == 2
-    g, ωg, πg = MultiPrecisionR2.gradReachPrec(mpmodel, x, 2.0)
-    @test ωg == 1.0
-    @test πg == 1
-  end
+
+@testset "MPR2Precisions" begin
+  p = MPR2Precisions(1)
+  q = copy(p)
+  @test p == q
+  p = MPR2Precisions(2)
+  update!(p,q)
+  @test p == q
 end
 @testset verbose = true "solve!" begin
   @testset "First eval overflow" begin
@@ -210,13 +173,11 @@ end
   mpmodel = FPMPNLPModel(f4,x₀,Formats)
   stats = MPR2(mpmodel)
   @test isapprox(stats.solution,[0.0,0.0],atol=1e-6)
+
   #rosenbrock
   # f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2
   # x₀ = zeros(2)
-  # nlpList = [ADNLPModel(f,fp.(x₀)) for fp in FP]
-  # mpmodel = FPMPNLPModel(nlpList)
-  # solver = MPR2Solver(mpmodel)
-  # stat = solve!(solver,mpmodel)
+  # mpmodel = FPMPNLPModel(f,x₀,Formats)
+  # stat = MPR2(mpmodel)
   # @test isapprox(stat.solution,[1.0,1.0],atol=1e-6)
 end
-

@@ -8,7 +8,7 @@ module MultiPrecisionR2
 
 using ADNLPModels, IntervalArithmetic, NLPModels, Printf, LinearAlgebra, SolverCore
 
-export MPR2, MPR2Solver, MPR2Params, MPR2State, MPR2Precisions, solve!, umpt!
+export MPR2, MPR2Solver, MPR2Params, MPR2State, MPR2Precisions, solve!, umpt!, update_struct!
 
 abstract type AbstractMPNLPModel{T,S} <: AbstractNLPModel{T,S} end
 
@@ -144,9 +144,9 @@ end
 """
     function MPR2Precisions(π::Int)
 
-Precision of variables and precision evaluation of obj, grad and model reduction.
-Precisions are represented as integer, and correspond to FP format of corresponding index in FPList of FPMPNLPModel.
-See [`FPMPNLPModel`](@ref)
+Precision  of variables and precision evaluation of obj, grad, model reduction and norms.
+Precisions are represented by integers, and correspond to FP format of corresponding index in `FPMPNLPModel.FPList`. i.e., precision `i` correpsonds to FP format `FPMPNLPModel.FPList[i]`
+See `FPMPNLPModel`.
 """
 mutable struct MPR2Precisions
   πx::Int
@@ -166,9 +166,14 @@ end
 
 Base.copy(π::MPR2Precisions) = MPR2Precisions(π.πx, π.πnx, π.πs, π.πns, π.πc, π.πf, π.πf⁺, π.πg, π.πΔ)
 
-function update!(π::MPR2Precisions,πnewval::MPR2Precisions)
+"""
+    update_struct!(str,other_str)
+
+Update the fields of `str` with the fields of `other_str`.
+"""
+function update_struct!(str::MPR2Precisions,other_str::MPR2Precisions)
   for f in fieldnames(MPR2Precisions)
-    setfield!(π,f,getfield(πnewval,f))
+    setfield!(str,f,getfield(other_str,f))
   end
 end
 
@@ -341,10 +346,9 @@ function SolverCore.solve!(
     state.iter = stats.iter
 
     π.πs = π.πg
-    computeStep!(s, g, state.σ, FP, π)
-    computeCandidate!(c, x, s, FP, π)
-    state.ΔT = H(computeModelDecrease!(g, s, FP, π))
-    CheckUnderOverflow(state,s,c)
+    computeStep!(s, g, state.σ, FP, π) || (state.status = :exception)
+    computeCandidate!(c, x, s, FP, π) || (state.status = :exception)
+    computeModelDecrease!(g, s, state, FP, π) || (state.status = :exception)
     
     g_recomp, prec_fail = recompute_g!(MPnlp,state,π,par,e,x,g,s)
     if prec_fail 
@@ -352,10 +356,9 @@ function SolverCore.solve!(
     end
     if g_recomp #have to recompute everything depending on g
       umpt!(g,g[π.πg])
-      computeStep!(s, g, state.σ, FP, π)
-      computeCandidate!(c, x, s, FP, π)
-      state.ΔT = H(computeModelDecrease!(g, s, FP, π))
-      CheckUnderOverflow(state,s,c)
+      computeStep!(s, g, state.σ, FP, π) || (state.status = :exception)
+      computeCandidate!(c, x, s, FP, π) || (state.status = :exception)
+      computeModelDecrease!(g, s, state, FP, π) || (state.status = :exception)
     end
     SolverCore.set_dual_residual!(stats,state.g_norm)
     
@@ -439,19 +442,41 @@ function SolverCore.solve!(
   
 end
 
-function CheckUnderOverflow(state::MPR2State,s::Tuple,c::Tuple)
-  if isinf(s[1][1]) # overflow or underflow occured, stop the loop
-    @warn "Step over/underflow"
-    state.status = :exception
-  end
-  if isinf(c[1][1]) # overflow occured, stop the loop
-    @warn "Candidate over/underflow"
-    state.status = :exception
-  end
-  if isinf(state.ΔT) || state.ΔT == 0.0 # overflow or underflow occured, stop the loop
-    @warn "Model decrease over/underflow"
-    state.status = :exception
-  end
+"""
+    CheckUnderOverflowStep(s::AbstractVector)
+
+Check if step over/underflow. Step cannot be zero in theory, if this happens it means that underflow occurs.
+
+# Outpus:
+* ::bool : true if over/underflow
+"""
+
+function CheckUnderOverflowStep(s::AbstractVector,g::AbstractVector)
+  findall(x->x==0.0,s) != findall(x->x==0.0,g) || findfirst(x->isinf(x),s) !== nothing  # overflow or underflow occured, stop the loop
+end
+
+"""
+    CheckUnderOverflowCandidate(c::AbstractVector)
+
+Check if candidate over/underflow.
+
+# Outputs: 
+* ::bool : true if over/underflow occurs
+"""
+
+function CheckUnderOverflowCandidate(c::AbstractVector,x::AbstractVector)
+  findfirst(x->x==Inf,c) !== nothing || c == x
+end
+
+"""
+    CheckUnderOverflowMD(state::MPR2State)
+
+Check if model decrease ΔT over/underflow
+
+"""
+
+function CheckUnderOverflowMD(ΔT::AbstractFloat)
+  isinf(ΔT) || ΔT == 0.0  # overflow or underflow occured, stop the loop
 end
 
 """
@@ -478,54 +503,51 @@ Compute step with FP format avoiding underflow and overflow
 * `σ::H` : regularization parameter
 * `FP::Vector{Int}` : Available floating point formats
 
-Modified :
+# Modified arguments :
 * `s::Vector` : step vector container
 * `π::MPR2Precisions` : hold the FP format indices
 # Output
-* `s::Vector{B}` : step computed as `-g`/`σ` that doesn't underflow
-* `π::Int`  
-If underflow or overflow happens with the highest precision FP format (FP[end]), Inf vector is returned
+* ::bool : false if over/underflow occur, true otherwise
 """
 function computeStep!(s::T, g::T, σ::H, FP::Vector{DataType}, π::MPR2Precisions) where {T <: Tuple, H}
   πmax = length(FP)
   while FP[π.πs](σ) === FP[π.πs](0) || isinf(FP[π.πs](σ)) # σ cast underflow or overflow
     if π.πs == πmax # over/underflow at max prec FP
       @error "over/underflow of σ with maximum precision FP format ($(FP[πmax]))"
-      umpt!(s,FP[1].([Inf for _ in eachindex(s[1])]))
-      return
+      return false
     end
     π.πs += 1
   end
   s[π.πs] .= - g[π.πs]/FP[π.πs](σ)
   # increase FP prec until no overflow or underflow occurs
-  while findall(x->x==0.0,s[π.πs]) != findall(x->x==0.0,g[π.πg]) || findfirst(x->isinf(x),s[π.πs]) !== nothing 
+  while CheckUnderOverflowStep(s[π.πs],g[π.πg]) 
     if π.πs == πmax #not enough precision to avoid over/underflow 
       @error "over/underflow with maximum precision FP format ($(FP[πmax]))"
-      umpt!(s, FP[1].([ Inf for _ in eachindex(s[1])] )) 
-      break
+      return false
     end
     π.πs +=1 
     s[π.πs] .= - g[π.πs] / FP[π.πs](σ)
   end
   umpt!(s, s[π.πs])
+  return true
 end
 
 """
     computeCandidate!(c::T, x::T, s::T, FP::Vector{DataType}, π::MPR2Precisions) where {T <: Tuple}
 
 Compute candidate with FP format avoiding underflow and overflow
-###### Inputs
+# Arguments
 * x::Vector{T} : incumbent 
 * s::Vector{T} : step
 * FP::Vector{Int} : Available floating point formats
+* π::MPR2Precisions
 
-Modified:
+# Modified arguments:
 * c::Vector{T} : candidate
-* π::MPR2Precisions : hold the FP format indices
-###### Output
-* c::Vector{B} : candidate computed as x+s that doesn't overflow
-* πc:: Int : FP[πc] = B 
-If underflow or overflow happens with the highest precision FP format (FP[end]), Inf vector is returned
+* π::MPR2Precisions : π.πc updated
+
+# Outputs
+* ::bool : false if over/underflow occur with highest precision FP format, true otherwise
 """
 function computeCandidate!(c::T, x::T, s::T, FP::Vector{DataType}, π::MPR2Precisions) where {T <: Tuple}
   πmax = length(FP)
@@ -533,57 +555,59 @@ function computeCandidate!(c::T, x::T, s::T, FP::Vector{DataType}, π::MPR2Preci
   πs = π.πs
   πc = π.πc
   c[πc] .= FP[πc].(x[max(πc,πx)] .+ s[max(πc,πs)])
-  umpt!(c, c[πc])
-  while findfirst(x->x==Inf,c[πc]) !== nothing || c[πc] == x[πx]
+  while CheckUnderOverflowCandidate(c[πc],x[πx])
     if πc == πmax #not enough precision to avoid underflow
       @warn "over/underflow with maximum precision FP format ($(FP[πmax]))"
-      umpt!(c, FP[1].([Inf for _ in eachindex(c[1])])) 
       π.πc = πc
-      break
+      return false
     end
     πc +=1 
     c[πc] .= FP[πc].(x[max(πc,πx)] .+ s[max(πc,πs)])
-    umpt!(c, c[πc])
   end
+  umpt!(c, c[πc])
   π.πc = πc
+  return true
 end
 
 
 """
-    computeModelDecrease!(g::T,s::T,FP::Vector{DataType},π::MPR2Precisions) where {T <: Tuple}
+    computeModelDecrease!(g::T,s::T,st::MPR2State{H},FP::Vector{DataType},π::MPR2Precisions) where {T <: Tuple}
 
 Compute model decrease with FP format avoiding underflow and overflow
-###### Inputs
-* s::Vector{T} : step
-* g::Vector{T} : gradient 
-* FP::Vector{Int} : Available floating point formats
 
-Modified
+# Arguments
+* g::Vector{T} : gradient 
+* s::Vector{T} : step
+* st::MPR2State{H}: algo status
+* FP::Vector{Int} : Available floating point formats
 * π::MPR2Precisions : hold the FP format indices
-###### Output
-* ΔT::FP[π.πc] : step computed as -g/σ that doesn't underflow
-* π:: Int : FP[πc] = B 
-If overflow happens with the highest precision FP format (FP[end]), Inf vector is returned
+
+# Modified Arguments
+* st::MPR2State{H} : st.ΔT updated 
+* π::MPR2Precisions : π.πΔ updated 
+
+# Outputs
+* ::bool : false if over/underflow occur with highest precision FP format, true otherwise
+
 """
-function computeModelDecrease!(g::T,s::T,FP::Vector{DataType},π::MPR2Precisions) where {T <: Tuple}
+function computeModelDecrease!(g::T,s::T,st::MPR2State{H},FP::Vector{DataType},π::MPR2Precisions) where {H, T <: Tuple}
   πΔ = π.πΔ
   πmax = length(FP)
   if πΔ < max(π.πs,π.πg)
     error("Model decrease computation FP format should be greater that FP format of g and s")
   end
-  ΔT = - dot(g[πΔ], s[πΔ]) 
-  # ΔT = - dot(FP[πΔ].(g), FP[πΔ].(s)) # allocation because of casting 
-  while isinf(ΔT) || ΔT == 0.0
+  st.ΔT = H.(- dot(g[πΔ], s[πΔ])) 
+  while CheckUnderOverflowMD(st.ΔT)
     if πΔ == πmax
       @warn "over/underflow with maximum precision FP format ($(FP[πmax]))"
-      break
+      π.πΔ = πΔ
+      return false
     end
     πΔ += 1
-    ΔT = - dot(g[πΔ], s[πΔ]) 
-    # ΔT = - dot(FP[πΔ].(g), FP[πΔ].(s))
+    st.ΔT = H.(- dot(g[πΔ], s[πΔ])) 
   end
   π.πΔ = πΔ
-  return ΔT
+  return true
 end
 
 ####### Default strategy for precision selections #######
@@ -641,14 +665,14 @@ Possible step to recompute are:
 Does not make the over/underflow check as in main loop, since it is a repetition of the main loop with higher precisions and these issue shouldn't occur
 # Outputs:
 * b : true if gradient has been modified, false otherwise
-See [`recomputeMuPrecSelection`](@ref)
+See [`recomputeMuPrecSelection!`](@ref)
 """
 function recomputeMu!(m::FPMPNLPModel{H}, x::T, g::T, s::T, st::MPR2State{H}, π::MPR2Precisions, πr::MPR2Precisions) where {T <: Tuple, H}
   g_recompute = false
   n = m.meta.nvar
   βfunc(n::Int,u::H) = max(abs(1-sqrt(1-m.γfunc(n+2,u))),abs(1-sqrt(1+m.γfunc(n,u)))) # error bound on euclidean norm
   if π.πΔ != πr.πΔ # recompute model decrease
-    st.ΔT = computeModelDecrease!(g, s, m.FPList, πr)
+    st.ΔT = computeModelDecrease!(g, s, st, m.FPList, πr)
   end
   if π.πnx != πr.πnx || π.πns != πr.πns # recompute x, s norm and ϕ
     if π.πnx != πr.πnx
@@ -801,7 +825,7 @@ function recompute_g_default!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Pre
       return g_recompute, prec_fail
     end
     g_recompute = recomputeMu!(m, x, g, s, st, π, πr)
-    update!(π,πr)
+    update_struct!(π,πr)
   end
   return g_recompute, prec_fail
 end

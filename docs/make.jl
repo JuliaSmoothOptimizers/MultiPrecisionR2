@@ -19,8 +19,4 @@ makedocs(;
   pages = ["Home" => "index.md", "Reference" => "reference.md"],
 )
 
-deploydocs(;
-  repo = "",
-  push_preview = true,
-  devbranch = "main",
-)
+deploydocs(; repo = "", push_preview = true, devbranch = "main")

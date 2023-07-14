@@ -301,6 +301,7 @@ Evaluates objective and increase model precision to reach necessary error bound 
 ##### Outputs
 * `f`: objective value at `x`
 * `ωf`: objective evaluation error
+* `id`: precision level used for evaluation
 
 There is no guarantee that `ωf ≤ err_bound`, happens if highest precision FP format is not accurate enough.
 If overflow occurs with highest precision FP format, see [`objerrmp`](@ref) for returned values

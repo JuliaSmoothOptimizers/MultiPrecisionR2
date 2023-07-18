@@ -252,7 +252,7 @@ Anything computed in MPR2 suffers from rounding errors since it runs on a machin
 
 # Basic Use
 
-MPR2 solver relies on multi-precision models structure `FPMPNLPModels` (Floating Point Multi Precision Non Linear Programming Models), that derives from [`NLPModels.jl`](). This structure embeds the problem and provides the functions to evaluate the objective and the gradient with several FP formats. These evaluation functions are used by `MPR2Solver` to evaluate the objective and gradient with different FP format.
+MPR2 solver relies on multi-precision models structure `FPMPNLPModels` (Floating Point Multi Precision Non Linear Programming Models), that derives from [`NLPModels.jl`](https://github.com/JuliaSmoothOptimizers/NLPModels.jl). This structure embeds the problem and provides the functions to evaluate the objective and the gradient with several FP formats. These evaluation functions are used by `MPR2Solver` to evaluate the objective and gradient with different FP format.
 
 ## **FPMPNLPModel**: Creating a Multi-Precision Model
 See `FPMPNLPModel` documentation.

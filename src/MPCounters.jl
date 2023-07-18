@@ -1,4 +1,4 @@
-export MPCounters, increment!, reset!
+export MPCounters, increment!, reset!, decrement!
 
 """
     MPCounters
@@ -20,26 +20,26 @@ cntrs = MPCounters(FPformats)
 ```
 """
 mutable struct MPCounters
-  neval_obj::Dict{DataType,Int}  # Number of objective evaluations.
-  neval_grad::Dict{DataType,Int}  # Number of objective gradient evaluations.
-  neval_cons::Dict{DataType,Int}  # Number of constraint vector evaluations.
-  neval_cons_lin::Dict{DataType,Int}  # Number of linear constraint vector evaluations.
-  neval_cons_nln::Dict{DataType,Int}  # Number of nonlinear constraint vector evaluations.
-  neval_jcon::Dict{DataType,Int}  # Number of individual constraint evaluations.
-  neval_jgrad::Dict{DataType,Int}  # Number of individual constraint gradient evaluations.
-  neval_jac::Dict{DataType,Int}  # Number of constraint Jacobian evaluations.
-  neval_jac_lin::Dict{DataType,Int}  # Number of linear constraints Jacobian evaluations.
-  neval_jac_nln::Dict{DataType,Int}  # Number of nonlinear constraints Jacobian evaluations.
-  neval_jprod::Dict{DataType,Int}  # Number of Jacobian-vector products.
-  neval_jprod_lin::Dict{DataType,Int}  # Number of linear constraints Jacobian-vector products.
-  neval_jprod_nln::Dict{DataType,Int}  # Number of nonlinear constraints Jacobian-vector products.
-  neval_jtprod::Dict{DataType,Int}  # Number of transposed Jacobian-vector products.
-  neval_jtprod_lin::Dict{DataType,Int}  # Number of transposed linear constraints Jacobian-vector products.
-  neval_jtprod_nln::Dict{DataType,Int}  # Number of transposed nonlinear constraints Jacobian-vector products.
-  neval_hess::Dict{DataType,Int}  # Number of Lagrangian/objective Hessian evaluations.
-  neval_hprod::Dict{DataType,Int}  # Number of Lagrangian/objective Hessian-vector products.
-  neval_jhess::Dict{DataType,Int}  # Number of individual Lagrangian Hessian evaluations.
-  neval_jhprod::Dict{DataType,Int}  # Number of individual constraint Hessian-vector products.
+  neval_obj::Dict{DataType, Int}  # Number of objective evaluations.
+  neval_grad::Dict{DataType, Int}  # Number of objective gradient evaluations.
+  neval_cons::Dict{DataType, Int}  # Number of constraint vector evaluations.
+  neval_cons_lin::Dict{DataType, Int}  # Number of linear constraint vector evaluations.
+  neval_cons_nln::Dict{DataType, Int}  # Number of nonlinear constraint vector evaluations.
+  neval_jcon::Dict{DataType, Int}  # Number of individual constraint evaluations.
+  neval_jgrad::Dict{DataType, Int}  # Number of individual constraint gradient evaluations.
+  neval_jac::Dict{DataType, Int}  # Number of constraint Jacobian evaluations.
+  neval_jac_lin::Dict{DataType, Int}  # Number of linear constraints Jacobian evaluations.
+  neval_jac_nln::Dict{DataType, Int}  # Number of nonlinear constraints Jacobian evaluations.
+  neval_jprod::Dict{DataType, Int}  # Number of Jacobian-vector products.
+  neval_jprod_lin::Dict{DataType, Int}  # Number of linear constraints Jacobian-vector products.
+  neval_jprod_nln::Dict{DataType, Int}  # Number of nonlinear constraints Jacobian-vector products.
+  neval_jtprod::Dict{DataType, Int}  # Number of transposed Jacobian-vector products.
+  neval_jtprod_lin::Dict{DataType, Int}  # Number of transposed linear constraints Jacobian-vector products.
+  neval_jtprod_nln::Dict{DataType, Int}  # Number of transposed nonlinear constraints Jacobian-vector products.
+  neval_hess::Dict{DataType, Int}  # Number of Lagrangian/objective Hessian evaluations.
+  neval_hprod::Dict{DataType, Int}  # Number of Lagrangian/objective Hessian-vector products.
+  neval_jhess::Dict{DataType, Int}  # Number of individual Lagrangian Hessian evaluations.
+  neval_jhprod::Dict{DataType, Int}  # Number of individual constraint Hessian-vector products.
 
   function MPCounters(FPformats::Vector{DataType})
     return new([Dict([f => 0 for f in FPformats]) for _ in fieldnames(MPCounters)]...)
@@ -57,7 +57,7 @@ for mpcounter in fieldnames(MPCounters)
     If extra argument T is provided, returns  turn number of `$(split("$($mpcounter)", "_")[2])` evaluations for the given FP format T.
     """
     NLPModels.$mpcounter(nlp::AbstractMPNLPModel) = sum(collect(values(nlp.counters.$mpcounter)))
-    NLPModels.$mpcounter(nlp::AbstractMPNLPModel,T::DataType) = nlp.counters.$mpcounter[T]
+    NLPModels.$mpcounter(nlp::AbstractMPNLPModel, T::DataType) = nlp.counters.$mpcounter[T]
     export $mpcounter
   end
 end
@@ -72,7 +72,7 @@ Increment counter `s` of problem `nlp`.
 end
 
 for fun in fieldnames(MPCounters)
-  @eval begin 
+  @eval begin
     function increment!(nlp::AbstractMPNLPModel, ::Val{$(Meta.quot(fun))}, T::DataType)
       nlp.counters.$fun[T] += 1
     end
@@ -80,41 +80,37 @@ for fun in fieldnames(MPCounters)
 end
 
 """
-    decrement!(nlp, s)
-    decrement!(nlp, s, FPFormat)
+    decrement!(mpnlp, s, FPFormat)
 
-Decrement counter `s` of problem `nlp` for the given FPFormat if provided, either decrements for all FP formats of the dictionnary.
+Decrement counter `s` of problem `mpnlp` for the given FPFormat provided.
 """
-function decrement!(nlp::AbstractNLPModel, s::Symbol)
-  setproperty!(nlp.counters, s, getproperty(nlp.counters, s) .- 1)
-end
 
-function decrement!(nlp::AbstractNLPModel, s::Symbol, FPFormat::DataType)
-  counter = getproperty(nlp.counters, s)
+function decrement!(mpnlp::AbstractNLPModel, s::Symbol, FPFormat::DataType)
+  counter = getproperty(mpnlp.counters, s)
   counter[FPFormat] -= 1
-  setproperty!(nlp.counters, s, counter)
+  setproperty!(mpnlp.counters, s, counter)
 end
 
 """
-    sum_counters(counters)
+    sum_counters(c::MPCounters)
 
 Sum all counters of `counters` except `cons`, `jac`, `jprod` and `jtprod`.
 """
 function sum_counters(c::MPCounters)
-  sum = Dict{DataType,Int}()
+  s = Dict{DataType, Int}()
   for x in fieldnames(MPCounters)
     if !(x in (:neval_cons, :neval_jac, :neval_jprod, :neval_jtprod))
-      mergewith(+,sum,getproperty(c, x))
+      s = mergewith(+, s, getproperty(c, x))
     end
   end
-  return sum
+  return s
 end
 """
-    sum_counters(nlp)
+    sum_counters(mpnlp)
 
 Sum all counters of problem `nlp` except `cons`, `jac`, `jprod` and `jtprod`.
 """
-sum_counters(nlp::AbstractNLPModel) = sum_counters(nlp.counters)
+sum_counters(mpnlp::AbstractMPNLPModel) = sum_counters(mpnlp.counters)
 
 """
     reset!(counters::MPCounters)
@@ -123,20 +119,22 @@ Reset evaluation counters
 """
 function reset!(counters::MPCounters)
   for f in fieldnames(MPCounters)
-    for key in keys(f)
-      f[key] = 0
+    @eval begin
+      for key in collect(keys($counters.$f))
+        $counters.$f[key] = 0
+      end
     end
   end
   return counters
 end
 
 """
-    reset!(nlp::AbstractMPNLPModel)
+    reset!(mpnlp::AbstractMPNLPModel)
 
-Reset evaluation count and model data (if appropriate) in `nlp`.
+Reset evaluation count and model data (if appropriate) in `mpnlp`.
 """
-function reset!(nlp::AbstractMPNLPModel)
-  reset!(nlp.counters)
-  reset_data!(nlp.Model)
-  return nlp
+function reset!(mpnlp::AbstractMPNLPModel)
+  reset!(mpnlp.counters)
+  reset_data!(mpnlp.Model)
+  return mpnlp
 end

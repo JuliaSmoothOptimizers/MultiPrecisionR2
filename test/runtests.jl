@@ -8,8 +8,19 @@ using IntervalArithmetic
 using OptimizationProblems
 using OptimizationProblems.ADNLPProblems
 using JSOSolvers
+using SolverCore
 
 with_logger(NullLogger()) do
+  @testset "utils.jl" begin
+    println("#### Testing utils...")
+    t = @elapsed include("utils_test.jl")
+    println("#### done (took $t seconds).")
+  end
+  @testset "MPCounters.jl" begin
+    println("#### Testing MPCounters...")
+    t = @elapsed include("MPCounters_test.jl")
+    println("#### done (took $t seconds).")
+  end
   @testset "MPNLPModels.jl" begin
     println("#### Testing MPNLPModels...")
     t = @elapsed include("MPNLPModels_test.jl")

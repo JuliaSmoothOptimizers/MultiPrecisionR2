@@ -468,6 +468,7 @@ end
     solver.π.πx = 1
     solver.π.πg = 1
     solver.ωg = 0.0
+    stats.status = :unknown
     @test MultiPrecisionR2.recompute_g_default!(m,solver,stats,nothing) == (false, true)
     @test solver.π.πg == 1
     @test solver.g[1] == [1.0,1.0] # solver.g not modified since not recomputed
@@ -485,6 +486,7 @@ end
     solver.π.πs = 1
     solver.π.πg = 1
     solver.ωg = 1.0
+    stats.status = :unknown
     @test MultiPrecisionR2.recompute_g_default!(m,solver,stats,nothing) == (true, true)
     @test solver.π.πg == 2
     @test solver.g[2] == [2.0,2.0]

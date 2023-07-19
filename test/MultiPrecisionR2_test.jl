@@ -452,7 +452,7 @@ end
     solver.s[1] .= ones(Float16,2)
     solver.s[2] .= ones(Float32,2)
     solver.π.πx = 1
-    solver.π.πs = 2
+    solver.π.πs = 1
     solver.π.πg = 1
     solver.ωg = 1.0
     @test MultiPrecisionR2.recompute_g_default!(m,solver,stats,nothing) == (true, false)
@@ -463,12 +463,13 @@ end
     m = FPMPNLPModel(fq,x0,Formats,γfunc = gamma0,ωfRelErr = ω,ωgRelErr = ω)
     solver = MPR2Solver(m)
     solver.x[1] .= zeros(Float16,2)
+    solver.x[2] .= zeros(Float32,2)
     solver.s[1] .= ones(Float16,2)
+    solver.s[2] .= ones(Float32,2)
     solver.g[1] .= ones(Float16,2)
     solver.π.πx = 1
     solver.π.πg = 1
     solver.ωg = 0.0
-    stats.status = :unknown
     @test MultiPrecisionR2.recompute_g_default!(m,solver,stats,nothing) == (false, true)
     @test solver.π.πg == 1
     @test solver.g[1] == [1.0,1.0] # solver.g not modified since not recomputed
@@ -486,7 +487,6 @@ end
     solver.π.πs = 1
     solver.π.πg = 1
     solver.ωg = 1.0
-    stats.status = :unknown
     @test MultiPrecisionR2.recompute_g_default!(m,solver,stats,nothing) == (true, true)
     @test solver.π.πg == 2
     @test solver.g[2] == [2.0,2.0]

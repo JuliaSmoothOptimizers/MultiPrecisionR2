@@ -285,7 +285,7 @@ function SolverCore.solve!(
       @sprintf "%6s  %9s  %9s  %9s  %9s  %9s  %7s  %7s  %7s  %7s %7s  %2s  %2s  %2s  %2s\n" "iter" "f(x)" "ωf(x)" "f(c)" "ωf(c)" "‖g‖" "ωg" "σ" "μ" "ϕ" "ρ" "πx" "πc" "πf" "πg"
     @info infoline
     infoline =
-      @sprintf "%6d  %9.2e  %9.2e  %9.2e  %9.2e  %9.2e  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %2d  %2d  %2d  %2d \n" stats.iter solver.f solver.ωf solver.f⁺ solver.ωf⁺ solver.g_norm solver.ωg solver.σ solver.μ solver.ϕ solver.ρ π.πx π.πc π.πf π.πg
+      @sprintf "%6d  %9.2e  %9.2e  %9.2e  %9.2e  %9.2e  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %2d  %2d  %2d  %2d \n" stats.iter solver.f solver.ωf solver.f⁺ solver.ωf⁺ solver.g_norm solver.ωg solver.σ solver.μ solver.ϕ solver.ρ solver.π.πx solver.π.πc solver.π.πf solver.π.πg
     @info infoline
   end
 
@@ -367,7 +367,7 @@ function SolverCore.solve!(
 
     if verbose > 0
       infoline =
-        @sprintf "%6d  %9.2e  %9.2e  %9.2e  %9.2e  %9.2e  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %2d  %2d  %2d  %2d \n" stats.iter solver.f solver.ωf solver.f⁺ solver.ωf⁺ solver.g_norm solver.ωg solver.σ solver.μ solver.ϕ solver.ρ π.πx π.πc π.πf π.πg
+        @sprintf "%6d  %9.2e  %9.2e  %9.2e  %9.2e  %9.2e  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %2d  %2d  %2d  %2d \n" stats.iter solver.f solver.ωf solver.f⁺ solver.ωf⁺ solver.g_norm solver.ωg solver.σ solver.μ solver.ϕ solver.ρ solver.π.πx solver.π.πc solver.π.πf solver.π.πg
       @info infoline
     end
 

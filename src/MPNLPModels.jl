@@ -77,7 +77,7 @@ x = zeros(2)
 MPmodel = FPMPNLPModel(f,x0,T)
 ```
 """
-struct FPMPNLPModel{H, T <: Tuple, D, S} <: AbstractMPNLPModel{D, S}
+struct FPMPNLPModel{H, B <: Tuple, D, S} <: AbstractMPNLPModel{D, S}
   Model::AbstractNLPModel{D, S}
   meta::NLPModelMeta
   counters::MPCounters
@@ -90,8 +90,8 @@ struct FPMPNLPModel{H, T <: Tuple, D, S} <: AbstractMPNLPModel{D, S}
   ωgRelErr::Vector{H}
   ObjEvalMode::Int
   GradEvalMode::Int
-  X::T
-  G::T
+  X::B
+  G::B
 end
 
 function FPMPNLPModel(
@@ -342,6 +342,7 @@ Evaluates objective and increase model precision to reach necessary error bound 
 ##### Outputs
 * `f`: objective value at `x`
 * `ωf`: objective evaluation error
+* `id`: precision level used for evaluation
 
 There is no guarantee that `ωf ≤ err_bound`, happens if highest precision FP format is not accurate enough.
 """
@@ -370,6 +371,7 @@ Evaluates gradient and increase model precision to reach necessary error bound o
 * `π`: Initial ''gess'' for precision level that can provide evaluation error lower than `err_bound`, uses 1 by default (lowest precision)
 # Outputs
 * `ωg`: objective evaluation error
+* `id`: precision level used for evaluation
 There is no guarantee that `ωg ≤ err_bound`. This case happens if the highest precision FP format is not accurate enough.
 """
 function gradReachPrec!(
@@ -392,7 +394,7 @@ function gradReachPrec!(
     @warn "Gradient evaluation overflows with highest FP format at x0"
   end
   if id == πmax && isinf(ωg)
-    "Gradient evaluation overflows with highest FP format at x0"
+    "Gradient evaluation error overflows with highest FP format at x0"
   end
   return H(ωg), id
 end

@@ -1,4 +1,4 @@
-export MPCounters, increment!, reset!
+export MPCounters, increment!, reset!, decrement!
 
 """
     MPCounters
@@ -97,13 +97,13 @@ end
 Sum all counters of `counters` except `cons`, `jac`, `jprod` and `jtprod`.
 """
 function sum_counters(c::MPCounters)
-  sum = Dict{DataType, Int}()
+  s = Dict{DataType, Int}()
   for x in fieldnames(MPCounters)
     if !(x in (:neval_cons, :neval_jac, :neval_jprod, :neval_jtprod))
-      mergewith(+, sum, getproperty(c, x))
+      s = mergewith(+, s, getproperty(c, x))
     end
   end
-  return sum
+  return s
 end
 """
     sum_counters(mpnlp)
@@ -119,8 +119,10 @@ Reset evaluation counters
 """
 function reset!(counters::MPCounters)
   for f in fieldnames(MPCounters)
-    for key in keys(f)
-      f[key] = 0
+    @eval begin
+      for key in collect(keys($counters.$f))
+        $counters.$f[key] = 0
+      end
     end
   end
   return counters

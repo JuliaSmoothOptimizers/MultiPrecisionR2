@@ -5,7 +5,7 @@ Test interval evaluation of objective for all formats in `FPList`.
 Test fails and return an error if:
   * Interval evaluation returns an error
   * Interval evaluation is not type stable
-See [`FPMPNLPModel`](@ref), [`AbstractNLPModel`](@ref)
+See [`FPMPNLPModel`], [`AbstractNLPModel`]
 """
 function ObjIntervalEval_test(nlp::AbstractNLPModel, FPList::AbstractArray)
   for fp in FPList
@@ -33,7 +33,7 @@ Test interval evaluation of gradient for all FP formats.
 Test fails and return an error if:
   * Interval evaluation returns an error
   * Interval evaluation is not type stable
-See [`FPMPNLPModel`](@ref), [`AbstractNLPModel`](@ref)
+See [`FPMPNLPModel`], [`AbstractNLPModel`]
 """
 function GradIntervalEval_test(nlp::AbstractNLPModel, FPList::AbstractArray)
   for fp in FPList

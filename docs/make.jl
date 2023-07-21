@@ -19,4 +19,8 @@ makedocs(;
   pages = ["Home" => "index.md", "Reference" => "reference.md"],
 )
 
-deploydocs(; repo = "github.com/JuliaSmoothOptimizers/MultiPrecisionR2.git", push_preview = true, devbranch = "main")
+deploydocs(;
+  repo = "github.com/JuliaSmoothOptimizers/MultiPrecisionR2.git",
+  push_preview = true,
+  devbranch = "main",
+)

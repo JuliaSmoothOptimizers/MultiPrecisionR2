@@ -18,11 +18,10 @@
   g[1] = NaN
   @test MultiPrecisionR2.check_overflow(g) == true
 
-  G = [0.0 .. 0.0 for _ =1:10]
+  G = [0.0 .. 0.0 for _ = 1:10]
   @test MultiPrecisionR2.check_overflow(G) == false
   G[1] = 0.0 .. Inf
   @test MultiPrecisionR2.check_overflow(g) == true
-
 end
 
 @testset "Gamma function" begin
@@ -36,15 +35,16 @@ end
     err_msg = String(take!(buf))
     @test err_msg == "Wrong γfunc template, expected template: γfunc(n::Int,u::Float) -> Float"
   end
-  f(n,u) = 2.0
+  f(n, u) = 2.0
   try
-    MultiPrecisionR2.γfunc_test_error_bound(0,0.0,f)
+    MultiPrecisionR2.γfunc_test_error_bound(0, 0.0, f)
     @test false
   catch e
     buf = IOBuffer()
     showerror(buf, e)
     err_msg = String(take!(buf))
-    @test err_msg == "γfunc: dot product error greater than 100% with highest precision. Consider using higher precision floating point format, or provide a different callback function for γfunc (last option might cause numerical instability)."
+    @test err_msg ==
+          "γfunc: dot product error greater than 100% with highest precision. Consider using higher precision floating point format, or provide a different callback function for γfunc (last option might cause numerical instability)."
   end
 end
 
@@ -52,7 +52,7 @@ end
   f(x) = 0.0
   FPList = [Float32]
   x0 = zeros(1)
-  nlp = ADNLPModel(f,x0)
+  nlp = ADNLPModel(f, x0)
   try
     MultiPrecisionR2.ObjIntervalEval_test(nlp, FPList)
     @test false
@@ -60,7 +60,8 @@ end
     buf = IOBuffer()
     showerror(buf, e)
     err_msg = String(take!(buf))
-    @test err_msg == "Objective function evaluation error with interval, error model must be provided. Error detail:"
+    @test err_msg ==
+          "Objective function evaluation error with interval, error model must be provided. Error detail:"
   end
   try
     MultiPrecisionR2.GradIntervalEval_test(nlp, FPList)
@@ -69,7 +70,7 @@ end
     buf = IOBuffer()
     showerror(buf, e)
     err_msg = String(take!(buf))
-    @test err_msg == "Gradient evaluation error with interval, error model must be provided. Error detail:"
+    @test err_msg ==
+          "Gradient evaluation error with interval, error model must be provided. Error detail:"
   end
-  
 end

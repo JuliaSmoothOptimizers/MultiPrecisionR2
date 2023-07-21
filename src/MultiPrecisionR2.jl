@@ -16,7 +16,6 @@ include("MPCounters.jl")
 include("MPNLPModels.jl")
 include("utils.jl")
 
-
 """
     function MPR2Precisions(π::Int)
 
@@ -43,7 +42,7 @@ end
 Base.copy(π::MPR2Precisions) =
   MPR2Precisions(π.πx, π.πnx, π.πs, π.πns, π.πc, π.πf, π.πf⁺, π.πg, π.πΔ)
 
-  """
+"""
   MPR2Params(LPFormat::DataType, HPFormat::DataType)
 MPR2 parameters.
 
@@ -76,22 +75,22 @@ Instiates default values:
 - `γ₂::L = 2`
 """
 mutable struct MPR2Params{H, L}
-η₀::H
-η₁::H
-η₂::H
-κₘ::H
-γ₁::L
-γ₂::L
+  η₀::H
+  η₁::H
+  η₂::H
+  κₘ::H
+  γ₁::L
+  γ₂::L
 end
 
 function MPR2Params(LPFormat::DataType, HPFormat::DataType)
-η₀ = HPFormat(0.01)
-η₁ = HPFormat(0.02)
-η₂ = HPFormat(0.95)
-κₘ = HPFormat(0.02)
-γ₁ = LPFormat(2^(-2))
-γ₂ = LPFormat(2)
-return MPR2Params(η₀, η₁, η₂, κₘ, γ₁, γ₂)
+  η₀ = HPFormat(0.01)
+  η₁ = HPFormat(0.02)
+  η₂ = HPFormat(0.95)
+  κₘ = HPFormat(0.02)
+  γ₁ = LPFormat(2^(-2))
+  γ₂ = LPFormat(2)
+  return MPR2Params(η₀, η₁, η₂, κₘ, γ₁, γ₂)
 end
 
 """
@@ -101,10 +100,10 @@ Check if the MPR2 parameters conditions are satified.
 See [`MPR2Params`](@ref) for parameter conditions.
 """
 function CheckMPR2ParamConditions(p::MPR2Params{H}) where {H}
-0 ≤ p.η₀ ≤ 1 / 2 * p.η₁ || error("Expected 0 ≤ η₀ ≤ 1/2*η₁")
-p.η₁ ≤ p.η₂ < 1 || error("Expected η₁ ≤ η₂ < 1")
-p.η₀ + p.κₘ / 2 ≤ 0.5 * (1 - p.η₂) || error("Expected η₀+κₘ/2 ≤0.5*(1-η₂)")
-0 < p.γ₁ < 1 < p.γ₂ || error("Expected 0<γ₁<1<γ₂")
+  0 ≤ p.η₀ ≤ 1 / 2 * p.η₁ || error("Expected 0 ≤ η₀ ≤ 1/2*η₁")
+  p.η₁ ≤ p.η₂ < 1 || error("Expected η₁ ≤ η₂ < 1")
+  p.η₀ + p.κₘ / 2 ≤ 0.5 * (1 - p.η₂) || error("Expected η₀+κₘ/2 ≤0.5*(1-η₂)")
+  0 < p.γ₁ < 1 < p.γ₂ || error("Expected 0<γ₁<1<γ₂")
 end
 
 """
@@ -167,28 +166,32 @@ mutable struct MPR2Solver{T <: Tuple, H <: AbstractFloat} <: AbstractOptimizatio
   init::Bool
 end
 
-function MPR2Solver(MPnlp::M) where {S, H, B, D, M <: FPMPNLPModel{H,B,D,S} }
+function MPR2Solver(MPnlp::M) where {S, H, B, D, M <: FPMPNLPModel{H, B, D, S}}
   nvar = MPnlp.meta.nvar
-  x = Tuple(Vector{ElType}(undef,nvar) for ElType in MPnlp.FPList)
-  s = Tuple(Vector{ElType}(undef,nvar) for ElType in MPnlp.FPList)
-  c = Tuple(Vector{ElType}(undef,nvar) for ElType in MPnlp.FPList)
-  g = Tuple(Vector{ElType}(undef,nvar) for ElType in MPnlp.FPList)
+  x = Tuple(Vector{ElType}(undef, nvar) for ElType in MPnlp.FPList)
+  s = Tuple(Vector{ElType}(undef, nvar) for ElType in MPnlp.FPList)
+  c = Tuple(Vector{ElType}(undef, nvar) for ElType in MPnlp.FPList)
+  g = Tuple(Vector{ElType}(undef, nvar) for ElType in MPnlp.FPList)
   πmax = length(MPnlp.FPList)
   π = MPR2Precisions(πmax)
-  par = MPR2Params(MPnlp.FPList[1],H)
-  return MPR2Solver(x, g, s, c, π, par, [H(0) for _ in 1:fieldcount(MPR2Solver)-8]..., πmax, true)
+  par = MPR2Params(MPnlp.FPList[1], H)
+  return MPR2Solver(
+    x,
+    g,
+    s,
+    c,
+    π,
+    par,
+    [H(0) for _ = 1:(fieldcount(MPR2Solver) - 8)]...,
+    πmax,
+    true,
+  )
 end
 
-@doc (@doc MPR2Solver) function MPR2(
-  MPnlp::FPMPNLPModel;
-  kwargs...
-)
+@doc (@doc MPR2Solver) function MPR2(MPnlp::FPMPNLPModel; kwargs...)
   solver = MPR2Solver(MPnlp)
   return SolverCore.solve!(solver, MPnlp; kwargs...)
 end
-
-
-
 
 """
     update_struct!(str,other_str)
@@ -206,7 +209,7 @@ function SolverCore.reset!(solver::MPR2Solver{T}) where {T}
 end
 
 function SolverCore.solve!(
-  solver::MPR2Solver{T,H},
+  solver::MPR2Solver{T, H},
   MPnlp::FPMPNLPModel,
   stats::GenericExecutionStats;
   x₀ = MPnlp.meta.x0,
@@ -239,7 +242,7 @@ function SolverCore.solve!(
   η₂ = par.η₂
   γ₁ = par.γ₁ # in lowest precision format to ensure type stability when updating σ
   γ₂ = par.γ₂ # in lowest precision format to ensure type stability when updating σ
-  
+
   #initialize init sol
   umpt!(solver.x, x₀)
   umpt!(solver.c, x₀)
@@ -250,33 +253,32 @@ function SolverCore.solve!(
   FP = MPnlp.FPList
   U = MPnlp.UList
 
-
   γfunc = MPnlp.γfunc
   βfunc(n::Int, u::H) = max(abs(1 - sqrt(1 - γfunc(n + 2, u))), abs(1 - sqrt(1 + γfunc(n, u)))) # error bound on euclidean norm
 
   # initial evaluation, check for overflow
-  compute_f_at_x!(MPnlp,solver,stats,e)
+  compute_f_at_x!(MPnlp, solver, stats, e)
   if isinf(solver.f) || isinf(solver.ωf)
     @warn "Objective or ojective error overflow at x0"
     stats.status = :exception
   end
   SolverCore.set_objective!(stats, solver.f)
 
-  compute_g!(MPnlp,solver,stats,e)
-  if findfirst(x->x === FP[end](Inf), solver.g) !== nothing || isinf(solver.ωg)
+  compute_g!(MPnlp, solver, stats, e)
+  if findfirst(x -> x === FP[end](Inf), solver.g) !== nothing || isinf(solver.ωg)
     @warn "Gradient or gradient error overflow at x0"
     stats.status = :exception
   end
-  umpt!(solver.g,solver.g[solver.π.πg])
+  umpt!(solver.g, solver.g[solver.π.πg])
   solver.g_norm = H(norm(solver.g[solver.π.πg]))
-  SolverCore.set_dual_residual!(stats,solver.g_norm)
+  SolverCore.set_dual_residual!(stats, solver.g_norm)
 
-  σ0 = 2^round(log2(solver.g_norm+1)) # ensures ||s_0|| ≈ 1 with sigma_0 = 2^n with n an interger, i.e. sigma_0 is exactly representable in n bits 
+  σ0 = 2^round(log2(solver.g_norm + 1)) # ensures ||s_0|| ≈ 1 with sigma_0 = 2^n with n an interger, i.e. sigma_0 is exactly representable in n bits 
   solver.σ = H(σ0) # declare σ with the highest precision, convert it when computing sk to keep it at precision πg
-  
+
   # check first order stopping condition
   ϵ = atol + rtol * solver.g_norm
-  optimal = solver.g_norm ≤ (1-βfunc(n,U[solver.π.πg]))*ϵ/(1+H(solver.ωg))
+  optimal = solver.g_norm ≤ (1 - βfunc(n, U[solver.π.πg])) * ϵ / (1 + H(solver.ωg))
   if optimal
     @info("First order critical point found at initial point")
   end
@@ -308,7 +310,6 @@ function SolverCore.solve!(
   solver.init = false
   #main loop
   while (!done)
-
     solver.π.πs = solver.π.πg
     computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) || (stats.status = :exception)
     computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || (stats.status = :exception)
@@ -324,37 +325,37 @@ function SolverCore.solve!(
       computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || (stats.status = :exception)
       computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || (stats.status = :exception)
     end
-    SolverCore.set_dual_residual!(stats,solver.g_norm)
-    
-    compute_f_at_x!(MPnlp,solver,stats,e) || (stats.status = :exception)
+    SolverCore.set_dual_residual!(stats, solver.g_norm)
+
+    compute_f_at_x!(MPnlp, solver, stats, e) || (stats.status = :exception)
     SolverCore.set_objective!(stats, solver.f)
 
-    compute_f_at_c!(MPnlp,solver,stats,e) || (stats.status = :exception)
+    compute_f_at_c!(MPnlp, solver, stats, e) || (stats.status = :exception)
 
-    solver.ρ = ( H(solver.f) - H(solver.f⁺)) / H(solver.ΔT)
-    
-    if solver.ρ ≥ η₂ 
-      solver.σ = max(σmin,  solver.σ*γ₁)
+    solver.ρ = (H(solver.f) - H(solver.f⁺)) / H(solver.ΔT)
+
+    if solver.ρ ≥ η₂
+      solver.σ = max(σmin, solver.σ * γ₁)
     end
     if solver.ρ < η₁
       solver.σ = solver.σ * γ₂
     end
 
     if solver.ρ ≥ η₁
-      compute_g!(MPnlp,solver,stats,e) || (stats.status = :exception)
-      umpt!(solver.g,solver.g[solver.π.πg])
-      
-      if findfirst(x->isinf(x), solver.g[end]) !== nothing || isinf(solver.ωg)
+      compute_g!(MPnlp, solver, stats, e) || (stats.status = :exception)
+      umpt!(solver.g, solver.g[solver.π.πg])
+
+      if findfirst(x -> isinf(x), solver.g[end]) !== nothing || isinf(solver.ωg)
         @warn "gradient evaluation error at c too big to ensure convergence"
         stats.status = :exception
       end
-      
+
       solver.g_norm = H(norm(solver.g[solver.π.πg]))
-      umpt!(solver.x,solver.c[solver.π.πc])
+      umpt!(solver.x, solver.c[solver.π.πc])
       solver.f = solver.f⁺
-      SolverCore.set_objective!(stats,solver.f⁺)
+      SolverCore.set_objective!(stats, solver.f⁺)
       solver.ωf = solver.ωf⁺
-      
+
       solver.π.πf = solver.π.πf⁺
       solver.π.πx = solver.π.πc
       selectPic!(solver)
@@ -363,7 +364,7 @@ function SolverCore.solve!(
     SolverCore.set_iter!(stats, stats.iter + 1)
     SolverCore.set_time!(stats, time() - start_time)
     SolverCore.set_dual_residual!(stats, solver.g_norm)
-    optimal = solver.g_norm ≤1/(1+βfunc(n,U[solver.π.πg]))*ϵ/(1+H(solver.ωg))
+    optimal = solver.g_norm ≤ 1 / (1 + βfunc(n, U[solver.π.πg])) * ϵ / (1 + H(solver.ωg))
 
     if verbose > 0
       infoline =
@@ -522,7 +523,7 @@ function computeCandidate!(
   πs = π.πs
   πc = π.πc
   c[πc] .= FP[πc].(x[max(πc, πx)] .+ s[max(πc, πs)])
-  while CheckUnderOverflowCandidate(c[πc], x[πx],s[πs])
+  while CheckUnderOverflowCandidate(c[πc], x[πx], s[πs])
     if πc == πmax #not enough precision to avoid underflow
       @warn "over/underflow with maximum precision FP format ($(FP[πmax]))"
       π.πc = πc
@@ -559,7 +560,7 @@ Compute model decrease with FP format avoiding underflow and overflow
 function computeModelDecrease!(
   g::T,
   s::T,
-  solver::MPR2Solver{T,H},
+  solver::MPR2Solver{T, H},
   FP::Vector{DataType},
   π::MPR2Precisions,
 ) where {H, T <: Tuple}
@@ -588,11 +589,16 @@ end
 
 Compute μ value for gradient error ωg, ratio ϕ = ||x||/||s|| and rounding error models
 """
-function computeMu(m::FPMPNLPModel, solver::MPR2Solver{T,H}; π = solver.π) where {T,H}
+function computeMu(m::FPMPNLPModel, solver::MPR2Solver{T, H}; π = solver.π) where {T, H}
   n = m.meta.nvar
-  αfunc(n::Int,u::H) = 1/(1-m.γfunc(n,u))
-  u = π.πc >= π.πs ? m.UList[π.πc] : m.UList[π.πc] + m.UList[π.πs] + m.UList[π.πc]*m.UList[π.πs]
-  return ( αfunc(n+1,m.UList[π.πΔ]) * H(solver.ωg) * (m.UList[π.πc] + solver.ϕ * u +1) + αfunc(n+1,m.UList[π.πΔ]) * u * (solver.ϕ +1) + m.UList[π.πg] + m.γfunc(n+2,m.UList[π.πΔ]) * αfunc(n+1,m.UList[π.πΔ]) ) / (1-m.UList[π.πs])
+  αfunc(n::Int, u::H) = 1 / (1 - m.γfunc(n, u))
+  u = π.πc >= π.πs ? m.UList[π.πc] : m.UList[π.πc] + m.UList[π.πs] + m.UList[π.πc] * m.UList[π.πs]
+  return (
+    αfunc(n + 1, m.UList[π.πΔ]) * H(solver.ωg) * (m.UList[π.πc] + solver.ϕ * u + 1) +
+    αfunc(n + 1, m.UList[π.πΔ]) * u * (solver.ϕ + 1) +
+    m.UList[π.πg] +
+    m.γfunc(n + 2, m.UList[π.πΔ]) * αfunc(n + 1, m.UList[π.πΔ])
+  ) / (1 - m.UList[π.πs])
 end
 
 """
@@ -643,7 +649,11 @@ Does not make the over/underflow check as in main loop, since it is a repetition
 * g_recompute::Bool : true if gradient has been modified, false otherwise
 See [`recomputeMuPrecSelection!`](@ref)
 """
-function recomputeMu!(m::FPMPNLPModel, solver::MPR2Solver{T,H}, πr::MPR2Precisions) where {T <: Tuple, H}
+function recomputeMu!(
+  m::FPMPNLPModel,
+  solver::MPR2Solver{T, H},
+  πr::MPR2Precisions,
+) where {T <: Tuple, H}
   g_recompute = false
   n = m.meta.nvar
   βfunc(n::Int, u::H) = max(abs(1 - sqrt(1 - m.γfunc(n + 2, u))), abs(1 - sqrt(1 + m.γfunc(n, u)))) # error bound on euclidean norm
@@ -661,12 +671,12 @@ function recomputeMu!(m::FPMPNLPModel, solver::MPR2Solver{T,H}, πr::MPR2Precisi
     solver.ϕ = solver.ϕhat * (1 + βfunc(n, m.UList[πr.πnx])) / (1 - βfunc(n, m.UList[πr.πns]))
   end
   if solver.π.πs != πr.πs
-    computeStep!(solver.s,solver.g,solver.σ,m.FPList,πr)
+    computeStep!(solver.s, solver.g, solver.σ, m.FPList, πr)
   end
   if solver.π.πg != πr.πg
     solver.ωg = graderrmp!(m, solver.x[πr.πg], solver.g[πr.πg])
     g_recompute = true
-    umpt!(solver.g,solver.g[πr.πg])
+    umpt!(solver.g, solver.g[πr.πg])
   end
   solver.μ = computeMu(m, solver; π = πr)
   return g_recompute
@@ -686,21 +696,21 @@ Evaluation is predicted as:
   + Interval evaluation error depends linearly with unit-roundoff 
 * Other: Lowest precision that does not cast candidate in a lower prec FP format and f(c) predicted does not overflow
 """
-function selectPif!(m::FPMPNLPModel, solver::MPR2Solver{T,H}, ωfBound::H) where {T,H}
+function selectPif!(m::FPMPNLPModel, solver::MPR2Solver{T, H}, ωfBound::H) where {T, H}
   πmin_no_ov = findfirst(x -> x > abs(solver.f - solver.ΔT), m.OFList) # lowest precision level such that predicted f(ck) ≈ fk+gk'ck does not overflow
   if πmin_no_ov === nothing
     solver.π.πf⁺ = solver.πmax
     return
   end
-  πmin = max(solver.π.πc,πmin_no_ov) # lower bound on πf⁺ to avoid casting error on c and possible overflow
-  f⁺_pred = solver.f-solver.ΔT 
+  πmin = max(solver.π.πc, πmin_no_ov) # lower bound on πf⁺ to avoid casting error on c and possible overflow
+  f⁺_pred = solver.f - solver.ΔT
   ωf⁺_pred = 0
   if m.ObjEvalMode == REL_ERR
     ωf⁺_pred = abs(f⁺_pred) .* m.ωfRelErr
-  elseif m.ObjEvalMode == INT_ERR 
-    r = abs(f⁺_pred)/abs(solver.f)
+  elseif m.ObjEvalMode == INT_ERR
+    r = abs(f⁺_pred) / abs(solver.f)
     ωf⁺_pred = solver.ωf * r * m.UList ./ m.UList[solver.π.πf]
-  else 
+  else
     solver.π.πf⁺ = πmin
     return
   end
@@ -727,7 +737,12 @@ Compute objective function at the candidate. Updates related fields of solver.
 *bool : returns false if couldn't reach sufficiently small evaluation error or overflow occured. 
 
 """
-function compute_f_at_c_default!(m::FPMPNLPModel, solver::MPR2Solver{T,H}, stats::GenericExecutionStats, e::E) where {H, E, T <: Tuple}
+function compute_f_at_c_default!(
+  m::FPMPNLPModel,
+  solver::MPR2Solver{T, H},
+  stats::GenericExecutionStats,
+  e::E,
+) where {H, E, T <: Tuple}
   ωfBound = solver.p.η₀ * solver.ΔT
   selectPif!(m, solver, ωfBound) # select precision evaluation 
   solver.f⁺, solver.ωf⁺, solver.π.πf⁺ = objReachPrec(m, solver.c, ωfBound, π = solver.π.πf⁺)
@@ -751,7 +766,12 @@ Compute objective function at the current incumbent. Updates related fields of s
 *bool : returns false if couldn't reach sufficiently small evaluation error or overflow occured. 
 
 """
-function compute_f_at_x_default!(m::FPMPNLPModel, solver::MPR2Solver{T,H}, stats::GenericExecutionStats, e::E) where {H, E, T <: Tuple}
+function compute_f_at_x_default!(
+  m::FPMPNLPModel,
+  solver::MPR2Solver{T, H},
+  stats::GenericExecutionStats,
+  e::E,
+) where {H, E, T <: Tuple}
   if solver.init == true # first objective eval before main loop, no error bound needed
     solver.f, solver.ωf, solver.π.πf = objReachPrec(m, solver.x, m.OFList[end], π = solver.π.πf)
   else
@@ -784,7 +804,12 @@ Compute gradient at x if solver.init == true (first gradient eval outside of mai
 # Outputs:
 *bool : always returns true (comply with callback template)
 """
-function compute_g_default!(m::FPMPNLPModel, solver::MPR2Solver{T,H}, stats::GenericExecutionStats , e::E) where {H, E, T <: Tuple}
+function compute_g_default!(
+  m::FPMPNLPModel,
+  solver::MPR2Solver{T, H},
+  stats::GenericExecutionStats,
+  e::E,
+) where {H, E, T <: Tuple}
   if solver.init == true # first grad eval at x before main loop
     solver.π.πg = solver.π.πx
     solver.ωg, solver.π.πg = gradReachPrec!(m, solver.x, solver.g, m.OFList[end], π = solver.π.πg)
@@ -804,7 +829,12 @@ See also [`computeMu`](@ref), [`recomputeMuPrecSelection!`](@ref), [`recomputeMu
 # Outputs:
 *bool : returns false if couldn't reach sufficiently small evaluation error or overflow occured. 
 """
-function recompute_g_default!(m::FPMPNLPModel, solver::MPR2Solver{T,H}, stats::GenericExecutionStats, e::E,) where {H, E, T <: Tuple}
+function recompute_g_default!(
+  m::FPMPNLPModel,
+  solver::MPR2Solver{T, H},
+  stats::GenericExecutionStats,
+  e::E,
+) where {H, E, T <: Tuple}
   g_recompute = false
   n = m.meta.nvar
   βfunc(n::Int, u::H) = max(abs(1 - sqrt(1 - m.γfunc(n + 2, u))), abs(1 - sqrt(1 + m.γfunc(n, u)))) # error bound on euclidean norm
@@ -815,7 +845,8 @@ function recompute_g_default!(m::FPMPNLPModel, solver::MPR2Solver{T,H}, stats::G
   solver.x_norm = H(norm(solver.x[solver.π.πnx]))
   solver.s_norm = H(norm(solver.s[solver.π.πns]))
   solver.ϕhat = solver.x_norm / solver.s_norm
-  solver.ϕ = solver.ϕhat * (1 + βfunc(n, m.UList[solver.π.πnx])) / (1 - βfunc(n, m.UList[solver.π.πns]))
+  solver.ϕ =
+    solver.ϕhat * (1 + βfunc(n, m.UList[solver.π.πnx])) / (1 - βfunc(n, m.UList[solver.π.πns]))
   prec = findall(u -> u < 1 / solver.ϕ, m.UList)
   if isempty(prec) # step size too small compared to incumbent
     @warn "Algo stops because the step size is too small compare to the incumbent, addition unstable (due to rounding error or absorbtion) with highest precision level"
@@ -831,7 +862,7 @@ function recompute_g_default!(m::FPMPNLPModel, solver::MPR2Solver{T,H}, stats::G
       return g_recompute, false
     end
     g_recompute = recomputeMu!(m, solver, πr)
-    update_struct!(solver.π,πr)
+    update_struct!(solver.π, πr)
   end
   return g_recompute, true
 end

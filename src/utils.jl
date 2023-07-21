@@ -20,7 +20,9 @@ function ObjIntervalEval_test(nlp::AbstractNLPModel, FPList::AbstractArray)
         error("Interval evaluation of objective function not type stable ($intype -> $outtype)")
       end
     catch e
-      error("Objective function evaluation error with interval, error model must be provided. Error detail:")
+      error(
+        "Objective function evaluation error with interval, error model must be provided. Error detail:",
+      )
       @show e
     end
   end

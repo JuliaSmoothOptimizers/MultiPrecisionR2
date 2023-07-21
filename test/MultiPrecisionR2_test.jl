@@ -12,9 +12,9 @@ end
 @testset "MPR2 Parameters " begin
   T = Float64
   L = Float16
-  p = MPR2Params(T,L)
+  p = MPR2Params(T, L)
 
-  for η0 in [-1.0,10.0]
+  for η0 in [-1.0, 10.0]
     p.η₀ = η0
     try
       MultiPrecisionR2.CheckMPR2ParamConditions(p)
@@ -27,8 +27,8 @@ end
     end
   end
 
-  p = MPR2Params(T,L)
-  for η2 in [p.η₁/2,10.0]
+  p = MPR2Params(T, L)
+  for η2 in [p.η₁ / 2, 10.0]
     p.η₂ = η2
     try
       MultiPrecisionR2.CheckMPR2ParamConditions(p)
@@ -41,7 +41,7 @@ end
     end
   end
 
-  p = MPR2Params(T,L)
+  p = MPR2Params(T, L)
   p.κₘ = 1.0
   try
     MultiPrecisionR2.CheckMPR2ParamConditions(p)
@@ -53,8 +53,8 @@ end
     @test err_msg == "Expected η₀+κₘ/2 ≤0.5*(1-η₂)"
   end
 
-  p = MPR2Params(T,L)
-  for γ1 in [p.γ₂*2,-1.0]
+  p = MPR2Params(T, L)
+  for γ1 in [p.γ₂ * 2, -1.0]
     p.γ₁ = γ1
     try
       MultiPrecisionR2.CheckMPR2ParamConditions(p)
@@ -203,7 +203,8 @@ end
   sval = ones(2) * 2.0
   s = (Float16.(sval), Float32.(sval))
   f(x) = sum(x)
-  solver = MPR2Solver(FPMPNLPModel(f,similar(gval),FP,ωfRelErr=[0.0,0.0],ωgRelErr=[0.0,0.0]))
+  solver =
+    MPR2Solver(FPMPNLPModel(f, similar(gval), FP, ωfRelErr = [0.0, 0.0], ωgRelErr = [0.0, 0.0]))
   MultiPrecisionR2.computeModelDecrease!(g, s, solver, FP, π)
   @test π.πΔ == 2
   @test solver.ΔT == -dot(g[π.πΔ], s[π.πΔ])
@@ -229,80 +230,79 @@ end
   end
 end
 @testset "Mu related functions" begin
-  f(x) = sum(x.^2)
+  f(x) = sum(x .^ 2)
   Formats = [Float32, Float64]
   dim = 2^5
-  x0 = 1/10 .* ones(dim)
-  gamma0(n,u) = 0.0
-  m = FPMPNLPModel(f,x0,Formats,γfunc = gamma0)
+  x0 = 1 / 10 .* ones(dim)
+  gamma0(n, u) = 0.0
+  m = FPMPNLPModel(f, x0, Formats, γfunc = gamma0)
   solver = MPR2Solver(m)
   solver.ϕ = 0.0
-  u = eps(Float64)/2
-  @test MultiPrecisionR2.computeMu(m,solver) == (u+u)/(1-u)
-  m = FPMPNLPModel(f,x0,Formats)
+  u = eps(Float64) / 2
+  @test MultiPrecisionR2.computeMu(m, solver) == (u + u) / (1 - u)
+  m = FPMPNLPModel(f, x0, Formats)
   solver = MPR2Solver(m)
   π = MPR2Precisions(1)
   πr = copy(π)
-  update_struct!(solver.π,π)
-  mu = MultiPrecisionR2.computeMu(m,solver)
+  update_struct!(solver.π, π)
+  mu = MultiPrecisionR2.computeMu(m, solver)
   mu_next = mu
 
   @test false == MultiPrecisionR2.recomputeMuPrecSelection!(solver.π, πr, solver.πmax)
   @test πr.πΔ == 2
-  mu_next = MultiPrecisionR2.computeMu(m,solver;π = πr)
+  mu_next = MultiPrecisionR2.computeMu(m, solver; π = πr)
   @test mu_next < mu
   mu_next = mu
-  update_struct!(solver.π,πr)
+  update_struct!(solver.π, πr)
 
   @test false == MultiPrecisionR2.recomputeMuPrecSelection!(solver.π, πr, solver.πmax)
   @test πr.πnx == 2
   @test πr.πns == 2
-  mu_next = MultiPrecisionR2.computeMu(m,solver;π = πr)
+  mu_next = MultiPrecisionR2.computeMu(m, solver; π = πr)
   @test mu_next < mu
   mu_next = mu
-  update_struct!(solver.π,πr)
+  update_struct!(solver.π, πr)
 
   @test false == MultiPrecisionR2.recomputeMuPrecSelection!(solver.π, πr, solver.πmax)
   @test πr.πs == 2
-  mu_next = MultiPrecisionR2.computeMu(m,solver;π = πr)
+  mu_next = MultiPrecisionR2.computeMu(m, solver; π = πr)
   @test mu_next < mu
   mu_next = mu
-  update_struct!(solver.π,πr)
+  update_struct!(solver.π, πr)
 
   @test false == MultiPrecisionR2.recomputeMuPrecSelection!(solver.π, πr, solver.πmax)
   @test πr.πc == 2
-  mu_next = MultiPrecisionR2.computeMu(m,solver;π = πr)
+  mu_next = MultiPrecisionR2.computeMu(m, solver; π = πr)
   @test mu_next < mu
   mu_next = mu
-  update_struct!(solver.π,πr)
+  update_struct!(solver.π, πr)
 
   @test false == MultiPrecisionR2.recomputeMuPrecSelection!(solver.π, πr, solver.πmax)
   @test πr.πg == 2
-  mu_next = MultiPrecisionR2.computeMu(m,solver;π = πr)
+  mu_next = MultiPrecisionR2.computeMu(m, solver; π = πr)
   @test mu_next < mu
-  update_struct!(solver.π,πr)
+  update_struct!(solver.π, πr)
 
   @test true == MultiPrecisionR2.recomputeMuPrecSelection!(solver.π, πr, solver.πmax)
-
 end
 
 @testset "Default Callback" begin
   T = Float64
   f(x) = sum(x)
   Formats = [Float16, Float32]
-  x0 = ones(Float32,2)
+  x0 = ones(Float32, 2)
   η0 = 0.01 # default η0 value upon solver instanciation
-  ω = [0.1*η0,0.01*η0]
-  gamma0(n,u) = 0.0
-  m = FPMPNLPModel(f,x0,Formats,γfunc = gamma0,ωfRelErr = ω,ωgRelErr = ω)
+  ω = [0.1 * η0, 0.01 * η0]
+  gamma0(n, u) = 0.0
+  m = FPMPNLPModel(f, x0, Formats, γfunc = gamma0, ωfRelErr = ω, ωgRelErr = ω)
   solver = MPR2Solver(m)
 
   @testset "selectPif!()" begin
     # float32 eval overflow predicted
-    solver.f = 2*T(prevfloat(typemax(Float32)))
+    solver.f = 2 * T(prevfloat(typemax(Float32)))
     solver.ΔT = 0.0
     solver.π.πf⁺ = 1
-    MultiPrecisionR2.selectPif!(m,solver,0.0)
+    MultiPrecisionR2.selectPif!(m, solver, 0.0)
     @test solver.π.πf⁺ == 2
 
     # float16 predicted error ok simple
@@ -310,14 +310,14 @@ end
     solver.ΔT = 0.0
     solver.π.πf⁺ = 1
     solver.π.πc = 1
-    MultiPrecisionR2.selectPif!(m,solver,1.0)
+    MultiPrecisionR2.selectPif!(m, solver, 1.0)
     @test solver.π.πf⁺ == 1
 
     #float16 predicted error too big
     solver.f = 1.0
     solver.ΔT = 0.0
     solver.π.πf⁺ = 1
-    MultiPrecisionR2.selectPif!(m,solver,solver.f*ω[1]/2)
+    MultiPrecisionR2.selectPif!(m, solver, solver.f * ω[1] / 2)
     @test solver.π.πf⁺ == 2
   end
 
@@ -331,8 +331,8 @@ end
   end
 
   @testset "compute_f_at_c_default!()" begin
-    solver.c[1] .= ones(Float16,2)
-    solver.c[2] .= ones(Float32,2)
+    solver.c[1] .= ones(Float16, 2)
+    solver.c[2] .= ones(Float32, 2)
     solver.f = 0.0 # predicted error at c = ωfRelErr * solver.ΔT
     stats = GenericExecutionStats(m)
     # obj Float16 eval ok
@@ -340,26 +340,26 @@ end
     @test MultiPrecisionR2.compute_f_at_c_default!(m, solver, stats, nothing) == true
     @test solver.f⁺ == 2.0
     @test solver.π.πf⁺ == 1
-    @test solver.ωf⁺ == ω[1]*solver.f⁺
+    @test solver.ωf⁺ == ω[1] * solver.f⁺
     # Float16 err too big, Float32 ok
-    solver.f = 2*solver.ΔT*(2-1/m.ωfRelErr[1]) # pred error at Float16 = 2*ωfBound
+    solver.f = 2 * solver.ΔT * (2 - 1 / m.ωfRelErr[1]) # pred error at Float16 = 2*ωfBound
     @test MultiPrecisionR2.compute_f_at_c_default!(m, solver, stats, nothing) == true
     @test solver.f⁺ == 2.0
     @test solver.π.πf⁺ == 2
-    @test solver.ωf⁺ == ω[2]*solver.f⁺
+    @test solver.ωf⁺ == ω[2] * solver.f⁺
     # obj eval error too big
     solver.ΔT = 0.0 # i.e. ωfBound = 0
     solver.f = 1.0 #i.e. non null predicted relative error
     @test MultiPrecisionR2.compute_f_at_c_default!(m, solver, stats, nothing) == false
     # obj overflow
-    solver.c[2] .= ones(Float32,2)*prevfloat(typemax(Float32))
+    solver.c[2] .= ones(Float32, 2) * prevfloat(typemax(Float32))
     solver.π.πf⁺ = 2
     @test MultiPrecisionR2.compute_f_at_c_default!(m, solver, stats, nothing) == false
   end
 
   @testset "compute_f_at_x_default!()" begin
-    solver.x[1] .= ones(Float16,2)
-    solver.x[2] .= ones(Float32,2)
+    solver.x[1] .= ones(Float16, 2)
+    solver.x[2] .= ones(Float32, 2)
     stats = GenericExecutionStats(m)
     # init eval
     solver.init = true
@@ -380,11 +380,11 @@ end
     @test solver.ωf == 0.0
     # Float16 err too big, Float32 ok
     solver.π.πf = 1
-    solver.ωf = 2*solver.ΔT*solver.p.η₀ # error too big 
+    solver.ωf = 2 * solver.ΔT * solver.p.η₀ # error too big 
     @test MultiPrecisionR2.compute_f_at_x_default!(m, solver, stats, nothing) == true # compute f(x) 
     @test solver.f == 2.0
     @test solver.π.πf == 2
-    @test solver.ωf == ω[2]*solver.f
+    @test solver.ωf == ω[2] * solver.f
     # obj eval error too big and max prec, do nothing
     solver.ΔT = 0.0 # i.e. ωfBound = 0
     solver.ωf = 1.0
@@ -399,9 +399,9 @@ end
     solver.f = -1.0
     @test MultiPrecisionR2.compute_f_at_x_default!(m, solver, stats, nothing) == false
     @test solver.f == 2.0 # did recompute f(x) with Float32
-    @test solver.ωf == 2.0*m.ωfRelErr[2]
+    @test solver.ωf == 2.0 * m.ωfRelErr[2]
     # obj overflow
-    solver.x[2] .= ones(Float32,2)*prevfloat(typemax(Float32))
+    solver.x[2] .= ones(Float32, 2) * prevfloat(typemax(Float32))
     solver.ΔT = 1.0
     solver.π.πf = 1
     solver.ωf = 1.0 # error too big, has to recompute
@@ -411,85 +411,85 @@ end
   end
 
   # gradient tests
-  fq(x) = sum(x.^2)
-  m = FPMPNLPModel(fq,x0,Formats,γfunc = gamma0,ωfRelErr = ω,ωgRelErr = ω)
+  fq(x) = sum(x .^ 2)
+  m = FPMPNLPModel(fq, x0, Formats, γfunc = gamma0, ωfRelErr = ω, ωgRelErr = ω)
   solver = MPR2Solver(m)
   stats = GenericExecutionStats(m)
   @testset "compute_g_default!()" begin
-    solver.x[1] .= ones(Float16,2)
-    solver.x[2] .= ones(Float32,2)
-    solver.c[1] .= - ones(Float16,2)
-    solver.c[2] .= - ones(Float32,2)
+    solver.x[1] .= ones(Float16, 2)
+    solver.x[2] .= ones(Float32, 2)
+    solver.c[1] .= -ones(Float16, 2)
+    solver.c[2] .= -ones(Float32, 2)
     # init
     solver.π.πx = 1
     solver.init = true
-    MultiPrecisionR2.compute_g_default!(m,solver,stats,nothing)
-    @test solver.g[1] == [2.0,2.0]
+    MultiPrecisionR2.compute_g_default!(m, solver, stats, nothing)
+    @test solver.g[1] == [2.0, 2.0]
     @test solver.π.πg == 1
     # in main loop
     solver.π.πc = 1
     solver.init = false
-    MultiPrecisionR2.compute_g_default!(m,solver,stats,nothing)
-    @test solver.g[1] == [-2.0,-2.0]
+    MultiPrecisionR2.compute_g_default!(m, solver, stats, nothing)
+    @test solver.g[1] == [-2.0, -2.0]
     @test solver.π.πg == 1
   end
 
-  ω = [1.0,1.0]
-  m = FPMPNLPModel(fq,x0,Formats,γfunc = gamma0,ωfRelErr = ω,ωgRelErr = ω)
+  ω = [1.0, 1.0]
+  m = FPMPNLPModel(fq, x0, Formats, γfunc = gamma0, ωfRelErr = ω, ωgRelErr = ω)
   solver = MPR2Solver(m)
   stats = GenericExecutionStats(m)
   @testset "recompute_g_default!()" begin
     # small step case
-    solver.x[2] .= ones(Float32,2)
-    solver.s[2] .= solver.x[2].*m.UList[2] # step too small
+    solver.x[2] .= ones(Float32, 2)
+    solver.s[2] .= solver.x[2] .* m.UList[2] # step too small
     solver.π.πx = 2
     solver.π.πs = 2
-    @test MultiPrecisionR2.recompute_g_default!(m,solver,stats,nothing) == (false, false)
+    @test MultiPrecisionR2.recompute_g_default!(m, solver, stats, nothing) == (false, false)
     @test stats.status == :small_step
     # not enough precision (mu too big), gradient recomputed
-    solver.x[1] .= ones(Float16,2)
-    solver.x[2] .= ones(Float32,2)
-    solver.s[1] .= ones(Float16,2)
-    solver.s[2] .= ones(Float32,2)
+    solver.x[1] .= ones(Float16, 2)
+    solver.x[2] .= ones(Float32, 2)
+    solver.s[1] .= ones(Float16, 2)
+    solver.s[2] .= ones(Float32, 2)
     solver.π.πx = 1
     solver.π.πs = 1
     solver.π.πg = 1
     solver.ωg = 1.0
-    @test MultiPrecisionR2.recompute_g_default!(m,solver,stats,nothing) == (true, false)
+    @test MultiPrecisionR2.recompute_g_default!(m, solver, stats, nothing) == (true, false)
     @test solver.π.πg == 2
-    @test solver.g[2] == [2.0,2.0]
+    @test solver.g[2] == [2.0, 2.0]
     # enough precision with Float16
-    ω = [0.0,0.0]
-    m = FPMPNLPModel(fq,x0,Formats,γfunc = gamma0,ωfRelErr = ω,ωgRelErr = ω)
+    ω = [0.0, 0.0]
+    m = FPMPNLPModel(fq, x0, Formats, γfunc = gamma0, ωfRelErr = ω, ωgRelErr = ω)
     solver = MPR2Solver(m)
-    solver.x[1] .= zeros(Float16,2)
-    solver.x[2] .= zeros(Float32,2)
-    solver.s[1] .= ones(Float16,2)
-    solver.s[2] .= ones(Float32,2)
-    solver.g[1] .= ones(Float16,2)
+    solver.x[1] .= zeros(Float16, 2)
+    solver.x[2] .= zeros(Float32, 2)
+    solver.s[1] .= ones(Float16, 2)
+    solver.s[2] .= ones(Float32, 2)
+    solver.g[1] .= ones(Float16, 2)
     solver.π.πx = 1
     solver.π.πg = 1
     solver.ωg = 0.0
-    @test MultiPrecisionR2.recompute_g_default!(m,solver,stats,nothing) == (false, true)
+    @test MultiPrecisionR2.recompute_g_default!(m, solver, stats, nothing) == (false, true)
     @test solver.π.πg == 1
-    @test solver.g[1] == [1.0,1.0] # solver.g not modified since not recomputed
+    @test solver.g[1] == [1.0, 1.0] # solver.g not modified since not recomputed
     # not enough precision with Float16, Float32 ok
-    ω = [1.0,0.0]
-    m = FPMPNLPModel(fq,x0,Formats,γfunc = gamma0,ωfRelErr = ω,ωgRelErr = ω)
+    ω = [1.0, 0.0]
+    m = FPMPNLPModel(fq, x0, Formats, γfunc = gamma0, ωfRelErr = ω, ωgRelErr = ω)
     solver = MPR2Solver(m)
     stats = GenericExecutionStats(m)
-    solver.x[1] .= ones(Float16,2)
-    solver.x[2] .= ones(Float32,2)
-    solver.s[1] .= ones(Float16,2)
-    solver.s[2] .= ones(Float32,2)
-    solver.g[2] .= ones(Float32,2)
+    solver.x[1] .= ones(Float16, 2)
+    solver.x[2] .= ones(Float32, 2)
+    solver.s[1] .= ones(Float16, 2)
+    solver.s[2] .= ones(Float32, 2)
+    solver.g[2] .= ones(Float32, 2)
     solver.π.πx = 1
     solver.π.πs = 1
     solver.π.πg = 1
     solver.ωg = 1.0
-    @test MultiPrecisionR2.recompute_g_default!(m,solver,stats,nothing) == (true, true)
+    @test MultiPrecisionR2.recompute_g_default!(m, solver, stats, nothing) == (true, true)
     @test solver.π.πg == 2
-    @test solver.g[2] == [2.0,2.0]
+    @test solver.g[2] == [2.0, 2.0]
   end
 end
 
@@ -498,10 +498,10 @@ end
     #ok case
     s = 2 .* ones(10)
     g = ones(10)
-    @test MultiPrecisionR2.CheckUnderOverflowStep(s,g) == false
+    @test MultiPrecisionR2.CheckUnderOverflowStep(s, g) == false
     #underflow
     s[1] = 0
-    @test MultiPrecisionR2.CheckUnderOverflowStep(s,g) == true
+    @test MultiPrecisionR2.CheckUnderOverflowStep(s, g) == true
     #overflow
     s[1] = Inf
   end
@@ -510,24 +510,24 @@ end
     s = ones(10)
     c = 2 .* ones(10)
     x = ones(10)
-    @test MultiPrecisionR2.CheckUnderOverflowCandidate(c,x,s) == false
+    @test MultiPrecisionR2.CheckUnderOverflowCandidate(c, x, s) == false
     # ok case with step containing 0
     c[1] = x[1]
     s[1] = 0.0
-    @test MultiPrecisionR2.CheckUnderOverflowCandidate(c,x,s) == false
+    @test MultiPrecisionR2.CheckUnderOverflowCandidate(c, x, s) == false
     #underflow
     s[1] = 1.0
-    @test MultiPrecisionR2.CheckUnderOverflowCandidate(c,x,s) == true
+    @test MultiPrecisionR2.CheckUnderOverflowCandidate(c, x, s) == true
     #overflow
     c[1] = Inf
-    @test MultiPrecisionR2.CheckUnderOverflowCandidate(c,x,s) == true
+    @test MultiPrecisionR2.CheckUnderOverflowCandidate(c, x, s) == true
     #overflow
     c[1] = -Inf
-    @test MultiPrecisionR2.CheckUnderOverflowCandidate(c,x,s) == true
+    @test MultiPrecisionR2.CheckUnderOverflowCandidate(c, x, s) == true
   end
 
   @testset "Model decrease" begin
-    for d in [0,-Inf,Inf]
+    for d in [0, -Inf, Inf]
       @test MultiPrecisionR2.CheckUnderOverflowMD(d) == true
     end
   end

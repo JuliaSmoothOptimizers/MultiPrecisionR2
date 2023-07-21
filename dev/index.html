@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Home · MultiPrecisionR2.jl</title><script data-outdated-warner src="assets/warner.js"></script><link rel="canonical" href="/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js"></script><script src="siteinfo.js"></script><script src="../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="assets/themeswap.js"></script><link href="assets/style.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href><img src="assets/logo.png" alt="MultiPrecisionR2.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href>MultiPrecisionR2.jl</a></span></div><form class="docs-search" action="search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li class="is-active"><a class="tocitem" href>Home</a><ul class="internal"><li class="toplevel"><a class="tocitem" href="#Table-of-Contents"><span>Table of Contents</span></a></li><li class="toplevel"><a class="tocitem" href="#Quick-Start"><span>Quick Start</span></a></li><li class="toplevel"><a class="tocitem" href="#Motivation"><span>Motivation</span></a></li><li class="toplevel"><a class="tocitem" href="#MPR2-Algorithm:-General-Description"><span>MPR2 Algorithm: General Description</span></a></li><li><a class="tocitem" href="#**Notations**"><span><strong>Notations</strong></span></a></li><li><a class="tocitem" href="#**MPR2-Algorithm-Broad-Description**-(differs-from-package-implementation)"><span><strong>MPR2 Algorithm Broad Description</strong> (differs from package implementation)</span></a></li><li><a class="tocitem" href="#**Rounding-Errors-Handling**"><span><strong>Rounding Errors Handling</strong></span></a></li><li><a class="tocitem" href="#Conditions-on-Parameters"><span>Conditions on Parameters</span></a></li><li class="toplevel"><a class="tocitem" href="#Basic-Use"><span>Basic Use</span></a></li><li><a class="tocitem" href="#**FPMPNLPModel**:-Creating-a-Multi-Precision-Model"><span><strong>FPMPNLPModel</strong>: Creating a Multi-Precision Model</span></a></li><li><a class="tocitem" href="#**MPR2Solver**"><span><strong>MPR2Solver</strong></span></a></li><li class="toplevel"><a class="tocitem" href="#Advanced-Use"><span>Advanced Use</span></a></li><li><a class="tocitem" href="#Diving-into-MPR2-Implementation"><span>Diving into MPR2 Implementation</span></a></li><li><a class="tocitem" href="#What-MultiPrecisionR2.solve!()-Handles"><span>What <code>MultiPrecisionR2.solve!()</code> Handles</span></a></li><li><a class="tocitem" href="#What-MultiPrecisionR2.solve!()-Does-not-Handle"><span>What <code>MultiPrecisionR2.solve!()</code> Does not Handle</span></a></li><li><a class="tocitem" href="#Callback-Functions-Cheat-Sheet"><span>Callback Functions Cheat Sheet</span></a></li><li><a class="tocitem" href="#Implementation-Examples"><span>Implementation Examples</span></a></li></ul></li><li><a class="tocitem" href="reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Home</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Home</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/JuliaSmoothOptimizers/MultiPrecisionR2/blob/main/docs/src/index.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="MultiPrecisionR2"><a class="docs-heading-anchor" href="#MultiPrecisionR2">MultiPrecisionR2</a><a id="MultiPrecisionR2-1"></a><a class="docs-heading-anchor-permalink" href="#MultiPrecisionR2" title="Permalink"></a></h1><p><code>MultiPrecisionR2.jl</code> implements MPR2, a multi precision extension of the Quadratic Regularization (R2) algorithm, for solving continuous unconstrained non-convex problems with several Floating Point (FP) formats, for example Float16, Float32 and Float64. MPR2 aims for evaluating the objective and the gradient with the lowest precision FP format to save computational time and energy while controlling computation error to maintain convergence.</p><p><code>MultiPrecisionR2.jl</code> implements MPR2 in such a way that it allows the user some flexibility. By default, rounding errors and precision selection for the objective function and the gradient evaluation are handled such that the convergence is guaranteed (easy use, see <a href="#basic-use">Basic Use</a> chapter). The user can choose to implement its own strategies for precision selection via callback functions (see <a href="#advanced-use">Advanced Use</a> chapter), but in that case it is up to the user to ensure the convergence of the algorithm. </p><h1 id="Table-of-Contents"><a class="docs-heading-anchor" href="#Table-of-Contents">Table of Contents</a><a id="Table-of-Contents-1"></a><a class="docs-heading-anchor-permalink" href="#Table-of-Contents" title="Permalink"></a></h1><ol><li><a href="#quick-start">Quick Start</a></li><li><a href="#motivation">Motivation</a></li><li><a href="#mpr2-algorithm-general-description">MPR2 Algorithm: General Description</a>  <ol><li><a href="#notations">Notations</a>  </li><li><a href="#mpr2-algorithm-broad-description-differs-from-package-implementation">MPR2 Algorithm Broad Description</a>  </li><li><a href="#rounding-errors-handling">Rounding Error Handling</a>  </li><li><a href="#conditions-on-parameters">Conditions on Parameters</a>  </li></ol></li><li><a href="#basic-use">Basic Use</a><ol><li><a href="#fpmpnlpmodel-creating-a-multi-precision-model">FPMPNLPModels: Creating a Multi-Precision Model</a><ol><li><a href="#evaluation-mode">Evaluation Mode</a></li><li><a href="#high-precision-format">High Precision Format</a></li><li><a href="#gradient-and-dot-product-error-gamma-callback-function">Gradient and Dot Product Error: Gamma Callback Function</a></li></ol></li><li><a href="#mpr2solver">MPR2Solver</a><ol><li><a href="#gamma-function">Gamma Function</a></li><li><a href="#high-precision-format-mpr2-solver">High Precsion Format: MPR2 Solver</a></li><li><a href="#lack-of-precision">Lack of Precision</a></li></ol></li></ol></li><li><a href="#advanced-use">Advanced Use</a><ol><li><a href="#diving-into-mpr2-implementation">Diving into MPR2 Implementation</a><ol><li><a href="#minimal-implementation-description">Minimal Implementation Description</a></li><li><a href="#callback-functions-templates">Callback Functions: Templates</a></li><li><a href="#callback-functions-expected-behaviors">Callback Functions: Expected Behaviors</a></li><li><a href="#multi-precision-evaluation-and-vectors-containers">Multi-Precision Evaluation and Vectors Containers</a></li><li><a href="#forbidden-evaluations">Forbidden Evaluations</a></li><li><a href="#step-and-candidate-computation-precision">Step and Candidate Computation Precision</a></li><li><a href="#candidate-precision-selection">Candidate Precision Selection</a></li></ol></li><li><a href="#what-mpr2solver-handles">What MPR2Solver Handles</a></li><li><a href="#what-mpr2solver-does-not-handle">What MPR2Solver Does not Handle</a></li><li><a href="#implementation-examples">Implementation Examples</a></li></ol></li></ol><h1 id="Quick-Start"><a class="docs-heading-anchor" href="#Quick-Start">Quick Start</a><a id="Quick-Start-1"></a><a class="docs-heading-anchor-permalink" href="#Quick-Start" title="Permalink"></a></h1><pre><code class="language-julia hljs">using MultiPrecisionR2
+using ADNLPModels
+using IntervalArithmetic
+
+setrounding(Interval,:accurate)
+FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
+f(x) = x[1]^2 + x[2]^2 # some objective function
+x0 = ones(Float32,2) # initial point
+mpmodel = FPMPNLPModel(f,x0,FP); # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
+stat = MPR2(mpmodel) # run the algorithm</code></pre><pre><code class="language-julia hljs">using MultiPrecisionR2
+using ADNLPModels
+using IntervalArithmetic
+using OptimizationProblems
+using OptimizationProblems.ADNLPProblems
+
+setrounding(Interval,:accurate)
+FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
+s = :woods # select problem
+nlp = eval(s)(n=12,type = Val(FP[end]), gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
+mpmodel = FPMPNLPModel(nlp,FP); # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
+stat = MPR2(mpmodel) # run the algorithm</code></pre><p><strong>Warnings</strong></p><ol><li>MultiPrecisionR2.jl works only with Floating Point formats (BFloat16,Float16,Float32,Float64,Float128)</li><li>Unfortunately, other modes than <code>:accurate</code> for interval evaluation are not guaranteed to work with FP formats different from Float32 and Float64. </li><li>If interval evaluation mode is used, interval evaluation for the objective and the gradient is automatically tested upon FPMPNLPModel instanciation.  An error is thrown if the evaluation fails. This might happen for several reasons related to <a href="https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md">IntervalArithmetic.jl</a> package.</li></ol><h1 id="Motivation"><a class="docs-heading-anchor" href="#Motivation">Motivation</a><a id="Motivation-1"></a><a class="docs-heading-anchor-permalink" href="#Motivation" title="Permalink"></a></h1><p>Here is the comparison between R2 algorithm from JSOSolvers.jl run with Float64 and MPR2 from MultiPrecisionR2.jl run with Float16, Float32 and Float64 over a set of unconstrained problems from OptimizationProblems.jl. For a fair comparison, we set MPR2 evaluation errors for objective function and gradient to zero with FLoat64. The time and energy savings offer by MPR2 compared to R2 is estimated with the rules of thumb:</p><p>Number of bits divided by two -&gt; time computation divided by two and energy consumption divided by four.</p><pre><code class="language-julia hljs">using MultiPrecisionR2
+using NLPModels
+using ADNLPModels
+using OptimizationProblems
+using OptimizationProblems.ADNLPProblems
+using JSOSolvers
+
+FP = [Float16,Float32,Float64] # MPR2 Floating Point formats
+omega = Float64.([sqrt(eps(Float16)),sqrt(eps(Float32)),0]) # MPR2 relative errors, computations assumed exact with Float64
+r2_obj_eval = [0]
+r2_grad_eval = [0]
+mpr2_obj_eval = zeros(Float64,length(FP))
+mpr2_grad_eval = zeros(Float64,length(FP))
+nvar = 100 #problem dimension (if scalable)
+max_iter = 1000
+
+meta = OptimizationProblems.meta
+names_pb_vars = meta[(meta.has_bounds .== false) .&amp; (meta.ncon .== 0), [:nvar, :name]] #select unconstrained problems
+for pb in eachrow(names_pb_vars)
+  nlp = eval(Meta.parse(&quot;ADNLPProblems.$(pb[:name])(n=$nvar,type=Val(Float64),gradient_backend = ADNLPModels.GenericForwardDiffADGradient)&quot;))
+  mpmodel = FPMPNLPModel(nlp,FP,ωfRelErr=omega,ωgRelErr=omega);
+  statr2 = R2(nlp,max_eval=max_iter)
+  r2_obj_eval .+= nlp.counters.neval_obj
+  r2_grad_eval .+= nlp.counters.neval_grad
+  statmpr2 = MPR2(mpmodel,max_iter = max_iter)
+  mpr2_obj_eval .+= [haskey(mpmodel.counters.neval_obj,fp) ? mpmodel.counters.neval_obj[fp] : 0 for fp in FP]
+  mpr2_grad_eval .+= [haskey(mpmodel.counters.neval_grad,fp) ? mpmodel.counters.neval_grad[fp] : 0 for fp in FP]
+end
+mpr2_obj_time = sum(mpr2_obj_eval.*[1/4,1/2,1])
+obj_time_save = mpr2_obj_time/r2_obj_eval[1]
+mpr2_obj_energy = sum(mpr2_obj_eval.*[1/16,1/4,1])
+obj_energy_save = mpr2_obj_energy/r2_obj_eval[1]
+mpr2_grad_time = sum(mpr2_grad_eval.*[1/4,1/2,1])
+grad_time_save = mpr2_grad_time/r2_grad_eval[1]
+mpr2_grad_energy = sum(mpr2_grad_eval.*[1/16,1/4,1])
+grad_energy_save = mpr2_grad_energy/r2_grad_eval[1]
+println(&quot;Possible time saving for objective evaluation with MPR2: $(round((1-obj_time_save)*100,digits=1)) %&quot;)
+println(&quot;Possible time saving for gradient evaluation with MPR2: $(round((1-grad_time_save)*100,digits=1)) %&quot;)
+println(&quot;Possible energy saving for objective evaluation with MPR2: $(round((1-obj_energy_save)*100,digits=1)) %&quot;)
+println(&quot;Possible energy saving for gradient evaluation with MPR2: $(round((1-grad_energy_save)*100,digits=1)) %&quot;)</code></pre><h1 id="MPR2-Algorithm:-General-Description"><a class="docs-heading-anchor" href="#MPR2-Algorithm:-General-Description">MPR2 Algorithm: General Description</a><a id="MPR2-Algorithm:-General-Description-1"></a><a class="docs-heading-anchor-permalink" href="#MPR2-Algorithm:-General-Description" title="Permalink"></a></h1><h2 id="**Notations**"><a class="docs-heading-anchor" href="#**Notations**"><strong>Notations</strong></a><a id="**Notations**-1"></a><a class="docs-heading-anchor-permalink" href="#**Notations**" title="Permalink"></a></h2><ul><li><p class="math-container">\[fl\]</p>: finite-precision computation</li><li><p class="math-container">\[u\]</p>: unit round-off for a given FP format</li><li><p class="math-container">\[\delta\]</p>: rounding error induced by one FP operation (<span>$+,-,/,*$</span>), for example <span>$fl(x+y) = (x+y)(1+\delta)$</span>. Bounded as <span>$|\delta|\leq u$</span>.</li><li><p class="math-container">\[\pi\]</p>: FP format index, also called <strong>precision</strong></li><li><p class="math-container">\[f: x \rightarrow f(x)\]</p>: objective function</li><li><p class="math-container">\[\hat{f}: x,\pi_f \rightarrow fl(f(x,\pi_f))\]</p>: finite precision counterpart of <span>$f$</span> with FP format corresponding to index <span>$\pi_f$</span>  </li><li><p class="math-container">\[\nabla f: x \rightarrow \nabla f(x)\]</p>: gradient of <span>$f$</span></li><li><p class="math-container">\[\hat{g}: x, \pi_g \rightarrow fl(\nabla f(x),\pi_g)\]</p>: finite precision counterpart of <span>$\nabla f $ with FP format corresponding to index $\pi_g$</span></li><li><p class="math-container">\[\omega_f(x)\]</p>: bound on finite precision evaluation error of <span>$f$</span>, <span>$| \hat{f}(x,\pi_f) -f(x) | \leq \omega_f(x)$</span></li><li><p class="math-container">\[\omega_g(x)\]</p>: bound on finite precision evaluation error of <span>$\nabla f$</span>, <span>$\| \hat{g}(x,\pi_g) -\nabla f(x) \| \leq \omega_g(x)\|\hat{g}(x,\pi_g)\|$</span></li></ul><h2 id="**MPR2-Algorithm-Broad-Description**-(differs-from-package-implementation)"><a class="docs-heading-anchor" href="#**MPR2-Algorithm-Broad-Description**-(differs-from-package-implementation)"><strong>MPR2 Algorithm Broad Description</strong> (differs from package implementation)</a><a id="**MPR2-Algorithm-Broad-Description**-(differs-from-package-implementation)-1"></a><a class="docs-heading-anchor-permalink" href="#**MPR2-Algorithm-Broad-Description**-(differs-from-package-implementation)" title="Permalink"></a></h2><p>MPR2 is described by the following algorithm. Note that the actual implementation in the package differs slightly. For an overview of the actual implementation, see section <a href="#diving-into-mpr2-implementation">Diving Into MPR2 Implementation</a>.</p><p>In the algorithm, <em>compute</em> means compute with finite-precision machine computation, and <em>define</em> means &quot;compute exactly&quot;, <em>i.e</em> with infinite precision. Defining a value is therefore not possible to perform on a (finite-precision) machine. This point is discussed later. </p><p><strong>Inputs</strong>: </p><ul><li>Initial values: <span>$x_0$</span>, <span>$\sigma_0$</span></li><li>Tunable Parameters: <span>$0 &lt; \eta_0 &lt; \eta_1 &lt; \eta_2 &lt; 1$</span>, <span>$0 &lt; \gamma_1 &lt; 1 &lt; \gamma_2$</span>, <span>$\kappa_m$</span></li><li>Gradient tolerance: <span>$\epsilon$</span></li><li>List of FP formats (<em>e.g</em> [Float16, Float32, Float64])</li></ul><p><strong>Outputs</strong></p><ul><li><p class="math-container">\[x_k\]</p>such that <span>$\nabla f(x_k) \leq \epsilon \|\nabla f(x_0)\|$</span></li></ul><p><strong>Initialization</strong></p><ol><li>Compute <span>$f_0 = \hat{f}(x_0,\pi_f)$</span></li><li>Compute <span>$g_0 = \hat{g}(x_0,\pi_g)$</span></li></ol><p><strong>While</strong> <span>$\|g_k\| &gt; \dfrac{\epsilon}{1+\omega_g(x_k)}$</span> <strong>do</strong></p><ol><li>Compute <span>$s_k = -g_k/\sigma_k$</span></li><li>Compute <span>$c_k = x_k + s_k$</span></li><li>Compute <span>$\Delta T_k = g_k^Ts_k$</span> # model reduction</li><li>Define <span>$\mu_k$</span> # gradient error indicator</li></ol><ul><li><p><strong>If</strong> <span>$\mu_k \geq \kappa_m$</span></p><ol><li>Select precisions such that <span>$\mu_k \leq \kappa_m$</span>, go to 3.</li></ol></li><li><p><strong>End If</strong></p></li><li><p><strong>If</strong> <span>$\omega_f(x_k) &gt; \eta_0 \Delta T_k$</span></p><ol><li>Select <span>$\pi_f$</span> such that <span>$\omega_f(x_k) \leq \eta_0 \Delta T_k$</span></li><li>Compute <span>$f_k = f(x_k,\pi_f)$</span></li></ol></li><li><p><strong>End If</strong></p></li></ul><ol><li>Select <span>$\pi_f^+$</span> such that <span>$\omega(c_k) \leq \eta_0 \Delta T_k$</span></li><li>Compute <span>$f_k^+ = \hat{f}(c_k,\pi_f^+)$</span></li><li>Compute <span>$\rho_k = \dfrac{f_k - f_k^+}{\Delta T_k}$</span></li></ol><ul><li><p><strong>If</strong> <span>$\rho_k \geq \eta_1$</span> # step acceptance</p><ol><li><p class="math-container">\[x_{k+1} = c_k\]</p>, <span>$f_{k+1} = f_k^+$</span></li></ol></li><li><p><strong>End If</strong></p></li></ul><ol><li>Compute $ \sigma_k = \left{ \begin{array}{lll}</li></ol><p>\gamma<em>1 \sigma</em>k &amp; \text{if} &amp; \rho<em>k \geq \eta</em>2 \
+    \sigma<em>k &amp; \text{if} &amp; \rho</em>k \in  \eta<em>1,\eta</em>2  \
+    \gamma<em>2 \sigma</em>k &amp; \text{if} &amp; \rho<em>k &lt; \eta</em>1   \end{array}    \right.$</p><p><strong>End While</strong>  </p><ol><li>return <span>$x_k$</span></li></ol><p>MPR2 stops either when:</p><ol><li>a point <span>$x_k$</span> satisfying <span>$\|g_k\| \leq \dfrac{\epsilon}{1+\omega_g(x_k)}$</span> has been found (see <a href="#notations"><span>$\omega_g$</span> definition</a>), which ensures that $ \|\nabla f(x_k)\| \leq \epsilon$, or </li><li>no FP format enables to achieve required precision on the objective or <span>$\mu$</span> indicator.</li></ol><p>The indicator <strong><span>$\mu_k$</span></strong> aggregates finite-precision errors due to gradient evaluation (<span>$\omega_g(x_k)$</span>), and the computation of the step (<span>$s_k$</span>), candidate (<span>$c_k$</span>) and model reduction <span>$\Delta T_k$</span> as detailed in the <a href="#rounding-error-handling"><strong>Rounding Error Handling</strong></a> section.     </p><h2 id="**Rounding-Errors-Handling**"><a class="docs-heading-anchor" href="#**Rounding-Errors-Handling**"><strong>Rounding Errors Handling</strong></a><a id="**Rounding-Errors-Handling**-1"></a><a class="docs-heading-anchor-permalink" href="#**Rounding-Errors-Handling**" title="Permalink"></a></h2><p>Anything computed in MPR2 suffers from rounding errors since it runs on a machine, which necessarily performs computation with finite-precision arithmetic. Below is the list of rounding errors that are handled by MPR2 such that convergence and numerical stability is guaranteed.</p><ol><li><strong>Dot Product Error: <span>$\gamma_n$</span></strong></li></ol><p>The model for the dot product error that is used by default is     <span>$|fl(x.y) - x.y| \leq |x|.|y| \gamma(n,u),$</span> with     <span>$\gamma: n,u \rightarrow n*u$</span>     where <span>$x$</span> and <span>$y$</span> are two FP vectors (same FP format) of dimension <span>$n$</span> and <span>$u$</span> is the round-off unit of the FP format. This is a crude yet guaranteed upper bound on the error. The user can choose its own formula for <span>$\gamma$</span>, see <a href="#fpmpnlpmodel-creating-a-multi-precision-model">FPMPNLPModel: Creating a Multi-Precision Model</a> section for practical use.</p><ol><li><strong>Candidate Computation</strong> Both the step and the candidate are computed inexactly.<ul><li>Inexact Step: the computed step is <span>$s_k = fl(g_k/\sigma_k) = (g_k/\sigma_k)(1+\delta) \neq g_k/\sigma_k$</span>.</li><li>Inexact Candidate: the computed candidate is <span>$c_k = fl(x_k+s_k) = (x_k+s_k)(1+\delta) \neq x_k+s_k$</span>.</li></ul>These two errors implies that <span>$c_k$</span> is not along the descent direction <span>$g_k$</span> and as such can be interpreted as additional gradient error to  <span>$\omega_g(x_k)$</span>. To handle these errors, MPR2 computes the ratio <span>$\phi_k = \|x_k\|/||s_k||$</span>. The greater <span>$\phi_k$</span>, the greater the possible deviation of <span>$c_k$</span> from the direction <span>$g_k$</span>. These errors are aggregated in the <span>$\mu_k$</span> indicator (detailed in 5.).</li><li><strong>Model Decrease Computation</strong></li></ol><p>The FP computation error for the model decrease <span>$\Delta T_k$</span> is such that,     <span>$fl(\Delta T_k) =  \Delta T_k (1+\vartheta_n)$</span>, with <span>$|\vartheta_n| \leq \gamma(n,u)$</span>     MPR2 handles this error by aggregating <span>$\alpha(n,u)$</span> in the indicator <span>$\mu_k$</span>, with <span>$\alpha(n,u) = \dfrac{1}{1-\gamma(n,u)}$</span></p><ol><li><strong>Norm Computation</strong>  </li></ol><p>The finite-precision error for norm computation of a FP vector <span>$x$</span> of dimension <span>$n$</span> is     $ |fl(\|x\|)-\|x\|| \leq fl(\|x\|)\beta(n+2,u)$ with     <span>$\beta:n,u \rightarrow \max(|\sqrt{\gamma(n,u)-1}-1|,|\sqrt{\gamma(n,u)+1}-1|)$</span>     <span>$\beta$</span> function cannot be chosen by the user.     The <span>$\beta$</span> function is used in MPR2 implementation to handle finite-precision error of norm computation for </p><ul><li><p class="math-container">\[\|g_k\|\]</p>norm computation: the stopping criterion implemented in MPR2 is   <span>$\|g_k\| \leq \dfrac{1}{1+\beta (n+2,u)}\dfrac{1}{1+\omega_g(x_k)}$</span> which ensures that <span>$\|\nabla f(x_k)\|\leq \epsilon$</span>. </li><li><p class="math-container">\[\phi_k\]</p>ratio computation (see 3.): <span>$\phi_k$</span> requires the norm of <span>$x_k$</span> and <span>$s_k$</span>. MPR2 actually defines </li></ul><p><span>$\phi_k =  \dfrac{fl(\|x_k\|)}{fl(\|x_k\|)}\dfrac{1+\beta(n+2,u)}{1-\beta(n+2,u)}$</span> which ensures that <span>$\phi_k \geq \|x_k\| / \|s_k\|$</span>.</p><ol><li><strong>Mu Indicator</strong>  </li></ol><p><span>$\mu_k$</span> is an indicator which aggregates</p><ul><li>the gradient evaluation error <span>$\omega_g(x_k)$</span>,</li><li>the inexact step and candidate errors (<span>$\phi_k$</span>),</li><li>the model decrease error (<span>$\gamma(n+1,u)$</span>, <span>$\alpha(n,u)$</span>).  </li></ul><p>The formula for <span>$\mu_k$</span> is     <span>$\mu_{k} = \dfrac{\alpha(n,u) \omega_g(x_k)(1+u(\phi_k +1)) + \alpha(n,u) \lambda_k + u+ \gamma(n+1,u)\alpha(n+1,u)}{1-u}$</span>.     Note that if no rounding error occurs for (<span>$u = 0$</span>), one simply has <span>$\mu_k = \omega_g(x_k)$</span>.     The implementation of line 7. of MPR2 (as described in the <a href="#mpr2-algorithm-broad-description-differs-from-package-implementation">above section</a>) consists in recomputing the step, candidate, <span>$x_k$</span> and/or <span>$s_k$</span> norm, model decrease or gradient with higher precision FP formats (therefore decreasing <span>$u$</span>) until <span>$\mu_k \leq \kappa_m$</span>. For details about default strategy, see <code>recomputeMu!()</code> documentation.</p><h2 id="Conditions-on-Parameters"><a class="docs-heading-anchor" href="#Conditions-on-Parameters">Conditions on Parameters</a><a id="Conditions-on-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Conditions-on-Parameters" title="Permalink"></a></h2><p>MPR2 parameters can be chosen by the user (see Section <a href="#basic-use">Basic Use</a>) but must satisfy the following inequalities:</p><ul><li><p class="math-container">\[0 \leq \eta_0 \leq \frac{1}{2}\eta_1\]</p></li><li><p class="math-container">\[0 \leq \eta_1 \leq \eta_2 &lt; 1\]</p></li><li><p class="math-container">\[\eta_0+\dfrac{\kappa_m}{2} \leq 0.5(1-\eta_2)\]</p></li><li><p class="math-container">\[\eta_2 &lt; 1\]</p><blockquote></blockquote></li><li><p class="math-container">\[0&lt;\gamma_1&lt;1&lt;\gamma_2\]</p></li></ul><h1 id="Basic-Use"><a class="docs-heading-anchor" href="#Basic-Use">Basic Use</a><a id="Basic-Use-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Use" title="Permalink"></a></h1><p>MPR2 solver relies on multi-precision models structure <code>FPMPNLPModels</code> (Floating Point Multi Precision Non Linear Programming Models), that derives from <a href="https://github.com/JuliaSmoothOptimizers/NLPModels.jl"><code>NLPModels.jl</code></a>. This structure embeds the problem and provides the functions to evaluate the objective and the gradient with several FP formats. These evaluation functions are used by <code>MPR2Solver</code> to evaluate the objective and gradient with different FP format.</p><h2 id="**FPMPNLPModel**:-Creating-a-Multi-Precision-Model"><a class="docs-heading-anchor" href="#**FPMPNLPModel**:-Creating-a-Multi-Precision-Model"><strong>FPMPNLPModel</strong>: Creating a Multi-Precision Model</a><a id="**FPMPNLPModel**:-Creating-a-Multi-Precision-Model-1"></a><a class="docs-heading-anchor-permalink" href="#**FPMPNLPModel**:-Creating-a-Multi-Precision-Model" title="Permalink"></a></h2><p>See <code>FPMPNLPModel</code> documentation.</p><h3 id="**Evaluation-Mode**"><a class="docs-heading-anchor" href="#**Evaluation-Mode**"><strong>Evaluation Mode</strong></a><a id="**Evaluation-Mode**-1"></a><a class="docs-heading-anchor-permalink" href="#**Evaluation-Mode**" title="Permalink"></a></h3><p><code>FPMPNLPModel</code> implements tools to evaluate the objective and the gradient and the error bounds <span>$\omega_f(x_k)$</span> and <span>$\omega_g(x_k)$</span> with two modes:</p><ol><li><strong>Interval Arithmetic</strong>: Using interval arithmetic enables to track rounding errors and to provide guaranteed bounds.<code>MultiPrecisionR2.jl</code> relies on <a href="https://juliaintervals.github.io/pages/packages/intervalarithmetic/"><code>IntervalArithmetic.jl</code></a> library to perform interval evaluations of the gradient and the objective.  </li></ol><p><strong>Warning</strong>: Using interval evaluation can lead to significantly long computation time. Interval evaluation might fail for some objective functions due to <code>IntervalArithmetic.jl</code> errors.</p><ol><li><strong>Relative Error</strong>: The error bounds <span>$\omega_f(x_k)$</span> and <span>$\omega_g(x_k)$</span> are <strong>estimated</strong> as fractions of <span>$|\hat{f}(x_k)|$</span> and <span>$\|\hat{g}(x_k)\|$</span>, respectively. It is to the user to provide these fraction values.  </li></ol><p>By default, interval arithmetic is used for error bound computation. If relative error bounds have to be used, <code>ωfRelErr</code> and <code>ωgRelErr</code> keyword arguments must be used when calling the constructor function.</p><p><strong>FPMPNLPModel Example 1: Interval Arithmetic for error bounds</strong></p><pre><code class="language-julia hljs">using MultiPrecisionR2
+using IntervalArithmetic
+using ADNLPModels
+
+setrounding(Interval,:accurate)
+FP = [Float16, Float32] # selected FP formats
+f(x) = x[1]^2 + x[2]^2 # objective function
+x = ones(2) # initial point
+x16 = Float16.(x) # initial point in Float16
+x32 = Float32.(x) # initial point in Float32
+MPmodel = FPMPNLPModel(f,x32,FP); # will use interval arithmetic for error evaluation
+f16, omega_f16 = objerrmp(MPmodel,x16) # evaluate objective and error bound at x with T[1] = Float16 FP model
+f32, omega_f32 = objerrmp(MPmodel,x32) # evaluate objective and error bound at x with T[1] = Float16 FP model
+g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x with T[2] = Float32 FP model
+g32, omega_g32 = graderrmp(MPmodel,x32) # evaluate gradient and error bound at x with T[2] = Float32 FP model</code></pre><p><strong>FPMPNLPModel Example 2: Relative error bounds</strong></p><pre><code class="language-julia hljs">using MultiPrecisionR2
+using ADNLPModels
+
+FP = [Float16, Float32] # selected FP formats
+f(x) = x[1]^2 + x[2]^2 # objective function
+x = ones(2) # initial point
+x16 = Float16.(x) # initial point in Float16
+x32 = Float32.(x) # initial point in Float32
+ωfRelErr = [0.1,0.01] # objective error: 10% with Float16 and 1% with Float32
+ωgRelErr = [0.05,0.02] # gradient error (norm): 5% with Float16 and 2% with Float32
+MPmodel = FPMPNLPModel(f,x32,FP;ωfRelErr=ωfRelErr,ωgRelErr=ωgRelErr);
+f32, omega_f32 = objerrmp(MPmodel,x32) # evaluate objective and error bound at x with T[1] = Float32 FP model
+g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x with T[2] = Float16 FP model</code></pre><p><strong>FPMPNLPModel Example 3: Mixed Interval/Relative Error Bounds</strong></p><pre><code class="language-julia hljs">using MultiPrecisionR2
+using IntervalArithmetic
+using ADNLPModels
+
+setrounding(Interval,:accurate)
+FP = [Float16, Float32] # selected FP formats
+f(x) = x[1]^2 + x[2]^2 # objective function
+x = ones(2) # initial point
+x16 = Float16.(x) # initial point in Float16
+x32 = Float32.(x) # initial point in Float32
+ωgRelErr = [0.05,0.02] # gradient error (norm): 5% with Float16 and 2% with Float32
+MPmodel = FPMPNLPModel(f,x32,FP; ωgRelErr = ωgRelErr) # use interval for objective error bound and relative error bound for gradient
+f32, omega_f32 = objerrmp(MPmodel,x32) # evaluate objective and error bound with interval at x with T[1] = Float32 FP model
+g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x with T[2] = Float16 FP model</code></pre><p><strong>FPMPNLPModel Example 4: Interval evaluation is slow</strong></p><pre><code class="language-julia hljs">using MultiPrecisionR2
+using IntervalArithmetic
+using ADNLPModels
+
+setrounding(Interval,:accurate)
+FP = [Float32] # selected FP formats
+n = 1000
+f(x) = sum([x[i]^2 for i =1:n])  # objective function
+x = ones(n) # initial point
+x32 = Float32.(x) # initial point in Float32
+MPmodelInterval = FPMPNLPModel(f,x32,FP) # use interval for objective and gradient error bounds
+ωfRelErr = [Float64(sqrt(eps(Float32)))] # objective error
+ωgRelErr = [Float64(sqrt(eps(Float32)))] # gradient error (norm)
+MPmodelRelative = FPMPNLPModel(f,x32,FP,ωfRelErr = ωfRelErr, ωgRelErr = ωgRelErr) # will use relative error bounds
+# precompile
+objerrmp(MPmodelInterval,x32)
+objerrmp(MPmodelRelative,x32)
+graderrmp(MPmodelInterval,x32)
+graderrmp(MPmodelRelative,x32)
+
+@time objerrmp(MPmodelInterval,x32) # interval evaluation of objective
+@time objerrmp(MPmodelRelative,x32) # classic evaluation of objective
+@time graderrmp(MPmodelInterval,x32) # interval evaluation of gradient
+@time graderrmp(MPmodelRelative,x32) # classic evaluation of gradient</code></pre><h3 id="**High-Precision-Format**"><a class="docs-heading-anchor" href="#**High-Precision-Format**"><strong>High Precision Format</strong></a><a id="**High-Precision-Format**-1"></a><a class="docs-heading-anchor-permalink" href="#**High-Precision-Format**" title="Permalink"></a></h3><p><code>FPMPNLPModel</code> performs some operations with a high precision FP format to provide more numerical stability. The convergence of MPR2 relies on the fact that such operations are &quot;exact&quot;, as if performed with infinite precision. This high precision format is also used by <code>MPR2solve</code> in a similar way and for the same reasons (see section <a href="#high-precision-format-mpr2-solver">High Precision Format: MPR2 Solver</a>)</p><p>This high precision format is <code>FPMPNLPModel.HPFormat</code> and can be given as a keyword argument upon instanciation. The default value is <code>Float64</code>. Note that this high precision format also correspond to the type parameter <code>H</code> in <code>struct FPMPNLPModel{H,F,T&lt;:Tuple}</code>. It is expected that <code>FPMPNLPModel.HPFormat</code> has at least equal or greater machine epsilon than the highest precision FP format that can be used for objective or gradient evaluation.</p><p><strong>FPMPNLPModel Example 5: HPFormat value</strong></p><pre><code class="language-julia hljs">using MultiPrecisionR2
+using IntervalArithmetic
+using ADNLPModels
+
+setrounding(Interval,:accurate)
+FP = [Float16, Float32, Float64] # selected FP formats, max eval precision is Float64
+f(x) = x[1]^2 + x[2]^2 # objective function
+x = ones(2) # initial point
+MPmodel = FPMPNLPModel(f,x,FP); # throws warning
+MPmodel = FPMPNLPModel(f,x,FP,HPFormat = Float32); # throws error</code></pre><h3 id="**Gradient-and-Dot-Product-Error**:-Gamma-Callback-Function"><a class="docs-heading-anchor" href="#**Gradient-and-Dot-Product-Error**:-Gamma-Callback-Function"><strong>Gradient and Dot Product Error</strong>: Gamma Callback Function</a><a id="**Gradient-and-Dot-Product-Error**:-Gamma-Callback-Function-1"></a><a class="docs-heading-anchor-permalink" href="#**Gradient-and-Dot-Product-Error**:-Gamma-Callback-Function" title="Permalink"></a></h3><p><code>FPMPNLPModel.graderrmp()</code> computes both the gradient and the error bound <span>$\omega_g$</span> as in the <a href="#notations">Notations</a> section. To do so, it is necessary to compute norm of the gradient and therefore to take the related error into account, given by the <span>$\beta$</span> function (see section <a href="#rounding-errors-handling">Rounding Errors Handling</a>). Note that <span>$\beta$</span> expresses with <span>$\gamma$</span> function which models the dot product error. An implicit condition is that <span>$\gamma(n,u_{max}) \leq 1$</span>, with <span>$u_{max}$</span> the smallest unit-roundoff among the provided FP formats.</p><p>For example, if the highest precision format Float32 is used, <span>$u_{max} \approx 1 e^{-7}$</span> which limits the size of the problems that can be solve to <span>$\approx 1e^{7}$</span> variables with the default implementation <span>$γ(n,u) = n*u$</span>. If this is a problem, the user can provide its own callback function <code>FPMPNLPModels.γfunc</code>. This is illustrated in the example below.</p><p><strong>FPMPNLPModel Example 5: Gradient and Dot Product Error</strong> The code below returns an error at the instanciation of <code>FPMPNLPModels</code> indicating that the dimension of the problem is too big with respect to the highest precision FP format provided (<code>Float16</code>).</p><pre><code class="language-julia hljs">using MultiPrecisionR2
+using IntervalArithmetic
+using ADNLPModels
+
+setrounding(Interval,:accurate)
+FP = [Float16] # limits the size of the problem to n = 1/eps(Float16) (= 1000)
+dim = 2000 # dimension of the problem too large
+f(x) =sum([x[i]^2 for i=1:dim]) # objective function
+x = ones(Float16,dim) # initial point
+MPmodel = FPMPNLPModel(f,x,FP); # throw error</code></pre><p>The user can provide a less pressimistic <span>$\gamma$</span> function for dot product error bound. <strong>Warning:</strong> Providing your own <span>$\gamma$</span> function can break the convergence properties of MPR2.</p><pre><code class="language-julia hljs">gamma(n,u) = sqrt(n)*u # user defined γ function, less pessimistic than n*u used by default
+MPmodel = FPMPNLPModel(f,x,FP,γfunc = gamma); # no error since sqrt(dim)*eps(Float16) &lt; 1</code></pre><h2 id="**MPR2Solver**"><a class="docs-heading-anchor" href="#**MPR2Solver**"><strong>MPR2Solver</strong></a><a id="**MPR2Solver**-1"></a><a class="docs-heading-anchor-permalink" href="#**MPR2Solver**" title="Permalink"></a></h2><p>See <code>MPR2Solver</code> documentation.</p><h3 id="**Gamma-Function**"><a class="docs-heading-anchor" href="#**Gamma-Function**"><strong>Gamma Function</strong></a><a id="**Gamma-Function**-1"></a><a class="docs-heading-anchor-permalink" href="#**Gamma-Function**" title="Permalink"></a></h3><p>As mentionned in section <a href="#rounding-errors-handling">Rounding Errors Handling</a>, MPR2 relies on the dot product error function <span>$\gamma$</span> to handle some rounding errors (norm and model decrease). The <span>$\gamma$</span> function used by MPR2 is the one of the <code>solve!()</code> function&#39;s <code>FPMPNLPModel</code> argument. </p><h3 id="**High-Precision-Format:-MPR2-Solver**"><a class="docs-heading-anchor" href="#**High-Precision-Format:-MPR2-Solver**"><strong>High Precision Format: MPR2 Solver</strong></a><a id="**High-Precision-Format:-MPR2-Solver**-1"></a><a class="docs-heading-anchor-permalink" href="#**High-Precision-Format:-MPR2-Solver**" title="Permalink"></a></h3><p>MPR2 uses a high precision format to compute &quot;exactly&quot; the values that are <em>defined</em> (see section <a href="#mpr2-algorithm-broad-description-differs-from-package-implementation">MPR2 Algorithm Broad Description</a>). This high precision format corresponds to the type parameter <code>H</code> in <code>MultiPrecisionR2.solve!()</code>. The high precision format used by MPR2 is <code>FPMPNLPModel.HPFormat</code> of <code>MPnlp</code> argument of <code>MultiPrecisionR2.solve!()</code> (see section <a href="#high-precision-format">High Precision Format</a>).</p><h3 id="**Lack-of-Precision**"><a class="docs-heading-anchor" href="#**Lack-of-Precision**"><strong>Lack of Precision</strong></a><a id="**Lack-of-Precision**-1"></a><a class="docs-heading-anchor-permalink" href="#**Lack-of-Precision**" title="Permalink"></a></h3><p>The default implementation of MPR2 stops when the condition on the objective evaluation error or the <span>$\mu$</span> indicator fails with the highest precision evaluations (see Lines 7,8,10 of MPR2 algorithm in section <a href="#mpr2-algorithm-broad-description-differs-from-package-implementation">MPR2 Algorithm Broad Description</a>). If this happens, MPR2 returns the ad-hoc warning message. The user can tune MPR2 parameters to try to avoid such early stop via the structure <code>MPR2Params</code> and provide it as a keyword argument to <code>solve!</code>. Typically, </p><ul><li><strong>If the objective error is too big</strong>: the user should increase <span>$\eta_0$</span> parameter.</li><li><strong>If <span>$\mu_k$</span> is too big</strong>: the user should increase <span>$\kappa_m$</span> parameter.</li></ul><p>The user has to make sure that the parameters respect the convergence conditions (see section <a href="#conditions-on-parameters">Conditions on Parameters</a>).</p><p><strong>MPR2Solver Example 1</strong>: Lack of Precision and Parameters Selection</p><pre><code class="language-julia hljs">using MultiPrecisionR2
+using IntervalArithmetic
+using ADNLPModels
+
+setrounding(Interval,:accurate)
+FP = [Float16, Float32] # selected FP formats, max eval precision is Float64
+f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
+x = Float32.(1.5*ones(2)) # initial point
+HPFormat = Float64
+MPmodel = FPMPNLPModel(f,x,FP,HPFormat = HPFormat);
+solver = MPR2Solver(MPmodel);
+stat = MPR2(MPmodel) </code></pre><p>Running the above code block returns a warning indicating that R2 stops because the error on the objective function is too big to ensure convergence. The problem can be overcome in this example by tolerating more error on the objective by increasing <span>$\eta_0$</span>.</p><pre><code class="language-julia hljs">η₀ = 0.1 # greater than default value 0.01
+η₁ = 0.3
+η₂ = 0.7
+κₘ = 0.1
+γ₁ = Float16(1/2) # must be FP format of lowest evaluation precision for numerical stability
+γ₂ = Float16(2) # must be FP format of lowest evaluation precision for numerical stability
+param = MPR2Params(η₀,η₁,η₂,κₘ,γ₁,γ₂)
+stat = MPR2(MPmodel,par = param) </code></pre><p>Now MPR2 converges to a first order critical point since we tolerate enough error on the objective evaluation.</p><h3 id="**Evaluation-Counters**"><a class="docs-heading-anchor" href="#**Evaluation-Counters**"><strong>Evaluation Counters</strong></a><a id="**Evaluation-Counters**-1"></a><a class="docs-heading-anchor-permalink" href="#**Evaluation-Counters**" title="Permalink"></a></h3><p>MPR2 counts the number of objective and gradient evaluations are counted for each FP formats. They are stored in <code>counters</code> field of the <code>FPNLPModel</code> structure. The <code>counters</code> field is a <code>MPCounters</code>.</p><pre><code class="language-julia hljs">setrounding(Interval,:accurate)
+FP = [Float16, Float32, Float64]
+f(x) = sum(x.^2) 
+x0 = ones(10)
+HPFormat = Float64
+MPmodel = FPMPNLPModel(f,x0,FP,HPFormat = HPFormat);
+MPR2(MPmodel,verbose=1)
+@show MPmodel.counters.neval_obj # numbers of objective evaluations 
+@show MPmodel.counters.neval_grad # numbers of gradient evaluations</code></pre><h1 id="Advanced-Use"><a class="docs-heading-anchor" href="#Advanced-Use">Advanced Use</a><a id="Advanced-Use-1"></a><a class="docs-heading-anchor-permalink" href="#Advanced-Use" title="Permalink"></a></h1><p><code>MultiPrecisionR2.jl</code> does more than implementing MPR2 algorithm as describes in Section <a href="#mpr2-algorithm-general-description">MPR2 Algorithm General Description</a>. <code>MPR2Precision.jl</code> enables the user to define its own strategy to select evaluation precisions and to handle evaluation errors. This is made possible by using callback functions when calling <code>MultiPrecisionR2.solve!()</code>. The default implementation of <code>MultiPrecisionR2.solve!()</code> relies on specific implementation of these callback functions, which are included in the package. The user is free to provide its own callback functions to change the behavior of the algorithm. </p><h2 id="Diving-into-MPR2-Implementation"><a class="docs-heading-anchor" href="#Diving-into-MPR2-Implementation">Diving into MPR2 Implementation</a><a id="Diving-into-MPR2-Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Diving-into-MPR2-Implementation" title="Permalink"></a></h2><p><code>MPR2Precision.jl</code> relies on callback functions that handle the objective and gradient evaluation. These callback functions are expected to compute values for the objective and the gradient and handle the evaluation precision. In the default implementation, the conditions on the error bound of objective and gradient evaluation are dealt with in these callback functions. That is why such convergence conditions (which user might choose not to implement) does not appear in the minimal implementation description of the code below.</p><h3 id="**Minimal-Implementation-Description**"><a class="docs-heading-anchor" href="#**Minimal-Implementation-Description**"><strong>Minimal Implementation Description</strong></a><a id="**Minimal-Implementation-Description**-1"></a><a class="docs-heading-anchor-permalink" href="#**Minimal-Implementation-Description**" title="Permalink"></a></h3><p>Here is a minimal description of the implementation of <code>MultiPrecisionR2.solve!()</code> to understand when and why these functions are called. Please refer to the implementation for details. Note that the callback functions templates are not respected for the sake of explanation.</p><pre><code class="language-julia hljs">solve!(solver::MPR2solver{T},MPnlp::FPMPNLPModel{H};kwargs...)
+  # ...
+  # some initialization (parameters, containers,...)
+  # ...
+  compute_f_at_x!() # initialize objective value at x0
+  # check for possible overflow 
+  compute_g!() # initialize gradient value at x0
+  # check for possible overflow
+  # ...
+  # some more initialization (gradient norm tolerance,...)
+  # ...
+  while # main loop
+    # compute step as sk = -gk/σk
+    # check for step overflow
+    # compute candidate as c = x+s
+    # check for candidate overflow
+    # compute model decrease ΔT = -g^T s
+    # check for model decrease under/overflow
+    recompute_g!() # possibly recompute g(x) and ωg(x) if gradient error/mu indicator is too big
+    if # not enough precision with max precision
+      break
+    end
+    if # gradient recomputed by recompute_g!() 
+      # recompute step with new value of the gradient
+      # check overflow
+      # recompute candidate with new step
+      # check overflow
+      # recompute model decrease with new gradient and step
+    end
+    compute_f_at_x() # possibly recompute f(x) and ωf(x) if ωf(x) is too big
+    if # not enough precision with max precision (ωf(x) too big)
+      break
+    end
+    compute_f_at_c!() # compute f(c) and ωf(c)
+    if # not enough precision with max precision (ωf(c) too big)
+      break
+    end
+    # ...
+    # compute ρ = (f(x) - f(c))/ΔT
+    # update x and σ
+    # ... 
+    if # ρ ≥ η₁
+      compute_g!() # compute g(c) and  ωg(c)
+      # check overflow
+      # ...
+      # update values for next iteration
+      # ...
+      selectPic!()
+    end
+    # ...
+    # check for termination
+    # ...
+  end # while main loop
+  return status()
+end</code></pre><p>The callback functions, and what they are supposed to do, are </p><ul><li><code>compute_f_at_x!()</code>: <strong>Selects evaluation precision</strong> and <strong>computes objective function at the current point <span>$x_k$</span></strong> such that possible conditions on error bounds are ensured. In the main loop, although the objective at <span>$x_k$</span> has already been computed at a previous iteration (<span>$f(c_{j}) = f(x_k)$</span> with <span>$j$</span> the last successful iteration) it might be necessary to recompute it to achieve smaller evaluation error (<span>$\omega_f(x_k)$</span>) if necessary. This function is also <strong>called for initialization</strong> (before the main loop), where typically no bound on evaluation error is required.</li><li><code>compute_f_at_c!()</code>: <strong>Selects evaluation precision</strong> and <strong>computes objective function at the candidate <span>$c_k$</span></strong> such that possible conditions on error bounds are ensured.</li><li><code>compute_g!()</code>: <strong>Selects evaluation precision</strong> and <strong>computes gradient at the candidate <span>$c_k$</span></strong>. It is possible here to include condiditions on gradient bound error <span>$\omega_g(x_k)$</span>. In the default implementation, multiple sources of rounding error are taken into account in the <span>$\mu$</span> indicator that requires to compute the step, candidate and model decrease (see <a href="#rounding-errors-handling">Rounding Errors Handling</a>). That is why in the default implementation no conditions on gradient error are required in this callback function, but are implemented in <code>recompute_g!()</code>.</li><li><code>recompute_g!()</code>: <strong>Selects evaluation precision</strong> and <strong>recomputes gradient at the current point <span>$x_k$</span></strong>. This callback enables to recompute the gradient <strong>if necessary</strong> with a better precision if needed. In the default implementation, this callback implement the condition on the <span>$\mu$</span> indicator (see <a href="#rounding-errors-handling">Rouding Error Handling</a>) and implements strategies to achieve sufficiently low value of <span>$\mu$</span> to ensure convergence.</li><li><code>selectPic!()</code>: Select FP format for <span>$c_{k+1}$</span>, enables to lower the FP format used for evaluation at the next iteration. See <a href="#candidate-precision-selection">Candidate Precision Selection</a> section for details.</li></ul><h3 id="**Callback-Functions:-Templates**"><a class="docs-heading-anchor" href="#**Callback-Functions:-Templates**"><strong>Callback Functions: Templates</strong></a><a id="**Callback-Functions:-Templates**-1"></a><a class="docs-heading-anchor-permalink" href="#**Callback-Functions:-Templates**" title="Permalink"></a></h3><ul><li><code>prec_fail::Bool = compute_f_at_c!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T) where {H, L, E, T &lt;: Tuple}</code></li><li><code>prec_fail::Bool = compute_f_at_x_default!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, x::T) where {H, L, E, T &lt;: Tuple}</code></li><li><code>prec_fail::Bool = compute_g!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T, g::T) where {H, L, E, T &lt;: Tuple}</code></li><li><code>prec_fail::Bool, recompute_g::Bool = recompute_g!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, x::T, g::T, s::T) where {H, L, E, T &lt;: Tuple}</code></li></ul><p><strong>Arguments</strong>:</p><ul><li><code>m:FPMPNLPModel{H}</code>: multi-precision model, needed to perform objective/gradient evaluation</li><li><code>st::MPR2State{H}</code>: States or intermediate variables of MPR2 algorithm (<span>$\rho$</span>, <span>$\mu$</span>, ...), see <code>MPR2State</code> documentation</li><li><code>π::MPR2Precisions</code>: Current precision indices, see <code>MPR2Precisions</code> documentation</li><li><code>p::MPR2Params{H, L}</code>: algorithm parameters, see <code>MPR2Params</code> documentation</li><li><code>e::E</code>: user defined structure to store additional information if needed</li><li><code>x::T</code>: current point</li><li><code>s::T</code>: current step</li><li><code>c::T</code>: current candidate</li><li><code>g::T</code>: current gradient</li></ul><p><strong>Outputs</strong></p><ul><li><code>prec_fail::Bool</code>: <code>true</code> if the evaluation failed, typical reason is that not enough evaluation could be reached. If <code>prec_fail == true</code>, stops the algorithm and set <code>st.status = :exception</code>.</li><li><code>recompute_g::Bool</code>: <code>true</code> if <code>recompute_g!()</code> has recomputed the gradient. In this case, the set, candidate and model decrease are recomputed (see <a href="#minimal-implementation-description">Minimal Implementation Description</a>)</li></ul><h3 id="**Callback-Functions:-Expected-Behaviors**"><a class="docs-heading-anchor" href="#**Callback-Functions:-Expected-Behaviors**"><strong>Callback Functions: Expected Behaviors</strong></a><a id="**Callback-Functions:-Expected-Behaviors**-1"></a><a class="docs-heading-anchor-permalink" href="#**Callback-Functions:-Expected-Behaviors**" title="Permalink"></a></h3><p><strong>Modified Variables:</strong> The callback functions are expected to update all the variables that they modify. These variables are typically MPR2 states in <code>st::MPR2State{H}</code> structure, the current precisions in <code>π::MPR2Precisions</code> structure, extra values in user defined <code>e::E</code> structure. The callback functions <code>compute_g!()</code> and <code>recompute_g!()</code> are also expected to modify the gradient <code>g::T</code>.</p><p><strong>Variable that should not be modified:</strong> The callback functions <strong>should not modify x, s, and c</strong>.</p><p>Below is a table that recaps what variables each callback can/should update. |Callback| Modified Variables| | ––– | ––––––––- | |<code>compute_f_at_x!()</code>| <code>st.status</code>, <code>st.f</code>, <code>st.ωf</code>, <code>π.πf</code> |<code>compute_f_at_c!()</code>| <code>st.status</code>, <code>st.f⁺</code>, <code>st.ωf⁺</code>, <code>π.πf⁺</code> |<code>compute_g!()</code>| <code>st.status</code>, <code>g</code>, <code>st.ωg</code>, <code>π.πg</code> |<code>recompute_g()</code>| <code>st.status</code>, <code>g</code>, <code>st.ωg</code>, <code>π.πg</code>, <code>st.ΔT</code>, <code>π.ΔT</code>, <code>st.x_norm</code>, <code>π.πnx</code>, <code>st.s_norm</code>, <code>π.πns</code>, <code>st.ϕ</code>, <code>st.ϕhat</code>, <code>π.πc</code>, <code>st.μ</code></p><h3 id="**Multi-Precision-Evaluation-and-Vectors-Containers**"><a class="docs-heading-anchor" href="#**Multi-Precision-Evaluation-and-Vectors-Containers**"><strong>Multi-Precision Evaluation and Vectors Containers</strong></a><a id="**Multi-Precision-Evaluation-and-Vectors-Containers**-1"></a><a class="docs-heading-anchor-permalink" href="#**Multi-Precision-Evaluation-and-Vectors-Containers**" title="Permalink"></a></h3><p>MPR2 performs objective and gradient evaluations and error bounds estimation with different FP format. These evaluations are performed with <code>FPMPNLPModels.objerrmp()</code> and <code>FPMPNLPModels.graderrmp!()</code> functions (see <code>FPMPNLPModels</code> documentation and <a href="#fpmpnlpmodel-creating-a-multi-precision-model">FPMPNLPModel section</a>). These functions expect as input a <code>Vector{S}</code> where to evaluate the objective/gradient where <code>S</code> is the FP format that matches <code>FPMPNLPModel.FPList[id]</code> the FP format of index <code>id</code>.  That is, it is not possible to perform an evaluation in an FP format different than the FP format of the input vector. This further means that, when MPR2 is running, it is necessary to change the FP format of <span>$x_k$</span>, <span>$s_k$</span>, <span>$c_k$</span>, and <span>$g_k$</span>.   In practice, <span>$x_k$</span>, <span>$s_k$</span>, <span>$c_k$</span>, <span>$g_k$</span> are implemented as tuple of vectors of the FP formats used to perform evaluations (<em>i.e.</em> <code>FPMPNLPModel.FPList</code>).</p><p><strong>Example 1: Simple Callback</strong> Here is a simple callback function for computing the objective function that does not take evaluation error into account.</p><pre><code class="language-julia hljs">function my_compute_f_at_c!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T) where {H, L, E, T &lt;: Tuple}
+  st.f⁺ = objmp(m, c[π.πc]) # FP format m.FPList[π.πc] will be used for obj evaluation.
+end</code></pre><p>The implementation of MPR2 automatically updates the containers for x, s, c, and g during execution, so that the user does not have to deal with that part. The function <code>MultiPrecisionR2.umpt!()</code> (see documentation) update the containers.</p><p><strong>Warning:</strong> <code>MultiPrecisionR2.umpt!(x::Tuple, y::Vector{S})</code> updates only the vectors of x of FP format with precision greater or equal to the FP format of y. <code>umpt!</code> is implemented this to avoid rounding error due to casting into a lower precision format and overflow. This is closely related to the concept of &quot;forbidden evaluation&quot; detailed in the <a href="#forbidden-evaluations">next section</a>. If the precision <code>π.πx</code> = 2, it means that the <code>x[i]</code>s vectors are up-to-date for i&gt;=2. </p><p><strong>Example: Container Update</strong></p><pre><code class="language-julia hljs">using MultiPrecisionR2
+FP = [Float16,Float32,Float64]
+xini = ones(5)
+x = Tuple(fp.(xini) for fp in FP)
+xnew = Float32.(zeros(5))
+umpt!(x,xnew)
+x # only x[2] and x[3] are updated</code></pre><p><strong>Example: Lower Precision Casting Error</strong></p><pre><code class="language-julia hljs">x64 = [70000.0,1.000000001,0.000000001,-230000.0] # Vector{Float64}
+x16 = Float16.(x64) # definitely not x64</code></pre><h3 id="**Forbidden-Evaluations**"><a class="docs-heading-anchor" href="#**Forbidden-Evaluations**"><strong>Forbidden Evaluations</strong></a><a id="**Forbidden-Evaluations**-1"></a><a class="docs-heading-anchor-permalink" href="#**Forbidden-Evaluations**" title="Permalink"></a></h3><p>A &quot;forbidden evaluation&quot; consists in evaluating the objective or the gradient with a FP format lower than the FP format of the point where it is evaluated. For example, if <code>x</code> is a <code>Vector{Float64}</code>, evaluating the objective in Float16 will implicitely cast <code>x</code> into a <code>Vector{Float16}</code> and then evaluate the objective with this Float16 vector. The problem is that due to rounding error, the casted vector is different than the initial Float64 <code>x</code>. The objective is therefore not evaluated at <code>x</code> but at a different point. This causes numerical instability in MPR2 and must be avoided.</p><p><strong>Example: Forbidden Evaluation</strong></p><pre><code class="language-julia hljs">f(x) = 1/(x-10000) # objective
+x64 = 10001.0
+f(x64) # returns 1 as expected
+x16 = Float16(x64) # rounding error occurs: x16 != x64
+f(x16) # definitely not the expected value for f(x)</code></pre><p>When implementing the callback functions, the user should make sure that the evaluation precision selected for objective or gradient evaluation (<code>π.πf</code>, <code>π.πg</code>) is always greater or equal than the precision of the point where the evaluation is performed (<code>π.πx</code> or <code>π.πc</code>).</p><h3 id="**Step-and-Candidate-Computation-Precision**"><a class="docs-heading-anchor" href="#**Step-and-Candidate-Computation-Precision**"><strong>Step and Candidate Computation Precision</strong></a><a id="**Step-and-Candidate-Computation-Precision**-1"></a><a class="docs-heading-anchor-permalink" href="#**Step-and-Candidate-Computation-Precision**" title="Permalink"></a></h3><p>MPR2 implementation checks for possible under/overflow when computing the step <code>s</code> and the candidate <code>c</code> and increase FP format precision if necessary to avoid that. MPR2 implementation also updates <code>π.πs</code> and <code>π.πc</code> if necessary. These careful step and candidate computations are implemented in the <code>MultiPrecisionR2.ComputeStep!()</code> and <code>MultiPrecisionR2.computeCandidate!()</code> (see documentation). It is important to note that, even if the gradient <code>g</code> has been computed with <code>π.πg</code> precision, the precision <code>π.πs</code> and <code>π.πc</code> can be greater than <code>π.πg</code> because overflow has occurred. Has a consequence, the user should not take for granted than <code>π.πc</code> == <code>π.πg</code> when selecting FP format for objective/gradient evaluation at <code>c</code> but must rely on the candidate precision <code>π.πc</code>.</p><p><strong>Example: Step Overflow</strong></p><pre><code class="language-julia hljs">g(x) = 2*x # gradient
+x16 = Float16(1000)
+sigma = Float16(1/2^10) # regularization parameter
+g16 = g(x16)
+s = g16/Float16(sigma) # overflow
+s = Float32(g16)/Float32(sigma) # no overflow, s is a Float32, this is what computeStep!() does</code></pre><h3 id="**Candidate-Precision-Selection**"><a class="docs-heading-anchor" href="#**Candidate-Precision-Selection**"><strong>Candidate Precision Selection</strong></a><a id="**Candidate-Precision-Selection**-1"></a><a class="docs-heading-anchor-permalink" href="#**Candidate-Precision-Selection**" title="Permalink"></a></h3><p>In light of the &quot;forbidden evaluation&quot; concept (see section <a href="#forbidden-evaluations">Forbidden Evaluations</a>), if no particular care is given, the objective/gradient evaluation precisions can only increase from one iteration to another. To illustrate that consider that </p><ol><li>At iteration <span>$k$</span>: <span>$x_k$</span> is Float32, meaning that <span>$\hat{g}(x_k)$</span> is Float32 (or higher precision FP format), but let&#39;s say Float32 here. By extension, <span>$s_k = -g_k/\sigma_k$</span> , and <span>$c_k = x_k+s_k$</span> are both Float32. It means that <span>$f(x_k)$</span> and <span>$f(x_k+s_k)$</span> are computed with Float32 or higher because of forbidden evaluations.</li><li>At iteration <span>$k+1$</span>:<ul><li>If the iteration is successful: then <span>$x_{k+1} = c_k$</span> is Float32, meaning again that <span>$\hat{g}(x_{k+1})$</span> is Float32 or higher precision format, and <span>$s_{k+1}$</span> and <span>$c_{k+1}$</span> are also Float32 or higher precision format. It further means that <span>$f(x_{k+1})$</span> and <span>$f(c_{k+1})$</span> can only be computed with Float32 or higher percision format.</li><li>If the iteration is unsuccessful: then <span>$x_{k+1} = x_k$</span> is Float32 and we have the same than if the iteration is successful.</li></ul></li></ol><p>To overcome this issue, and enable to decrease the FP formats used for objective/gradient evaluation, the user has the freedom to chose at iteration <span>$k$</span> the FP format of <span>$c_{k+1}$</span>. Indeed, there is no restriction on how the candidate is computed. Considering the above example, at iteration <span>$k+1$</span> <span>$c_{k+1}$</span> is Float32 but we can cast it (with rounding error) into a Float16, without breaking the convergence. Casting <span>$c_{k+1}$</span> allows to compute <span>$f(c_{k+1})$</span> with Float16, and if the iteration is successful, <span>$x_{k+2} = c_{k+1}$</span> is also a Float16, meaning that the gradient and objective can be computed with Float16 at <span>$x_{k+2}$</span>.</p><p>The callback function <code>selectPif!()</code>, called at the end of the main loop (see section <a href="#minimal-implementation-description">Minimal Implementation Description</a>) update <code>π.πc</code> so that <code>MPnlp.FPList[π.πc]</code> will be the FP format of <code>c</code> at the next iteration. The function <code>ComputeCandidate!()</code>, at the begining of the main loop, handles the casting of the candidate into <code>MPnlp.FPList[π.πc]</code>.</p><p>The expected template for <code>selectPif!()</code> callback function is <code>function selectPic!(π::MPR2Precisions)</code>. Only <code>π.πc</code> is expected to be modify.</p><table><tr><th style="text-align: right">Callback</th><th style="text-align: right">Modified Variables</th></tr><tr><td style="text-align: right"><code>selectPic!()</code></td><td style="text-align: right"><code>π.πc</code></td></tr></table><h2 id="What-MultiPrecisionR2.solve!()-Handles"><a class="docs-heading-anchor" href="#What-MultiPrecisionR2.solve!()-Handles">What <code>MultiPrecisionR2.solve!()</code> Handles</a><a id="What-MultiPrecisionR2.solve!()-Handles-1"></a><a class="docs-heading-anchor-permalink" href="#What-MultiPrecisionR2.solve!()-Handles" title="Permalink"></a></h2><ul><li>Runs the main loop until a stopping condition is reached (max iteration or <span>$\|\nabla f(x)\| \leq \epsilon$</span>).</li><li>Uses the default callback functions for whichever has not been provided by the user.</li><li>Deals with error due to norm computation to ensure <span>$\|\nabla f(x)\| \leq \epsilon$</span>.</li><li>Deals with high precision format computation to simulate &quot;exactly computed&quot; values (see sections <a href="#high-precision-format">High Precision Format</a> and <a href="#high-precision-format-mpr2-solver">High Precision Format: MPR2 Solver</a>).</li><li>Update the containers <code>x</code>, <code>s</code>, <code>c</code> and <code>g</code> (see <a href="#multi-precision-evaluation-and-vector-containers">Multi-Precision Evaluation and Vector Containers</a>)</li><li>Make sure no under/overflow occurs when computing <code>s</code> and <code>c</code>, update the precision <code>π.πs</code> and <code>π.πc</code> if necessary (see <a href="#step-and-candidate-computation-precision">Step and Candidate Computation Precision</a>)</li></ul><h2 id="What-MultiPrecisionR2.solve!()-Does-not-Handle"><a class="docs-heading-anchor" href="#What-MultiPrecisionR2.solve!()-Does-not-Handle">What <code>MultiPrecisionR2.solve!()</code> Does not Handle</a><a id="What-MultiPrecisionR2.solve!()-Does-not-Handle-1"></a><a class="docs-heading-anchor-permalink" href="#What-MultiPrecisionR2.solve!()-Does-not-Handle" title="Permalink"></a></h2><ul><li><code>solve!()</code> does not check that objective/gradient evaluation are preformed with a suitable FP format in the callback functions(see sections <a href="#multi-precision-evaluation-and-vector-containers">Multi-Precision Evaluation and Vector Containers</a> and <a href="#forbidden-evaluations">Forbidden Evaluation</a>).</li><li><code>solve!()</code> does not ensure convergence if the user uses its own callback functions.</li><li><code>solve!()</code>does not update objective/gradient values and precision outside the callback functions. See <a href="#callback-functions-expected-behavior">Callback Functions: Expected Behavior</a> for proper callbacks implementation.</li><li><code>solve!()</code> does not handle overflow that might occur when evaluation the objective/gradient in the callback functions. It is up to the user to make sure no overflowed value is returned by the callbacks. See <a href="#implementation-examples">Implementation Examples</a> for dealing with overflow properly.</li><li><code>solve!()</code> does not throw error/warning if evaluations in callback have failed. It is up to the user to handle that.</li></ul><h2 id="Callback-Functions-Cheat-Sheet"><a class="docs-heading-anchor" href="#Callback-Functions-Cheat-Sheet">Callback Functions Cheat Sheet</a><a id="Callback-Functions-Cheat-Sheet-1"></a><a class="docs-heading-anchor-permalink" href="#Callback-Functions-Cheat-Sheet" title="Permalink"></a></h2><table><tr><th style="text-align: right">Callback</th><th style="text-align: right">Description</th><th style="text-align: right">Outputs</th><th style="text-align: right">Expected Modified Variables</th></tr><tr><td style="text-align: right"><code>compute_f_at_x!()</code></td><td style="text-align: right">Select obj. FP format, compute <span>$f(x_k)$</span> and <span>$ωf(x_k)$</span></td><td style="text-align: right">prec<em>fail::Bool : <code>true</code> if \omega</em>f(x_k)$ is too big, stops main loop</td><td style="text-align: right"><code>st.status</code>, <code>st.f</code>, <code>st.ωf</code>, <code>π.πf</code></td></tr><tr><td style="text-align: right"><code>compute_f_at_c!()</code></td><td style="text-align: right">Select obj. FP format and compute <span>$f(c_k)$</span> and <span>$ωf(c_k)$</span></td><td style="text-align: right">prec<em>fail::Bool: <code>true</code> if \omega</em>f(c_k)$ is too big, stops main loop</td><td style="text-align: right"><code>st.status</code>, <code>st.f⁺</code>, <code>st.ωf⁺</code>, <code>π.πf⁺</code></td></tr><tr><td style="text-align: right"><code>compute_g!()</code></td><td style="text-align: right">Select grad FP format and compute <span>$g(c_k)$</span> and <span>$ωg(c_k)$</span></td><td style="text-align: right">prec<em>fail::Bool: <code>true</code> if \omega</em>g(c_k)$ is too big, stops main loop</td><td style="text-align: right"><code>st.status</code>, <code>g</code>, <code>st.ωg</code>, <code>π.πg</code></td></tr><tr><td style="text-align: right"><code>recompute_g()</code></td><td style="text-align: right">Select grad FP format and recompute <span>$g(x_k)$</span> and <span>$ωg(x_k)$</span></td><td style="text-align: right">prec<em>fail::Bool: <code>true</code> if \omega</em>g(c<em>k)$ is too big, stops main loop, g</em>recompute::Bool: <code>true</code> if <span>$\hat{g}(x_k)$</span> was recomputed</td><td style="text-align: right"><code>st.status</code>, <code>g</code>, <code>st.ωg</code>, <code>π.πg</code>, <code>st.ΔT</code>, <code>π.ΔT</code>, <code>st.x_norm</code>, <code>π.πnx</code>, <code>st.s_norm</code>, <code>π.πns</code>, <code>st.ϕ</code>, <code>st.ϕhat</code>, <code>π.πc</code>, <code>st.μ</code></td></tr><tr><td style="text-align: right"><code>selectPic!()</code></td><td style="text-align: right"></td><td style="text-align: right">void</td><td style="text-align: right"><code>π.πc</code></td></tr></table><h2 id="Implementation-Examples"><a class="docs-heading-anchor" href="#Implementation-Examples">Implementation Examples</a><a id="Implementation-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation-Examples" title="Permalink"></a></h2><h3 id="Example-1:-Precision-Selection-Strategy-Based-on-Step-Size-(Error-Free)"><a class="docs-heading-anchor" href="#Example-1:-Precision-Selection-Strategy-Based-on-Step-Size-(Error-Free)">Example 1: Precision Selection Strategy Based on Step Size (Error Free)</a><a id="Example-1:-Precision-Selection-Strategy-Based-on-Step-Size-(Error-Free)-1"></a><a class="docs-heading-anchor-permalink" href="#Example-1:-Precision-Selection-Strategy-Based-on-Step-Size-(Error-Free)" title="Permalink"></a></h3><p>This example implements a precision selection strategy for the objective and gradient based on the norm of the step size, which does not take into account evaluation errors. The strategy is to choose the FP format for evaluation such that the norm of the step is greater than the square root of the unit roundoff.</p><p>The callback functions must handles precision selection for evaluations and optionally error/warning messages if evaluation fails (typically overflow or lack of precision)</p><pre><code class="language-julia hljs">using LinearAlgebra
+
+function my_compute_f_at_c!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T) where {H, L, E, T &lt;: Tuple}
+  πmax = length(m.FPList) # get maximal allowed precision
+  eval_prec = findfirst(u -&gt; sqrt(u) &lt; st.s_norm, m.UList) # select precision according to the criterion
+  if eval_prec === nothing # not enough precsion
+    @warn &quot; not enough precision for objective evaluation at c: ||s|| = $(st.s_norm) &lt; sqrt(u($(m.FPList[end]))) = $(sqrt(m.UList[end]))&quot;
+    st.status = :exception
+    return true
+  end
+  π.πf⁺ = max(eval_prec,π.πc) # evaluation precision should be greater or equal to the FP format of the candidate (see forbidden evaluation)
+  st.f⁺ = obj(m,c[π.πf⁺]) # eval objective only. solve!() made sure c[π.πf⁺] is up-to-date (see containers section)
+  while st.f⁺ == Inf # check for overflow
+    π.πf⁺ += 1
+    if π.πf⁺ &gt; πmax
+      @warn &quot; not enough precision for objective evaluation at c: overflow&quot;
+      st.status = :exception
+      return true # objective overflow with highest precision FP format: this is a fail
+    end
+    st.f⁺ = obj(m,c[π.πf⁺])
+  end
+  return false
+end
+  
+function my_compute_f_at_x!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, x::T) where {H, L, E, T &lt;: Tuple}
+  πmax = length(m.FPList) # get maximal allowed precision
+  if st.iter == 0 # initial evaluation, step = 0, choose max precision
+    π.πf = πmax
+  else # evaluation in main loop
+    eval_prec = findfirst(u -&gt; sqrt(u) &lt; st.s_norm, m.UList) # select precision according to the criterion
+    if eval_prec === nothing # not enough precsion
+      @warn &quot; not enough precision for objective evaluation at x: ||s|| = $(st.s_norm) &lt; sqrt(u($(m.FPList[end]))) = $(sqrt(m.UList[end]))&quot;
+      st.status = :exception
+      return true
+    end
+    π.πf = max(eval_prec,π.πx) # evaluation precision should be greater or equal to the FP format of the current solution (see forbidden evaluation)
+  end
+  st.f = obj(m,x[π.πf]) # eval objective only. solve!() made sure x[π.πf] is up-to-date (see containers section)
+  while st.f == Inf # check for overflow
+    π.πf += 1
+    if π.πf &gt; πmax
+      @warn &quot; not enough precision for objective evaluation at x: overflow&quot;
+      st.status = :exception
+      return true # objective overflow with highest precision FP format: this is a fail
+    end
+    st.f = obj(m,x[π.πf])
+  end
+  return false
+end
+
+function my_compute_g!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T, g::T) where {H, L, E, T &lt;: Tuple}
+  πmax = length(m.FPList) # get maximal allowed precision
+  if st.iter == 0 # initial evaluation, step = 0, choose max precision
+    π.πg = πmax
+  else # evaluation in main loop
+    eval_prec = findfirst(u -&gt; sqrt(u) &lt; st.s_norm, m.UList) # select precision according to the criterion
+    if eval_prec === nothing # not enough precsion
+      @warn &quot; not enough precision for gradient evaluation at c: ||s|| = $(st.s_norm) &lt; sqrt(u($(m.FPList[end]))) = $(sqrt(m.UList[end]))&quot;
+      st.status = :exception
+      return true
+    end
+    π.πg = max(eval_prec,π.πg) # evaluation precision should be greater or equal to the FP format of the candidate (see forbidden evaluation)
+  end
+  grad!(m,c[π.πg],g[π.πg]) # eval gradient only. solve!() made sure x[π.πg] is up-to-date (see containers section)
+  while findfirst(elem-&gt;elem == Inf,g[π.πg]) !== nothing # check for overflow, gradient vector version
+    π.πg += 1
+    if π.πg &gt; πmax
+      @warn &quot; not enough precision for gradient evaluation at c: overflow&quot;
+      st.status = :exception
+      return true # objective overflow with highest precision FP format: this is a fail
+    end
+    grad!(m,c[π.πg])
+  end
+  return false
+end
+
+function my_recompute_g!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, x::T, g::T, s::T) where {H, L, E, T &lt;: Tuple}
+  # simply update norm of the step, since recompute_g!() is called at the begining of the main loop after step computation
+  πmax = length(m.FPList) # get maximum precision index
+  π.πns = π.πs # select precision for step norm computation
+  s_norm = norm(s[π.πs])
+  while s_norm == Inf || s_norm ==0.0 # handle possible over/underflow
+    π.πns = π.πns+1 # increase precision to avoid over/underflow
+    if π.πns &gt; πmax
+      st.status = :exception
+      return true, false # overflow occurs with max precion: cannot compute s_norm with provided FP formats. Returns fail.
+    end
+    s_norm = norm(s[π.πns]) # compute norm with higher precision step, solve!() made sure s[π.πns] is up-to-date
+  end
+  st.s_norm = s_norm
+  return false, false
+end</code></pre><p>Let&#39;s try this implementation on a simple quadratic objective.</p><pre><code class="language-julia hljs">FP = [Float16, Float32] # selected FP formats,
+f(x) = x[1]^2 + x[2]^2 # objective function
+omega = [0.0,0.0]
+x = Float32.(1.5*ones(2)) # initial point
+MPmodel = FPMPNLPModel(f,x,FP, ωfRelErr = omega, ωgRelErr = omega); # indicates the use of relative error only to avoid interval evaluation, relative errors will not be computed with above callbacks
+stat = MPR2(MPmodel;
+compute_f_at_x! = my_compute_f_at_x!,
+compute_f_at_c! = my_compute_f_at_c!,
+compute_g! = my_compute_g!,
+recompute_g! = my_recompute_g!);
+stat  # first-order stationary point has been found</code></pre><p>Let&#39;s now try our implementation on the Rosenbrock function.</p><pre><code class="language-julia hljs">FP = [Float16, Float32] # selected FP formats,
+f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
+omega = [0.0,0.0]
+x = Float32.(1.5*ones(2)) # initial point
+MPmodel = FPMPNLPModel(f,x,FP, ωfRelErr = omega, ωgRelErr = omega); # indicates the use of relative error only to avoid interval evaluation, relative errors will not be computed with above callbacks
+stat = MPR2(MPmodel;
+compute_f_at_x! = my_compute_f_at_x!,
+compute_f_at_c! = my_compute_f_at_c!,
+compute_g! = my_compute_g!,
+recompute_g! = my_recompute_g!); # throw lack of precision warning</code></pre><p>The strategy implemented for precision selection does not allow to find a first-order critical point for the Rosenbrock function: the step becomes too small before MPR2 converges. Although this implementation is fast since it does not bother with evaluation errors, it is not very satisfactory since Example 1 in section <a href="#lack-of-precision">Lack of Precision</a> shows that the default implementation is able to converge to a first-order critical point. This highlights that it is important to understand how rounding errors occur and affect the convergence of the algorithm (see section <a href="#mpr2-algorithm-general-description">MPR2 Algorithm: General Description</a>) and that &quot;naive&quot; strategies like the one implemented above might not be satisfactory.</p><h3 id="Example-2:-Switching-to-Gradient-Descent-When-Lacking-Objective-Precision"><a class="docs-heading-anchor" href="#Example-2:-Switching-to-Gradient-Descent-When-Lacking-Objective-Precision">Example 2: Switching to Gradient Descent When Lacking Objective Precision</a><a id="Example-2:-Switching-to-Gradient-Descent-When-Lacking-Objective-Precision-1"></a><a class="docs-heading-anchor-permalink" href="#Example-2:-Switching-to-Gradient-Descent-When-Lacking-Objective-Precision" title="Permalink"></a></h3><p>It might happen that <code>solve!()</code> stops early because the objective evaluation lacks precision. Consider for example that we use consider relative evaluation error for the objective. If MPR2 converges to a point where the objective is big, the error can be big too, and if the gradient is small the convergence condition <span>$\omega f(x_k) \leq \eta_0 \Delta T_k = \|\hat{g}(x_k)\|^2/\sigma_k$</span> is likely to fail. In that case, the user might want to continue running the algorithm without caring about the objective, that is, as a simple gradient descent. <code>solve!()</code> implementation allows enough flexibility to do so. In the implementation below, the user defined structure <code>e</code> is used to indicate what &quot;mode&quot; the algorithm is running: default mode or gradient descent. The callbacks <code>compute_f_at_x!</code> sets <code>st.f = Inf</code> and <code>compute_f_at_c!</code> sets <code>st.f⁺ = 0</code> if gradient descent mode is used. This ensures that <span>$\rho_k = Inf \geq \eta_1$</span> and the step is accepted in gradient descent mode. In the implementation below, <code>compute_f_at_x!</code> and <code>compute_f_at_c!</code> selects the precision such that <span>$\omega f(x_k) \leq \eta_0 \Delta T_k$</span> in default mode. We implement <code>compute_g!</code> to set <code>σ</code> so that <code>ComputeStep!()</code> will use the learning rate <code>1/σ</code>. We use the default <code>recompute_g</code> callback.</p><pre><code class="language-julia hljs">mutable struct my_struct
+  gdmode::Bool
+  learning_rate
+end
+
+function my_compute_f_at_c!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T) where {H, L, E, T &lt;: Tuple}
+  if !e.gdmode
+    ωfBound = p.η₀*st.ΔT
+    π.πf⁺ = π.πx # basic precision selection strategy
+    st.f⁺, st.ωf⁺, π.πf⁺ = objReachPrec(m, c, ωfBound, π = π.πf⁺)
+    if st.f⁺ == Inf # stop algo if objective overflow
+      @warn &quot;Objective evaluation overflow at x&quot;
+      st.status = :exception
+      return true
+    end
+    if st.ωf⁺ &gt; ωfBound # evaluation error too big
+      @warn &quot;Objective evaluation error at x too big to ensure convergence: switching to gradient descent&quot;
+      e.gdmode = true
+      st.f⁺ = 0
+      return false
+    end
+  else # gradient descent mode
+    st.f⁺ = 0
+  end
+  return false
+end
+
+function my_compute_f_at_x!(m::FPMPNLPModel{H}, st::MPR2State{H}, π::MPR2Precisions, p::MPR2Params{H, L}, e::E, x::T) where {H, L, E, T &lt;: Tuple}
+  πmax = length(m.EpsList)
+  if st.iter == 0 # initial evaluation before main loop
+    st.f, st.ωf, π.πf = objReachPrec(m, x, m.OFList[end], π = π.πf)
+  else # evaluation in the main loop
+    if !e.gdmode
+      ωfBound = p.η₀*st.ΔT
+      if st.ωf &gt; ωfBound # need to reevaluate the objective at x
+        if π.πf == πmax # already at highest precision 
+          @warn &quot;Objective evaluation error at x too big to ensure convergence: switching to gradient descent&quot;
+          e.gdmode = true
+          st.f = Inf
+          return false
+        end
+        π.πf += 1 # increase evaluation precision of f at x
+        st.f, st.ωf, π.πf = objReachPrec(m, x, ωfBound, π = π.πf)
+        if st.ωf &gt; ωfBound # error evaluation too big with max precison
+          @warn &quot;Objective evaluation error at x too big to ensure convergence: switching to gradient descent&quot;
+          e.gdmode = true
+          st.f = Inf
+          return false
+        end
+      end
+    else # gradient descent mode
+      st.f = Inf
+    end
+  end
+  return false
+end
+
+function my_compute_g!(m::FPMPNLPModel{H}, st::MPR2State{H},  π::MPR2Precisions, p::MPR2Params{H, L}, e::E, c::T, g::T) where {H, L, E, T &lt;: Tuple}
+  π.πg = π.πc # default strategy, could be a callback
+  st.ωg, π.πg = gradReachPrec!(m, c, g, m.OFList[end], π = π.πg)
+  if e.gdmode
+    st.σ = 1/e.learning_rate
+  end
+  return false
+end</code></pre><p>Let us first run <code>MPR2()</code> with the default implementation and relative evaluation error.</p><pre><code class="language-julia hljs">FP = [Float16, Float32] # selected FP formats,
+#f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
+f(x) = x[1]^2 + x[2]^2 +0.5
+omegaf = Float64.([0.01,0.005])
+omegag = Float64.([0.05,0.01])
+x = Float32.(1.5*ones(2)) # initial point
+MPmodel = FPMPNLPModel(f,x,FP, ωfRelErr = omegaf, ωgRelErr = omegag);
+stat = MPR2(MPmodel,verbose=1); # stops at iteration 3, throw lack of precision warning</code></pre><p>We run <code>MPR2()</code> with the callback functions defined above and the default callbacks for <code>compute_g!()</code> and <code>recompute_g!()</code>. We use relative objective and gradient error.</p><pre><code class="language-julia hljs">FP = [Float16, Float32] # selected FP formats,
+#f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
+f(x) = x[1]^2 + x[2]^2 +0.5
+omegaf = Float64.([0.01,0.005])
+omegag = Float64.([0.05,0.01])
+x = ones(Float32,2) # initial point
+MPmodel = FPMPNLPModel(f,x,FP, ωfRelErr = omegaf, ωgRelErr = omegag);
+e = my_struct(false,1e-2)
+stat = MPR2(MPmodel;
+e = e,
+compute_f_at_x! = my_compute_f_at_x!,
+compute_f_at_c! = my_compute_f_at_c!,
+compute_g! = my_compute_g!); # switch to gradient descent at iteration 3, converges to first order critical point</code></pre></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="reference/">Reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Friday 21 July 2023 04:18">Friday 21 July 2023</span>. Using Julia version 1.9.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

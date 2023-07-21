@@ -39,7 +39,8 @@ CurrentModule = MultiPrecisionR2
     4. [Implementation Examples](#implementation-examples)
 
 # Quick Start
-```julia
+
+```@example
 using MultiPrecisionR2
 using ADNLPModels
 using IntervalArithmetic

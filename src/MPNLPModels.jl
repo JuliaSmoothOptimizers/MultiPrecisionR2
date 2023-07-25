@@ -11,6 +11,7 @@ export AbstractMPNLPModel,
   graderrmp,
   graderrmp!,
   objReachPrec,
+  gradReachPrec,
   gradReachPrec!,
   AbstractMPNLPModel
 
@@ -19,15 +20,16 @@ const REL_ERR = 1
 
 """
     FPMPNLPModel(Model::AbstractNLPModel{D,S},FPList::Vector{K}; kwargs...) where {D,S,K<:DataType}
-    FPMPNLPModel(f,x0, FPList::Vector{DataType})
+    FPMPNLPModel(f,x0, FPList::Vector{DataType}; kwargs...)
 
-Floating-Point Multi-Precision Non Linear Model structure. This structure is intended to be used as MPR2Solver input.
+Floating-Point Multi-Precision Non Linear Model (`FPMPNLPModel`) structure. This structure is intended to extend `NLPModel` structure to multi-precision.
 
-Primairly stores NLPmodels instanciated with different Floating Point formats and provide errors on objective function and grandient evaluation (see `objerrmp` and `graderrmp`).
+Provides errors on objective function and grandient evaluation (see `objerrmp` and `graderrmp`).
+
 The error models are :
 + ojective: |fl(f(x)) - f(x)| ≤ ωf
-+ gradient: |fl(∇f(x)) - ∇f(x)| ≤ ||fl(∇f(x))||₂ ωg.
-ωf and ωg are needed for MPR2Solver. They are evaluated either using:
++ gradient: ||fl(∇f(x)) - ∇f(x)||₂ ≤ ||fl(∇f(x))||₂ ωg.
+ωf and ωg are evaluated either using:
 + interval analysis (can be very slow)
 + based on relative error assumption (see `ωfRelErr` and `ωgRelErr` field description below)   
 
@@ -35,25 +37,29 @@ The error models are :
 # Fields
 - `Model::AbstractNLPModel` : NLPModel
 - `FPList::Vector{DataType}` : List of floating point formats
-- `EpsList::Vector{H}` : List of machine epsilons of the floating point formats
-- `HPFormat::DataType` : High precision floating point format, used for intermediate value computation in MPR2Solver. Is H parameter.
+- `EpsList::Vector{H}` : List of machine epsilons of the floating point formats in `FPList`
+- `UList::Vector{H}` : List of unit round-off of the floating point formats in `FPList`
 - `γfunc` : callback function for dot product rounding error parameter |γ|, |fl(x.y) - x.y| ≤ |x|.|y| γ. Expected signature is `γfunc(n::Int,u::H)` and output is `H`. Default callback `γfunc(n::Int,u::H) = n*u` is implemented upon instanciation. 
 - `ωfRelErr::Vector{H}` : List of relative error factor for objective function evaluation for formats in `FPList`. Error model is |f(x)-fl(f(x))| ≤ ωfRelErr * |fl(f(x))| 
-- `ωgRelErr::Vector{H}` : List of relative error factor for gradient evaluation for formats in `FPList`. Error model is |∇f(x)-fl(∇f(x))| ≤ ωgRelErr * ||fl(∇f(x))||₂ 
+- `ωgRelErr::Vector{H}` : List of relative error factor for gradient evaluation for formats in `FPList`. Error model is ||∇f(x)-fl(∇f(x))||₂ ≤ ωgRelErr * ||fl(∇f(x))||₂ 
 - `ObjEvalMode::Int` : Evalutation mode for objective and error. Set automatically upon instanciation. Possible values:
   + `INT_ERR` : interval evaluation of objective (chosen as middle of the interval) and error
-  + `REL_ERR` : classical evaluation and use relative error model (with ωfRelErr value)
+  + `REL_ERR` : classical evaluation and use relative error model (with `ωfRelErr` value)
 - `GradEvalMode::Int` : Evalutation mode for gradient and error. Set automatically upon instanciation. Possible values:
   + `INT_ERR` : interval evaluation of gradient (chosen as middle of interval vector) and error
-  + `REL_ERR` : classical evaluation and use relative error model (with ωgRelErr value)
+  + `REL_ERR` : classical evaluation and use relative error model (with `ωgRelErr` value)
 
 # Constructors:
-- `FPMPModel(Model::AbstractNLPModel, FPList::Vector{DataType}; nvar=100, kwargs...)` : create a FPMPModel from Model with FPList precisions
-- `FPMPModel(s::symbol,FPList::Vector{DataType}; nvar=100, kwargs...)` : create a FPMPModel from a symbol linked to an AbstractNLPModel.
-- `FPModels`(f,x0::Vector,FPList::Vector{DataType}; nvar=100, kwargs...)
+- `FPMPModel(Model, FPList; kwargs...)` :
+  * `Model::AbstractNLPModel`: Base model
+  * `FPList::Vector{DataType}`: List of FP formats that can be used for evaluations
 
-Keyword arguments: 
-- nvar: dimension of the problem (if scalable)
+- `FPModels(f,x0::Vector,FPList::Vector{DataType}; kwargs...)` : Instanciate a `ADNLPModel` with `f` and `x0` and call above constructor
+  * `f` : objective function
+  * `x0` : initial solution
+  * `FPList::Vector{DataType}`: List of FP formats that can be used for evaluations
+
+# Keyword arguments: 
 - kwargs: 
   + `HPFormat=Float64` : high precision format (must be at least as accurate as FPList[end])
   + `γfunc=nothing` : use default if not provided (see Fields section above)
@@ -61,9 +67,10 @@ Keyword arguments:
   + `ωgRelErr=nothing` : use interval evaluation if not provided
 
 # Checks upon instanciation
+
 Some checks are performed upon instanciation. These checks include:
 + Length consistency of vector fields:  FPList, EpsList
-+ HPFormat is at least as accurate as the highest precision floating point format in `FPList``. Ideally HPFormat is more accurate to ensure the numerical stability of MPR2 algorithm.
++ HPFormat is at least as accurate as the highest precision floating point format in `FPList`. Ideally HPFormat is more accurate to ensure the numerical stability of MPR2 algorithm.
 + Interval evaluations: it might happen that interval evaluation of objective function and/or gradient is type-unstable or returns an error. The constructor returns an error in this case. This type of error is most likely due to `IntervalArithmetic.jl`.
 + FPList is ordered by increasing floating point format accuracy
 
@@ -71,10 +78,24 @@ This checks can return `@warn` or `error`.
 
 # Examples 
 ```julia
+using MultiPrecisionR2
+
 T = [Float16, Float32]
 f(x) = x[1]^2 + x[2]^2
 x = zeros(2)
-MPmodel = FPMPNLPModel(f,x0,T)
+mpnlp = FPMPNLPModel(f,x0,T)
+```
+-----------
+```julia
+using MultiPrecisionR2
+using OptimizationProblems
+using OptimizationProblems.ADNLPProblems
+using ADNLPModels
+using BFloat16s
+
+T = [BFloat16, Float16, Float32]
+nlp = woods()
+mpnlp = (nlp,T)
 ```
 """
 struct FPMPNLPModel{H, B <: Tuple, D, S} <: AbstractMPNLPModel{D, S}
@@ -176,12 +197,12 @@ end
 #   FPMPNLPModel(Model,FPList;kwargs...)
 # end
 
-function FPMPNLPModel(f, x0, FPList::Vector{DataType}; nvar::Int = 100, kwargs...)
+function FPMPNLPModel(f, x0, FPList::Vector{DataType}; kwargs...)
   type = eltype(x0)
   if !(type in FPList)
     error("eltype of x0 ($type) must be in FPList ($FPList)")
   end
-  Model = ADNLPModel(f, x0, n = nvar, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
+  Model = ADNLPModel(f, x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
   FPMPNLPModel(Model, FPList; kwargs...)
 end
 
@@ -206,6 +227,11 @@ function NLPModels.grad!(
   grad!(m.Model, x, g)
 end
 
+"""
+    get_id(m::FPMPNLPModel, FPFormat::DataType)
+
+Returns the index of `FPFormat` `in m.FPList`. 
+"""
 function get_id(m::FPMPNLPModel, FPFormat::DataType)
   return findfirst(t -> t == FPFormat, m.FPList)
 end
@@ -215,9 +241,15 @@ end
     objerrmp(m::FPMPNLPModel, x::AbstractVector{S}, ::Val{INT_ERR})
     objerrmp(m::FPMPNLPModel, x::AbstractVector{S}, ::Val{REL_ERR})
 
-Evaluates the objective and the evaluation error. The two functions with the extra argument ::Val{INT_ERR} and ::Val{REL_ERR} handles the interval and "classic" evaluation of the objective and the error, respectively.
-Inputs: x::Vector{S}, can be either a vector of AbstractFloat or a vector of Intervals.
-Outputs: fl(f(x)), ωf <: AbstractFloat, where |f(x)-fl(f(x))| ≤ ωf with fl() the floating point evaluation.
+Evaluates the objective and the evaluation error. The two functions with the extra argument `::Val{INT_ERR}` and `::Val{REL_ERR}` handles the interval and "classic" evaluation of the objective and the error, respectively.
+
+# Arguments
+* `x::Vector{S}`: where to evaluate the objective, can be either a vector of `AbstractFloat` or a vector of `Intervals`.
+
+# Outputs
+1. fl(f(x)): finite-precision evaluation of the objective at `x`
+2. `ωf <: AbstractFloat`: evaluation error, |f(x)-fl(f(x))| ≤ ωf with fl() the floating point evaluation.
+
 Overflow cases:
 * Interval evaluation: overflow occurs if the diameter of the interval enclosing f(x) is Inf. Returns 0, Inf
 * Classical evaluation:
@@ -256,17 +288,28 @@ function objerrmp(m::FPMPNLPModel{H}, x::AbstractVector{S}, ::Val{REL_ERR}) wher
 end
 
 """
+    graderrmp(m::FPMPNLPModel, x::V)
     graderrmp!(m::FPMPNLPModel{H}, x::V, g::V) where {H, S, V<:AbstractVector{S}}
     graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, ::Val{INT_ERR}) where {H, S, V<:AbstractVector{S}}
     graderrmp!(m::FPMPNLPModel{H}, x::V, g::V, ::Val{REL_ERR}) where {H, S, V<:AbstractVector{S}}
 
-Evaluates the gradient g and the relative evaluation error ωg. The two functions with the extra argument ::Val{INT_ERR} and ::Val{REL_ERR} handles the interval and "classic" evaluation of the objective and the error, respectively.
-Inputs: x::Vector{S} with S in m.FPList
-Outputs: g::Vector{S}, ωg <: AbstractFloat satisfying: ||∇f(x) - fl(∇f(x))||₂ ≤ ωg||g||₂ with fl() the floating point evaluation.
-Note: ωg FP format may be different than S
+Evaluates the gradient g and the relative evaluation error ωg. The two functions with the extra argument `::Val{INT_ERR}` and `::Val{REL_ERR}` handles the interval and "classic" evaluation of the objective and the error, respectively.
+# Arguments
+- `m::FPMPNLPModel` : multi-precision model
+- `x::V`: where the gradient is evaluated
+- `g::V`: container for gradient
+
+# Outputs
+1. `g::Vector{S}`: gradient value, only returned with `graderrmp`.
+2. `ωg <: AbstractFloat`: evaluation error satisfying: ||∇f(x) - fl(∇f(x))||₂ ≤ ωg||g||₂ with fl() the floating point evaluation.
+Note: ωg FP format may be different than `S`
+
+# Modified
+* `g::V`: updated with gradient value
+
 Overflow cases:
-* Interval evaluation: if at least one element of g has infinite diameter, returns [0]ⁿ, Inf
-* Classical evaluation: if one element of g overflow, returns g, Inf 
+* Interval evaluation: if at least one element of `g` has infinite diameter, returns [0]ⁿ, Inf
+* Classical evaluation: if at least one element of `g` overflows, returns `g, Inf` 
 """
 function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V) where {H, S, V <: AbstractVector{S}}
   get_id(m, S) !== nothing || error(
@@ -316,12 +359,11 @@ function graderrmp!(
   if check_overflow(g)
     return Inf
   end
-  g_norm = norm(g) #::S ! computed with finite precision in S FP format
   n = m.meta.nvar # ::Int
   id = get_id(m, S)
   u = m.UList[id] # ::H
   γₙ = m.γfunc(n, u) # ::H
-  ωg = m.ωgRelErr[id] * (1 + γₙ) / (1 - γₙ) # ::H. Accounting for norm computation rounding errors, evaluated with HPFormat ≈> exact computation
+  ωg = m.ωgRelErr[id]
   return ωg #::Vector{S} ::H
 end
 
@@ -337,12 +379,16 @@ end
     objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
 
 Evaluates objective and increase model precision to reach necessary error bound or to avoid overflow.
-##### Inputs
-* `π`: Initial ''guess'' precision level that can provide evaluation error lower than `err_bound`, use 1 by default (lowest precision)
-##### Outputs
-* `f`: objective value at `x`
-* `ωf`: objective evaluation error
-* `id`: precision level used for evaluation
+# Arguments
+  * `m::FPMPNLPModel{H}`: multi precision model
+  * `x::T`: tuple containing value of x in the FP formats of `FPList`
+  * `err_bound::H` : evaluation error tolerance
+  * `π::Int`: Initial ''guess'' for FP format that can provide evaluation error lower than `err_bound`, use 1 by default (lowest precision FP format)
+
+# Outputs
+  * `f`: objective value at `x`
+  * `ωf`: objective evaluation error
+  * `id`: precision level used for evaluation
 
 There is no guarantee that `ωf ≤ err_bound`, happens if highest precision FP format is not accurate enough.
 """
@@ -365,13 +411,22 @@ end
 
 """
     gradReachPrec!(m::FPMPNLPModel{H}, x::T, g::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
+    gradReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where {T <: Tuple, H}
 
 Evaluates gradient and increase model precision to reach necessary error bound or to avoid overflow.
-# Inputs
-* `π`: Initial ''gess'' for precision level that can provide evaluation error lower than `err_bound`, uses 1 by default (lowest precision)
+# Arguments
+* `m::FPMPNLPModel{H}`: multi precision model
+* `x::T`: tuple containing value of x in the FP formats of `FPList`
+* `g::T`: gradient container
+* `π`: Initial ''guess'' precision level that can provide evaluation error lower than `err_bound`, use 1 by default (lowest precision)
 # Outputs
-* `ωg`: objective evaluation error
-* `id`: precision level used for evaluation
+1. (`g`): gradient, returned only with `gradReachPrec` call  
+2. `ωg`: objective evaluation error
+3. `id`: precision level used for evaluation
+
+# Modified 
+* (`g`): updated with the gradient value, only with `gradReachPrec!` call
+
 There is no guarantee that `ωg ≤ err_bound`. This case happens if the highest precision FP format is not accurate enough.
 """
 function gradReachPrec!(

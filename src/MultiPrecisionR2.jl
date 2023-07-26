@@ -22,6 +22,17 @@ include("utils.jl")
 FP format index storage structure.
 
 Stores FP formats index in `FPMPNLPModel.FPList` of obj, grad, model reduction and norms evaluations, and FP format index of MPR2 algorithm vector variables. 
+
+# Fields
+- `πx::Int` : Current FP format of current incumbent `x`
+- `πnx::Int` : FP format used for `x` norm evaluation
+- `πs::Int` : Current FP format of step`s`
+- `πns::Int` : FP format used for `s` norm evaluation
+- `πc::Int` : Current FP format of candidate `c`
+- `πf::Int` : FP format used for objective evaluation at `x`
+- `πf⁺::Int` : FP format used for objective evaluation at `c`
+- `πg::Int` : FP format used for gradient evaluation at `c`
+- `πΔ::Int` : FP format used for model reduction computation
 """
 mutable struct MPR2Precisions
   πx::Int
@@ -107,40 +118,35 @@ function CheckMPR2ParamConditions(p::MPR2Params)
 end
 
 """
-    MPR2(MPnlp; kwargs...)
-An implementation of the quadratic regularization algorithm with dynamic selection of floating point format for objective and gradient evaluation, robust against finite precision rounding errors.
-Type parameters are: `S::AbstractVector`, `H::AbstractFloat`, `T::AbstractFloat`, `E::DataType` 
+    MPR2Solver(MPnlp::FPMPNLPModel)
 
-# Arguments
-- `MPnlp::FPMPNLPModel` : Multi precision model, see `FPMPNLPModel`
+Solver structure containing all the variables necessary to MRP2.
 
-Keyword agruments:
-- `x₀::S = MPnlp.Model.meta.x0` : initial guess 
-- `par::MPR2Params = MPR2Params(MPnlp.FPList[1],H)` : MPR2 parameters, see `MPR2Params` for details
-- `atol::H = H(sqrt(eps(T)))` : absolute tolerance on first order criterion 
-- `rtol::H = H(sqrt(eps(T)))` : relative tolerance on first order criterion
-- `max_eval::Int = -1`: maximum number of evaluation of the objective function.
-- `max_iter::Int = 1000` : maximum number of iteration allowed
-- `σmin::T = sqrt(T(MPnlp.EpsList[end]))` : minimal value for regularization parameter. Value must be representable in any of the floating point formats of MPnlp. 
-- `verbose::Int=0` : display iteration information if > 0
-- `e::E` : user defined structure, used as argument for `compute_f_at_x!`, `compute_f_at_c!` `compute_g!` and `recompute_g!` callback functions.
-- `compute_f_at_x!` : callback function to select precision and compute objective value and error bound at the current point. Allows to reevaluate the objective at x if more precision is needed.
-- `compute_f_at_c!` : callback function to select precision and compute objective value and error bound at candidate.
-- `compute_g!` : callback function to select precision and compute gradient value and error bound. Called at the end of main loop.
-- `recompute_g!` : callback function to select precision and recompute gradient value if more precision is needed. Called after step, candidate and model decrease computation in main loop.
-- `selectPic!` : callback function to select FP format of `c` at the next iteration
+# Fields:
 
-# Outputs
-1. `GenericExecutionStats`: execution stats containing information about algorithm execution (nb. of iteration, termination status, ...). See `SolverCore.jl`
-
-# Example
-```julia
-T = [Float16, Float32]
-f(x) = x[1]^2+x[2]^2
-x = ones(2)
-mpnlp = FPMPNLPModel(f,x,T)
-MPR2(mpnlp)
-```
+- x::T : incumbent
+- g::T : gradient
+- s::T : step 
+- c::T : candidate
+- π::MPR2Precisions : FP format indices (precision) structure
+- p::MPR2Params : MPR2 parameters
+- x_norm::H : norm of `x`
+- s_norm::H : norm of `s`
+- g_norm::H : norm of `g`
+- ΔT::H : model decrease
+- ρ::H : success ratio
+- ϕ::H : guaranteed upper bound on ||x||/||s||
+- ϕhat::H : computed value of ||x||/||s||
+- μ::H : error indicator
+- f::H : objective value at `x`
+- f⁺::H : objective value at `c`
+- ωf::H : objective evaluation error at `x`, |f(x) - fl(f(x))| <= `ωf`
+- ωf⁺::H : objective evaluation error at `c`, |f(c) - fl(f(c))| <= `ωf⁺`
+- ωg::H : gradient evaluation error at `c`, ||∇f(c) - fl(∇f(c))||₂ <= `ωg`||fl(∇f(c))||₂
+- ωfBound::H : error tolerance on objective evaluation
+- σ::H : regularization parameter
+- πmax::Int : number of FP formats available for evaluations
+- init::Bool : initialized with `true`, set to `false` when entering main loop 
 """
 mutable struct MPR2Solver{T <: Tuple, H <: AbstractFloat} <: AbstractOptimizationSolver
   x::T
@@ -190,7 +196,44 @@ function MPR2Solver(MPnlp::M) where {S, H, B, D, M <: FPMPNLPModel{H, B, D, S}}
   )
 end
 
-@doc (@doc MPR2Solver) function MPR2(MPnlp::FPMPNLPModel; kwargs...)
+
+"""
+    MPR2(MPnlp; kwargs...)
+An implementation of the quadratic regularization algorithm with dynamic selection of floating point format for objective and gradient evaluation, robust against finite precision rounding errors.
+Type parameters are: `S::AbstractVector`, `H::AbstractFloat`, `T::AbstractFloat`, `E::DataType` 
+
+# Arguments
+- `MPnlp::FPMPNLPModel` : Multi precision model, see `FPMPNLPModel`
+
+Keyword agruments:
+- `x₀::S = MPnlp.Model.meta.x0` : initial guess 
+- `par::MPR2Params = MPR2Params(MPnlp.FPList[1],H)` : MPR2 parameters, see `MPR2Params` for details
+- `atol::H = H(sqrt(eps(T)))` : absolute tolerance on first order criterion 
+- `rtol::H = H(sqrt(eps(T)))` : relative tolerance on first order criterion
+- `max_eval::Int = -1`: maximum number of evaluation of the objective function.
+- `max_iter::Int = 1000` : maximum number of iteration allowed
+- `σmin::T = sqrt(T(MPnlp.EpsList[end]))` : minimal value for regularization parameter. Value must be representable in any of the floating point formats of MPnlp. 
+- `verbose::Int=0` : display iteration information if > 0
+- `e::E` : user defined structure, used as argument for `compute_f_at_x!`, `compute_f_at_c!` `compute_g!` and `recompute_g!` callback functions.
+- `compute_f_at_x!` : callback function to select precision and compute objective value and error bound at the current point. Allows to reevaluate the objective at x if more precision is needed.
+- `compute_f_at_c!` : callback function to select precision and compute objective value and error bound at candidate.
+- `compute_g!` : callback function to select precision and compute gradient value and error bound. Called at the end of main loop.
+- `recompute_g!` : callback function to select precision and recompute gradient value if more precision is needed. Called after step, candidate and model decrease computation in main loop.
+- `selectPic!` : callback function to select FP format of `c` at the next iteration
+
+# Outputs
+1. `GenericExecutionStats`: execution stats containing information about algorithm execution (nb. of iteration, termination status, ...). See `SolverCore.jl`
+
+# Example
+```julia
+T = [Float32, Float64]
+f(x) = sum(x.^2)
+x = ones(Float32,2)
+mpnlp = FPMPNLPModel(f,x,T)
+MPR2(mpnlp)
+```
+"""
+function MPR2(MPnlp::FPMPNLPModel; kwargs...)
   solver = MPR2Solver(MPnlp)
   return SolverCore.solve!(solver, MPnlp; kwargs...)
 end
@@ -264,7 +307,9 @@ function SolverCore.solve!(
     @warn "Objective or ojective error overflow at x0"
     stats.status = :exception
   end
-  SolverCore.set_objective!(stats, solver.f)
+
+  stats.objective = solver.f
+  #SolverCore.set_objective!(stats, solver.f)
 
   compute_g!(MPnlp, solver, stats, e)
   if findfirst(x -> x === FP[end](Inf), solver.g) !== nothing || isinf(solver.ωg)
@@ -273,7 +318,9 @@ function SolverCore.solve!(
   end
   umpt!(solver.g, solver.g[solver.π.πg])
   solver.g_norm = H(norm(solver.g[solver.π.πg]))
-  SolverCore.set_dual_residual!(stats, solver.g_norm)
+  
+  stats.dual_feas = solver.g_norm
+  #SolverCore.set_dual_residual!(stats, solver.g_norm)
 
   σ0 = 2^round(log2(solver.g_norm + 1)) # ensures ||s_0|| ≈ 1 with sigma_0 = 2^n with n an interger, i.e. sigma_0 is exactly representable in n bits 
   solver.σ = H(σ0) # declare σ with the highest precision, convert it when computing sk to keep it at precision πg
@@ -327,10 +374,12 @@ function SolverCore.solve!(
       computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || (stats.status = :exception)
       computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || (stats.status = :exception)
     end
-    SolverCore.set_dual_residual!(stats, solver.g_norm)
+    stats.dual_feas = solver.g_norm
+    #SolverCore.set_dual_residual!(stats, solver.g_norm)
 
     compute_f_at_x!(MPnlp, solver, stats, e) || (stats.status = :exception)
-    SolverCore.set_objective!(stats, solver.f)
+    stats.objective = solver.f
+    #SolverCore.set_objective!(stats, solver.f)
 
     compute_f_at_c!(MPnlp, solver, stats, e) || (stats.status = :exception)
 
@@ -355,7 +404,8 @@ function SolverCore.solve!(
       solver.g_norm = H(norm(solver.g[solver.π.πg]))
       umpt!(solver.x, solver.c[solver.π.πc])
       solver.f = solver.f⁺
-      SolverCore.set_objective!(stats, solver.f⁺)
+      stats.objective = solver.f⁺
+      #SolverCore.set_objective!(stats, solver.f⁺)
       solver.ωf = solver.ωf⁺
 
       solver.π.πf = solver.π.πf⁺
@@ -365,7 +415,8 @@ function SolverCore.solve!(
 
     SolverCore.set_iter!(stats, stats.iter + 1)
     SolverCore.set_time!(stats, time() - start_time)
-    SolverCore.set_dual_residual!(stats, solver.g_norm)
+    stats.dual_feas = solver.g_norm
+    #SolverCore.set_dual_residual!(stats, solver.g_norm)
     optimal = solver.g_norm ≤ 1 / (1 + βfunc(n, U[solver.π.πg])) * ϵ / (1 + H(solver.ωg))
 
     if verbose > 0
@@ -392,7 +443,8 @@ function SolverCore.solve!(
     done = stats.status != :unknown
   end
 
-  SolverCore.set_solution!(stats, solver.x[end])
+  stats.solution = solver.x[end]
+  #SolverCore.set_solution!(stats, solver.x[end])
   return stats
 end
 

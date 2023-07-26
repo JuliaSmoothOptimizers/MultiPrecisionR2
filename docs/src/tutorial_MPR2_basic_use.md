@@ -1,6 +1,6 @@
 # Disclaimer
 
-The reader is encouraged to read the `FPMPNLPModel` tutorial before this tutorial.
+The reader is encouraged to read the `FPMPNLPModel` tutorial before the present one. 
 
 # Motivation
 Here is the comparison between `R2` algorithm from `JSOSolvers.jl` run with `Float64` and `MPR2` from `MultiPrecisionR2.jl` run with `Float16`, `Float32` and `Float64` over a set of unconstrained problems taken from `OptimizationProblems.jl`.
@@ -55,21 +55,22 @@ println("Possible energy saving for gradient evaluation with MPR2: $(round((1-gr
 # MPR2 Algorithm: General Description and Basic Use
 
 ## **Notations**
+* FPList: List of floating point formats available
 * $fl$: finite-precision computation
 * $u$: unit round-off for a given FP format
 * $\delta$: rounding error induced by one FP operation ($+,-,/,*$), for example $fl(x+y) = (x+y)(1+\delta)$. Bounded as $|\delta|\leq u$.
-* $\pi$: FP format index, also called **precision**
+* $\pi$: FP format index in FPList, also called **precision**
 * $f: x \rightarrow f(x)$: objective function
-* $\hat{f}: x,\pi_f \rightarrow fl(f(x,\pi_f))$: finite precision counterpart of $f$ with FP format corresponding to index $\pi_f$  
+* $\hat{f}: x,\pi_f \rightarrow fl(f(x,\pi_f))$: finite precision counterpart of $f$ with FP format corresponding to index $\pi_f$ in FPList  
 * $\nabla f: x \rightarrow \nabla f(x)$: gradient of $f$
-* $\hat{g}: x, \pi_g \rightarrow fl(\nabla f(x),\pi_g)$ : finite precision counterpart of $\nabla f $ with FP format corresponding to index $\pi_g$
+* $\hat{g}: x, \pi_g \rightarrow fl(\nabla f(x),\pi_g)$ : finite precision counterpart of $\nabla f $ with FP format corresponding to index $\pi_g$ in FPList
 * $\omega_f(x)$: bound on finite precision evaluation error of $f$, $| \hat{f}(x,\pi_f) -f(x) | \leq \omega_f(x)$
 * $\omega_g(x)$ : bound on finite precision evaluation error of $\nabla f$, $\| \hat{g}(x,\pi_g) -\nabla f(x) \| \leq \omega_g(x)\|\hat{g}(x,\pi_g)\|$
 
 ## **MPR2 Algorithm Broad Description** (differs from package implementation)
-MPR2 is described by the following algorithm. Note that the actual implementation in the package differs slightly. For an overview of the actual implementation, see section [Diving Into MPR2 Implementation](#diving-into-mpr2-implementation).
+MPR2 is described by the following algorithm. Note that the actual implementation in the package differs slightly. For an overview of the actual implementation, see Advanced Use tutorial.
 
-In the algorithm, *compute* means compute with finite-precision machine computation, and *define* means "compute exactly", *i.e.* with infinite precision. Defining a value is therefore not possible to perform on a (finite-precision) machine. This point is discussed later.
+In the algorithm, *compute* means compute with finite-precision machine computation, and *define* means "compute exactly", *i.e.* with infinite precision. Defining values is necessary to ensure the theoretical convergence of MPR2. Defining a value is not possible to perform on a (finite-precision) machine, but one can use high precision FP formats (see section [High Precision Format](#high-precision-format))
 
 **Inputs**: 
   * Initial values: $x_0$, $\sigma_0$
@@ -127,10 +128,11 @@ In the algorithm, *compute* means compute with finite-precision machine computat
 MPR2 stops either when:
 1. a point $x_k$ satisfying $\|g_k\| \leq \dfrac{\epsilon}{1+\omega_g(x_k)}$ has been found (see [$\omega_g$ definition](#notations)), which ensures that $ \|\nabla f(x_k)\| \leq \epsilon$, or 
 2. no FP format enables to achieve required precision on the objective or $\mu$ indicator.
-The indicator **$\mu_k$** aggregates finite-precision errors due to gradient evaluation ($\omega_g(x_k)$), and the computation of the step ($s_k$), candidate ($c_k$) and model reduction $\Delta T_k$ as detailed in the [**Rounding Error Handling**](#rounding-error-handling) section.     
+The indicator **$\mu_k$** aggregates finite-precision errors due to gradient evaluation ($\omega_g(x_k)$), and the computation of the step ($s_k$), candidate ($c_k$) and model reduction $\Delta T_k$ as detailed in the [Rounding Error Handling](#rounding-error-handling) section.     
 
 ## **Rounding Errors Handling**
-Anything computed in MPR2 suffers from rounding errors since it runs on a machine, which necessarily performs computation with finite-precision arithmetic. Below is the list of rounding errors that are handled by MPR2 such that convergence and numerical stability is guaranteed.
+Anything computed in MPR2 suffers from rounding errors since it runs on a machine, which necessarily performs computation with finite-precision arithmetic. Below is the list of rounding errors that are handled by MPR2 such that convergence and numerical stability is guaranteed. MPR2 is designed to run with FP numbers complying with the IEEE 754 norm.
+
 1. **Dot Product Error: $\gamma_n$**
   The model for the dot product error that is used by default is  
   $|fl(x.y) - x.y| \leq |x|.|y| \gamma(n,u),$ with  
@@ -152,7 +154,7 @@ Anything computed in MPR2 suffers from rounding errors since it runs on a machin
   The finite-precision error for norm computation of a FP vector $x$ of dimension $n$ is  
   $ |fl(\|x\|)-\|x\|| \leq fl(\|x\|)\beta(n+2,u)$ with  
   $\beta:n,u \rightarrow \max(|\sqrt{\gamma(n,u)-1}-1|,|\sqrt{\gamma(n,u)+1}-1|)$  
-  $\beta$ function cannot be chosen by the user.  
+  $\beta$ function cannot be chosen by the user, but $\gamma(n,u)$ can be chosen via `γfunc` keyword argument when instanciating a `FPMPNLPModel` (see next sections).
   The $\beta$ function is used in MPR2 implementation to handle finite-precision error of norm computation for 
   * $\|g_k\|$ norm computation: the stopping criterion implemented in MPR2 is  
     $\|g_k\| \leq \dfrac{1}{1+\beta (n+2,u)}\dfrac{1}{1+\omega_g(x_k)}$ which ensures that $\|\nabla f(x_k)\|\leq \epsilon$. 
@@ -167,41 +169,112 @@ Anything computed in MPR2 suffers from rounding errors since it runs on a machin
   The formula for $\mu_k$ is  
   $\mu_{k} = \dfrac{\alpha(n,u) \omega_g(x_k)(1+u(\phi_k +1)) + \alpha(n,u) \lambda_k + u+ \gamma(n+1,u)\alpha(n+1,u)}{1-u}$.  
   Note that if no rounding error occurs for ($u = 0$), one simply has $\mu_k = \omega_g(x_k)$.  
-  The implementation of line 7. of MPR2 (as described in the [above section](#mpr2-algorithm-broad-description-differs-from-package-implementation)) consists in recomputing the step, candidate, $x_k$ and/or $s_k$ norm, model decrease or gradient with higher precision FP formats (therefore decreasing $u$) until $\mu_k \leq \kappa_m$. For details about default strategy, see `recomputeMu!()` documentation.
+  The implementation of line 7. of MPR2 (as described in the [above section](#mpr2-algorithm-broad-description-differs-from-package-implementation)) consists in recomputing the step, candidate, $x_k$ and/or $s_k$ norm, model decrease or gradient with higher precision FP formats (therefore decreasing $u$) until $\mu_k \leq \kappa_m$. For details about default strategy, see `recomputeMu!` documentation.
 
 ## Conditions on Parameters
-  MPR2 parameters can be chosen by the user (see Section [Basic Use](#basic-use)) but must satisfy the following inequalities:
+  MPR2 parameters can be chosen by the user (see Section [Basic Use](#basic-use)) but must satisfy the following inequalities to ensure convergence:
   * $0 \leq \eta_0 \leq \frac{1}{2}\eta_1$
   * $0 \leq \eta_1 \leq \eta_2 < 1$
   * $\eta_0+\dfrac{\kappa_m}{2} \leq 0.5(1-\eta_2)$
-  * $\eta_2 < 1$>
+  * $\eta_2 < 1$
   * $0<\gamma_1<1<\gamma_2$
 
 
 # Basic Use
 
-MPR2 solver relies on multi-precision models structure `FPMPNLPModels` (Floating Point Multi Precision Non Linear Programming Models), that derives from [`NLPModels.jl`](https://github.com/JuliaSmoothOptimizers/NLPModels.jl). This structure embeds the problem and provides the interfaces to evaluate the objective and the gradient with several FP formats. These evaluation functions are used by `MPR2Solver` to evaluate the objective and gradient with different FP format. For details about `FPMPNLPModels`, see related documentaion.
+MPR2 solver relies on multi-precision models structure `FPMPNLPModels` (Floating Point Multi Precision Non-Linear Programming Models), that derives from [`NLPModels.jl`](https://github.com/JuliaSmoothOptimizers/NLPModels.jl). This structure embeds the problem and provides the interfaces to evaluate the objective and the gradient with several FP formats and provide error bounds $\omega_f$ and $\omega_g$. For details about `FPMPNLPModels`, see related documentation and tutorial.
 
-## **MPR2Solver**
-See `MPR2Solver` documentation.
+## **MPR2 Solver**
 
-### **Gamma Function**
-MPR2 relies on the dot product error function $\gamma$ to handle some rounding errors (norm and model decrease). The $\gamma$ function used by MPR2 is the one of the `MPR2()` or `solve!()` `FPMPNLPModel` argument. 
+MPR2 solver is run with `MPR2()` function which takes a `FPMPNLPModel` argument (see `FPMPNLPModel` documentation for details).
 
-### **High Precision Format: MPR2 Solver**
-MPR2 uses a high precision format to compute "exactly" the values that are *defined* (see section [MPR2 Algorithm Broad Description](#mpr2-algorithm-broad-description-differs-from-package-implementation)). This high precision format corresponds to the type parameter `H` in `MultiPrecisionR2.solve!()`. The high precision format used by MPR2 is `FPMPNLPModel.HPFormat` of `MPnlp` argument of `MultiPrecisionR2.solve!()` (see section [High Precision Format](#high-precision-format)).
+```julia
+using MultiPrecisionR2
 
-### **Lack of Precision**
+T = [Float32,Float64] # defines FP format used for evaluations
+f(x) = sum(x.^2) # objective function
+x = ones(Float32,2) # initial point
+mpnlp = FPMPNLPModel(f,x,T) # instanciate a FPMPNLPModel
+stats = MPR2(mpnlp) # runs MPR2
+```
+
+`MPR2()` returns a `GenericExectutionStats` structure that contains information about the execution status. See [SolverCore.jl](https://github.com/JuliaSmoothOptimizers/SolverCore.jl) package for details.
+
+```julia
+stats.iter # access number of iteration
+stats.solution # accsess solution computed by MPR2 
+stats.dual_feas # access gradient norm at the solution
+```
+## **Evaluation Error Modes**
+
+MPR2 can be run with interval or relative error mode for objective and gradient evaluation error estimation. This error mode is chosen when instanciating the `FMPMNLPModel`.
+
+**Example**: Interval Error Mode
+```julia
+using MultiPrecisionR2
+using IntervalArithmetic # need this to call setrounding function
+
+T = [Float16,Float32] 
+setrounding(Interval,:accurate) # need this since Float16 is used, see warnings in the README
+f(x) = sum(x.^2)
+x = ones(Float32,2)
+mpnlp = FPMPNLPModel(f,x,T) # instanciate a FPMPNLPModel, interval evaluation will be used for error estimation
+MPR2(mpnlp) # runs MPR2 with interval estimation of the evaluation errors
+```
+
+**Example**: Relative Error Mode
+```julia
+using MultiPrecisionR2
+
+T = [Float16,Float32] 
+setrounding(Interval,:accurate) # need this since Float16 is used, see warnings in the README
+f(x) = sum(x.^2)
+omega = [0.01,0.001] # 1% and 0.1% relative error for Float16 and Float32 evaluations
+x = ones(Float32,2)
+mpnlp = FPMPNLPModel(f, x, T; ωfRelErr = omega, ωgRelErr = omega) # instanciate a FPMPNLPModel, relative error model will be used for error estimation
+MPR2(mpnlp) # runs MPR2 with interval estimation of the evaluation errors
+```
+
+## **High Precision Format**
+MPR2 uses a high precision format to compute "exactly" the values that are *defined* (see section [MPR2 Algorithm Broad Description](#mpr2-algorithm-broad-description-differs-from-package-implementation)). This high precision format corresponds to the type parameter `H` in `MPR2()` template. The high precision format used by MPR2 is `MPnlp::FPMPNLPModel`'s `H` parameter type which can be chosen upon `MPnlp` instanciation (see `FPMPNLPModel` documentation).
+
+```julia
+using Quadmath
+
+HPFormat = Float128
+T = [Float32,Float64]
+f(x) = sum(x.^2)
+x = ones(Float32,2)
+mpnlp = FPMPNLPModel(f,x,T;HPFormat = HPFormat) # instanciate a FPMPNLPModel with Float64 HPFormat
+MPR2(mpnlp) # runs MPR2 with Float128 to compute "define" values
+```
+## **Gamma Function**
+
+MPR2 relies on the dot product error function $\gamma$ to handle some rounding errors for model decrease and norm computation (see [MPR2 Broad Description](#mpr2-algorithm-broad-description-differs-from-package-implementation)). The $\gamma$ function used by MPR2 is the one of the `MPR2()`'s `MPnlp::FMPNLPModel` argument and can be chosen by the user (see `FPMPNLPModel` documentation and tutorial). The default $\gamma$ function used is $\gamma(n,u) = n*u$ with $n$ the dimension of the problem and $u$ the unit-roundoff of the FP format used for computation.
+
+```julia
+using MultiPrecisionR2
+
+HPFormat = Float64
+gamma(n,u) = HPFormat(sqrt(n)*u) # user-defined gamma funciton. Value returned  must be ::HPFormat
+Formats = [Float32]
+f(x) = sum(x.^2)
+x0 = ones(Float32,1000)
+mpmodel_ud = FPMPNLPModel(f,x0,Formats; γfunc = gamma) # build mpmodel with user defined gamma function
+stats_ud = MPR2(mpmodel_ud) # run MPR2 with user define gamma function for model decrease and norm computation
+```
+
+## **Lack of Precision**
 The default implementation of MPR2 stops when the condition on the objective evaluation error or the $\mu$ indicator fails with the highest precision evaluations (see Lines 7,8,10 of MPR2 algorithm in section [MPR2 Algorithm Broad Description](#mpr2-algorithm-broad-description-differs-from-package-implementation)). If this happens, MPR2 returns the ad-hoc warning message. The user can tune MPR2 parameters to try to avoid such early stop via the structure `MPR2Params` and provide it as a keyword argument to `solve!`. Typically, 
 * **If the objective error is too big**: the user should increase $\eta_0$ parameter.
 * **If $\mu_k$ is too big**: the user should increase $\kappa_m$ parameter.
 The user has to make sure that the parameters respect the convergence conditions (see section [Conditions on Parameters](#conditions-on-parameters)).
 
-**MPR2Solver Example 1**: Lack of Precision and Parameters Selection
+**Example**: Lack of Precision and Parameters Selection
+
 ```julia
 using MultiPrecisionR2
 using IntervalArithmetic
-using ADNLPModels
 
 setrounding(Interval,:accurate)
 FP = [Float16, Float32] # selected FP formats, max eval precision is Float64
@@ -226,11 +299,51 @@ stat = MPR2(MPmodel,par = param)
 ```
 Now MPR2 converges to a first order critical point since we tolerate enough error on the objective evaluation.
 
+**Example**: Avoiding Lack of Precision With Relative Errors
+
+If the `FPMPNLPModel` model is instanciated with relative error model (see `FPMPNLPModel` documentation), one can simply set the error to zero with the highest FP format used for evaluation. 
+This avoids the algorithm to stop due to lack of precision, but MPR2 is not guaranteed to converge to a first order critical point.
+
+```julia
+using MultiPrecisionR2
+
+FP = [Float16, Float32] # selected FP formats, max eval precision is Float64
+f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
+x = Float32.(1.5*ones(2)) # initial point
+HPFormat = Float64
+omega = [0.01,0.0] # 1% error with Float16, no error with Float32
+MPmodel = FPMPNLPModel(f,x,FP; ωfRelErr = omega, ωgRelErr = omega, HPFormat = HPFormat);
+solver = MPR2Solver(MPmodel);
+stat = MPR2(MPmodel) 
+```
+Not that even if evaluation error for objective and gradient is set to zero as in the above code, early stop due to lack of precision might still occur since $\mu$ indicator is not null even when gradient error $\omega_g$ is null (see [MPR2 description section](#mpr2-algorithm-broad-description-differs-from-package-implementation)).
+
+**Example**: Last Resort
+If early stop due to lack of precision occurs even when modifying MPR2's parameters and setting the evaluation error to zero (above 2 examples), the user can provide its own function $\gamma$ to further decrease $\mu$ indicator (by decreasing $\gamma(n,u)$ and $\alpha(n,u)$).
+For example, the user can simply set $\gamma$ to 0, i.e. supposing that model reduction and norm computation are performed exactly. This however might break the convergence properties of MPR2.
+
+```julia
+using MultiPrecisionR2
+
+FP = [Float16, Float32] # selected FP formats, max eval precision is Float64
+f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
+x = Float32.(1.5*ones(2)) # initial point
+HPFormat = Float64
+omega = [0.01,0.0] # 1% error with Float16, no error with Float32
+gamma(n,u) = HPFormat(0) # gamma function set to zero
+MPmodel = FPMPNLPModel(f,x,FP; γfunc = gamma , HPFormat = HPFormat);
+solver = MPR2Solver(MPmodel);
+stat = MPR2(MPmodel)
+```
+
+
 ### **Evaluation Counters**
 
 MPR2 counts the number of objective and gradient evaluations are counted for each FP formats. They are stored in `counters` field of the `FPNLPModel` structure. The `counters` field is a `MPCounters`.
 
 ```julia
+using IntervalArithmetic
+
 setrounding(Interval,:accurate)
 FP = [Float16, Float32, Float64]
 f(x) = sum(x.^2) 

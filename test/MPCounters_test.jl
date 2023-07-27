@@ -1,7 +1,7 @@
 @testset "Basic MPCounters check" begin
   T = [Float16, Float32]
   f(x) = x[1]
-  nlp = ADNLPModel(f, Float32[1.0])
+  nlp = ADNLPModel(f, Float32[1.0], gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
   mpnlp = FPMPNLPModel(nlp, T, ωfRelErr = [0.0, 0.0], ωgRelErr = [0.0, 0.0])
 
   for counter in fieldnames(MPCounters)

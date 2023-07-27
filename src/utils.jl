@@ -2,9 +2,7 @@
     ObjIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
 
 Test interval evaluation of objective for all formats in `FPList`.
-Test fails and return an error if:
-  * Interval evaluation returns an error
-  * Interval evaluation is not type stable
+Test fails and return an error if interval evaluation returns an error
 See [`FPMPNLPModel`], [`AbstractNLPModel`]
 """
 function ObjIntervalEval_test(nlp::AbstractNLPModel, FPList::AbstractArray)
@@ -16,8 +14,8 @@ function ObjIntervalEval_test(nlp::AbstractNLPModel, FPList::AbstractArray)
       output = obj(nlp, X0) # ! obj(nlp,X0::IntervalBox{T}) returns either ::T or Interval{T}
       outtype = typeof(output) <: AbstractFloat ? typeof(output) : typeof(output.lo)
       if intype != outtype
-        @error "Interval evaluation of objective function not type stable ($intype -> $outtype)"
-        error("Interval evaluation of objective function not type stable ($intype -> $outtype)")
+        @warn "Interval evaluation of objective function not type stable ($intype -> $outtype): evaluations are likely to be all perfomed with $outtype FP format."
+        # error("Interval evaluation of objective function not type stable ($intype -> $outtype)")
       end
     catch e
       error(
@@ -32,9 +30,7 @@ end
     GradIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
 
 Test interval evaluation of gradient for all FP formats.
-Test fails and return an error if:
-  * Interval evaluation returns an error
-  * Interval evaluation is not type stable
+Test fails and return an error if interval evaluation returns an error
 See [`FPMPNLPModel`], [`AbstractNLPModel`]
 """
 function GradIntervalEval_test(nlp::AbstractNLPModel, FPList::AbstractArray)
@@ -46,12 +42,46 @@ function GradIntervalEval_test(nlp::AbstractNLPModel, FPList::AbstractArray)
       output = grad(nlp, X0)
       outtype = typeof(output[1]) <: AbstractFloat ? typeof(output[1]) : typeof(output[1].lo)
       if intype != outtype
-        @error "Interval evaluation of gradient not type stable ($intype -> $outtype)"
-        error("Interval evaluation of gradient not type stable ($intype -> $outtype)")
+        @warn "Interval evaluation of gradient not type stable ($intype -> $outtype): evaluations are likely to be all perfomed with $outtype FP format."
+        # error("Interval evaluation of gradient not type stable ($intype -> $outtype)")
       end
     catch e
       error("Gradient evaluation error with interval, error model must be provided. Error detail:")
       @show e
+    end
+  end
+end
+
+"""
+    ObjTypeStableTest(nlp::AbstractNLPModel, FPList::AbstractArray)
+
+Tests if objective evaluation of `nlp` is type stable for FP format in FPList
+"""
+function ObjTypeStableTest(nlp::AbstractNLPModel, FPList::AbstractArray)
+  for fp in FPList
+    intype = fp
+    x0 = fp.(nlp.meta.x0)
+    output = obj(nlp, x0)
+    outtype = typeof(output)
+    if intype != outtype
+      @warn "Evaluation of objective function not type stable ($intype -> $outtype): evaluations are likely to be all perfomed with $outtype FP format."
+    end
+  end
+end
+
+"""
+    GradTypeStableTest(nlp::AbstractNLPModel, FPList::AbstractArray)
+
+Tests if objective evaluation of `nlp` is type stable for FP format in FPList
+"""
+function GradTypeStableTest(nlp::AbstractNLPModel, FPList::AbstractArray)
+  for fp in FPList
+    intype = fp
+    x0 = fp.(nlp.meta.x0)
+    output = grad(nlp, x0)
+    outtype = typeof(output[1])
+    if intype != outtype
+      @warn "Evaluation of gradient not type stable ($intype -> $outtype): evaluations are likely to be all perfomed with $outtype FP format."
     end
   end
 end

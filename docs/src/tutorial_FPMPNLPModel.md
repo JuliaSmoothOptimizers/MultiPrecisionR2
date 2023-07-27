@@ -7,7 +7,7 @@
 By default, interval arithmetic is used for error bound computation. If relative error bounds have to be used, `ωfRelErr` and `ωgRelErr` keyword arguments must be used when calling the constructor function.
 
 **FPMPNLPModel Example 1: Interval Arithmetic for error bounds**
-```julia
+```@example
 using MultiPrecisionR2
 using IntervalArithmetic
 
@@ -25,7 +25,7 @@ g32, omega_g32 = graderrmp(MPmodel,x32) # evaluate gradient and error bound at x
 ```
 
 **FPMPNLPModel Example 2: Relative error bounds**
-```julia
+```@example
 using MultiPrecisionR2
 using ADNLPModels
 
@@ -44,7 +44,7 @@ g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x
 **FPMPNLPModel Example 3: Mixed Interval/Relative Error Bounds**
 It is possible to evaluate the objective with interval mode and the gradient with relative error mode, and vice-versa.
 
-```julia
+```@example
 using MultiPrecisionR2
 using IntervalArithmetic
 using ADNLPModels
@@ -64,7 +64,7 @@ g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x
 **FPMPNLPModel Example 4: Interval evaluation is slow**
 Interval evaluation provides guaranteed bounds, but is slow compared with classical evaluation.
 
-```julia
+```@example
 using MultiPrecisionR2
 using IntervalArithmetic
 using ADNLPModels
@@ -98,7 +98,7 @@ This high precision format can be given as a keyword argument upon instanciation
 
 **FPMPNLPModel Example 5: HPFormat value**
 
-```julia
+```@example
 using MultiPrecisionR2
 using IntervalArithmetic
 
@@ -107,7 +107,11 @@ FP = [Float16, Float32, Float64] # selected FP formats, max eval precision is Fl
 f(x) = x[1]^2 + x[2]^2 # objective function
 x = ones(2) # initial point
 MPmodel = FPMPNLPModel(f,x,FP); # throws warning
-MPmodel = FPMPNLPModel(f,x,FP,HPFormat = Float32); # throws error
+try
+  MPmodel = FPMPNLPModel(f,x,FP,HPFormat = Float32); # throws error
+catch e
+  e
+end
 ```
 
 ### **Gradient and Dot Product Error**: Gamma Callback Function
@@ -119,7 +123,7 @@ For example, if the highest precision format `Float32` is used, $u_{max} \approx
 
 **FPMPNLPModel Example 5: Gradient and Dot Product Error**
 The code below returns an error at the instanciation of `FPMPNLPModels` indicating that the dimension of the problem is too big with respect to the highest precision FP format provided (`Float16`).
-```julia
+```@example ex
 using MultiPrecisionR2
 using IntervalArithmetic
 using ADNLPModels
@@ -129,12 +133,18 @@ FP = [Float16] # limits the size of the problem to n = 1/eps(Float16) (= 1000)
 dim = 2000 # dimension of the problem too large
 f(x) =sum([x[i]^2 for i=1:dim]) # objective function
 x = ones(Float16,dim) # initial point
-MPmodel = FPMPNLPModel(f,x,FP); # throw error
+try
+  MPmodel = FPMPNLPModel(f,x,FP); # throw error
+catch e
+  e
+end
 ```
 
 The user can provide a less pessimistic $\gamma$ function for dot product error bound.
 **Warning:** Providing your own $\gamma$ function can break the convergence properties of MPR2.
-```julia
+```@example ex
+using MultiPrecisionR2
+
 gamma(n,u) = sqrt(n)*u # user defined γ function, less pessimistic than n*u used by default
 MPmodel = FPMPNLPModel(f,x,FP,γfunc = gamma); # no error since sqrt(dim)*eps(Float16) < 1
 ```

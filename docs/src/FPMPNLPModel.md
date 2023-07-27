@@ -118,7 +118,7 @@ The bound on norm error is computed via `γfunc`.
 
 
 ## Interval Evaluations
-```julia
+```@example
 using MultiPrecisionR2
 using IntervalArithmetic
 
@@ -155,7 +155,7 @@ gx, ωgx, gid = gradReachPrec(mpmodel,x,bound; π=1) # evaluate gradient with in
 
 ## Relative error
 
-```julia
+```@example
 using MultiPrecisionR2
 
 Formats = [Float16,Float32,Float64] # FP formats
@@ -172,10 +172,10 @@ x64 = x0
 # objective evaluation 
 f16, ωf16 = objerrmp(mpmodel,x16) # Float16 objective evaluation
 f32, ωf32 = objerrmp(mpmodel,x32) # Float32 objective evaluation
-f64, ωf64 = objerrmp(mpmodel,x64) # Float32 objective evaluation
+f64, ωf64 = objerrmp(mpmodel,x64) # Float64 objective evaluation
 
 # gradient evaluation
 g16, ωg16 = graderrmp(mpmodel,x16) # Float16 gradient evaluation
 g32, ωg32 = graderrmp(mpmodel,x32) # Float32 gradient evaluation
-g64, ωg64 = graderrmp(mpmodel,x64) # Float32 gradient evaluation
+g64, ωg64 = graderrmp(mpmodel,x64) # Float64 gradient evaluation
 ```

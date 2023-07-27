@@ -16,7 +16,7 @@ MPR2 relies on `FPMPNLPModel` structure (see documentation) to evaluate the obje
 MPR2 algorithm is run in the same fashion than solvers from [`JSOSolvers.jl`](https://github.com/JuliaSmoothOptimizers/JSOSolvers.jl) package, but uses a `FPMPNLPModel` structure which is a multi-precision extension of `NLPModel` structure to multi-precision.
 
 MPR2 algorithm is run with `MPR2()` function, which returns a [`GenericExecutionStat`](https://github.com/JuliaSmoothOptimizers/SolverCore.jl) structure containing useful information (nb. of iteration, termination status, etc.). The number of evaluations can be access via the `FPMPNLPModel` structure (see `FPMPNLPModel` and `MPCounters` documentation).
-```julia
+```@example
 using MultiPrecisionR2
 
 T = [Float32,Float64] # floating point formats used for evaluation

@@ -12,7 +12,7 @@ using Pkg
 Pkg.add("MultiPrecisionR2")
 ```
 ## Minimal examples
-```julia
+```@example
 using MultiPrecisionR2
 using ADNLPModels
 using IntervalArithmetic
@@ -25,7 +25,7 @@ mpmodel = FPMPNLPModel(f,x0,FP); # instanciate a Floating Point Multi Precision 
 stat = MPR2(mpmodel) # run the algorithm
 ```
 
-```julia
+```@example
 using MultiPrecisionR2
 using ADNLPModels
 using IntervalArithmetic

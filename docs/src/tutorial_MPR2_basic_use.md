@@ -9,28 +9,29 @@ The time and energy savings offered by MPR2 compared with R2 is estimated with t
 Number of bits divided by two $\implies$ time computation divided by two and energy consumption divided by four.
 
 
-```julia
+```@example
 using MultiPrecisionR2
 using NLPModels
 using ADNLPModels
 using OptimizationProblems
 using OptimizationProblems.ADNLPProblems
 using JSOSolvers
+using Quadmath
 
 FP = [Float16,Float32,Float64] # MPR2 Floating Point formats
-omega = Float64.([sqrt(eps(Float16)),sqrt(eps(Float32)),0]) # MPR2 relative errors, computations assumed exact with Float64
+omega = Float128.([sqrt(eps(Float16)),sqrt(eps(Float32)),0]) # MPR2 relative errors, computations assumed exact with Float64
 r2_obj_eval = [0]
 r2_grad_eval = [0]
 mpr2_obj_eval = zeros(Float64,length(FP))
 mpr2_grad_eval = zeros(Float64,length(FP))
-nvar = 100 #problem dimension (if scalable)
+nvar = 99 #problem dimension (if scalable)
 max_iter = 1000
 
 meta = OptimizationProblems.meta
 names_pb_vars = meta[(meta.has_bounds .== false) .& (meta.ncon .== 0), [:nvar, :name]] #select unconstrained problems
 for pb in eachrow(names_pb_vars)
   nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(n=$nvar,type=Val(Float64),gradient_backend = ADNLPModels.GenericForwardDiffADGradient)"))
-  mpmodel = FPMPNLPModel(nlp,FP,ωfRelErr=omega,ωgRelErr=omega);
+  mpmodel = FPMPNLPModel(nlp,FP,HPFormat = Float128, ωfRelErr=omega, ωgRelErr=omega);
   statr2 = R2(nlp,max_eval=max_iter)
   r2_obj_eval .+= nlp.counters.neval_obj
   r2_grad_eval .+= nlp.counters.neval_grad
@@ -188,7 +189,7 @@ MPR2 solver relies on multi-precision models structure `FPMPNLPModels` (Floating
 
 MPR2 solver is run with `MPR2()` function which takes a `FPMPNLPModel` argument (see `FPMPNLPModel` documentation for details).
 
-```julia
+```@example ex1
 using MultiPrecisionR2
 
 T = [Float32,Float64] # defines FP format used for evaluations
@@ -200,7 +201,7 @@ stats = MPR2(mpnlp) # runs MPR2
 
 `MPR2()` returns a `GenericExectutionStats` structure that contains information about the execution status. See [SolverCore.jl](https://github.com/JuliaSmoothOptimizers/SolverCore.jl) package for details.
 
-```julia
+```@example ex1
 stats.iter # access number of iteration
 stats.solution # accsess solution computed by MPR2 
 stats.dual_feas # access gradient norm at the solution
@@ -210,7 +211,7 @@ stats.dual_feas # access gradient norm at the solution
 MPR2 can be run with interval or relative error mode for objective and gradient evaluation error estimation. This error mode is chosen when instanciating the `FMPMNLPModel`.
 
 **Example**: Interval Error Mode
-```julia
+```@example
 using MultiPrecisionR2
 using IntervalArithmetic # need this to call setrounding function
 
@@ -223,7 +224,7 @@ MPR2(mpnlp) # runs MPR2 with interval estimation of the evaluation errors
 ```
 
 **Example**: Relative Error Mode
-```julia
+```@example
 using MultiPrecisionR2
 
 T = [Float16,Float32] 
@@ -238,7 +239,8 @@ MPR2(mpnlp) # runs MPR2 with interval estimation of the evaluation errors
 ## **High Precision Format**
 MPR2 uses a high precision format to compute "exactly" the values that are *defined* (see section [MPR2 Algorithm Broad Description](#mpr2-algorithm-broad-description-differs-from-package-implementation)). This high precision format corresponds to the type parameter `H` in `MPR2()` template. The high precision format used by MPR2 is `MPnlp::FPMPNLPModel`'s `H` parameter type which can be chosen upon `MPnlp` instanciation (see `FPMPNLPModel` documentation).
 
-```julia
+```@example
+using MultiPrecisionR2
 using Quadmath
 
 HPFormat = Float128
@@ -252,7 +254,7 @@ MPR2(mpnlp) # runs MPR2 with Float128 to compute "define" values
 
 MPR2 relies on the dot product error function $\gamma$ to handle some rounding errors for model decrease and norm computation (see [MPR2 Broad Description](#mpr2-algorithm-broad-description-differs-from-package-implementation)). The $\gamma$ function used by MPR2 is the one of the `MPR2()`'s `MPnlp::FMPNLPModel` argument and can be chosen by the user (see `FPMPNLPModel` documentation and tutorial). The default $\gamma$ function used is $\gamma(n,u) = n*u$ with $n$ the dimension of the problem and $u$ the unit-roundoff of the FP format used for computation.
 
-```julia
+```@example
 using MultiPrecisionR2
 
 HPFormat = Float64
@@ -272,7 +274,7 @@ The user has to make sure that the parameters respect the convergence conditions
 
 **Example**: Lack of Precision and Parameters Selection
 
-```julia
+```@example ex3
 using MultiPrecisionR2
 using IntervalArithmetic
 
@@ -287,7 +289,7 @@ stat = MPR2(MPmodel)
 ```
 Running the above code block returns a warning indicating that R2 stops because the error on the objective function is too big to ensure convergence. The problem can be overcome in this example by tolerating more error on the objective by increasing $\eta_0$.
 
-```julia
+```@example ex3
 η₀ = 0.1 # greater than default value 0.01
 η₁ = 0.3
 η₂ = 0.7
@@ -295,7 +297,7 @@ Running the above code block returns a warning indicating that R2 stops because 
 γ₁ = Float16(1/2) # must be FP format of lowest evaluation precision for numerical stability
 γ₂ = Float16(2) # must be FP format of lowest evaluation precision for numerical stability
 param = MPR2Params(η₀,η₁,η₂,κₘ,γ₁,γ₂)
-stat = MPR2(MPmodel,par = param) 
+stat = MPR2(MPmodel,par = param,max_iter = 10000) 
 ```
 Now MPR2 converges to a first order critical point since we tolerate enough error on the objective evaluation.
 
@@ -304,7 +306,7 @@ Now MPR2 converges to a first order critical point since we tolerate enough erro
 If the `FPMPNLPModel` model is instanciated with relative error model (see `FPMPNLPModel` documentation), one can simply set the error to zero with the highest FP format used for evaluation. 
 This avoids the algorithm to stop due to lack of precision, but MPR2 is not guaranteed to converge to a first order critical point.
 
-```julia
+```@example
 using MultiPrecisionR2
 
 FP = [Float16, Float32] # selected FP formats, max eval precision is Float64
@@ -322,7 +324,7 @@ Not that even if evaluation error for objective and gradient is set to zero as i
 If early stop due to lack of precision occurs even when modifying MPR2's parameters and setting the evaluation error to zero (above 2 examples), the user can provide its own function $\gamma$ to further decrease $\mu$ indicator (by decreasing $\gamma(n,u)$ and $\alpha(n,u)$).
 For example, the user can simply set $\gamma$ to 0, i.e. supposing that model reduction and norm computation are performed exactly. This however might break the convergence properties of MPR2.
 
-```julia
+```@example
 using MultiPrecisionR2
 
 FP = [Float16, Float32] # selected FP formats, max eval precision is Float64
@@ -331,7 +333,7 @@ x = Float32.(1.5*ones(2)) # initial point
 HPFormat = Float64
 omega = [0.01,0.0] # 1% error with Float16, no error with Float32
 gamma(n,u) = HPFormat(0) # gamma function set to zero
-MPmodel = FPMPNLPModel(f,x,FP; γfunc = gamma , HPFormat = HPFormat);
+MPmodel = FPMPNLPModel(f,x,FP; ωfRelErr = omega, ωgRelErr = omega, γfunc = gamma , HPFormat = HPFormat);
 solver = MPR2Solver(MPmodel);
 stat = MPR2(MPmodel)
 ```
@@ -341,7 +343,8 @@ stat = MPR2(MPmodel)
 
 MPR2 counts the number of objective and gradient evaluations are counted for each FP formats. They are stored in `counters` field of the `FPNLPModel` structure. The `counters` field is a `MPCounters`.
 
-```julia
+```@example
+using MultiPrecisionR2
 using IntervalArithmetic
 
 setrounding(Interval,:accurate)
@@ -351,6 +354,6 @@ x0 = ones(10)
 HPFormat = Float64
 MPmodel = FPMPNLPModel(f,x0,FP,HPFormat = HPFormat);
 MPR2(MPmodel,verbose=1)
-@show MPmodel.counters.neval_obj # numbers of objective evaluations 
-@show MPmodel.counters.neval_grad # numbers of gradient evaluations
+MPmodel.counters.neval_obj # numbers of objective evaluations 
+MPmodel.counters.neval_grad # numbers of gradient evaluations
 ```

@@ -122,7 +122,9 @@ $x_k$, $s_k$, $c_k$, $g_k$ are implemented as tuple of vectors of the FP formats
 
 **Example 1: Simple Callback**
 Here is a simple callback function for computing the objective function that does not take evaluation error into account.
-```julia
+```@example
+using MultiPrecisionR2
+
 function my_compute_f_at_c!(m::FPMPNLPModel, solver::MPR2Solver)
   solver.f⁺ = obj(m, solver.c[solver.π.πc]) # FP format m.FPList[π.πc] will be used for obj evaluation, since obj() is called with the correspond FP format vector.
 end
@@ -135,8 +137,9 @@ The implementation of MPR2 automatically updates the containers for x, s, c, and
 If the precision `solver.π.πx` == 2, it means that the `x[i]`s vectors are up-to-date for i>=2. 
 
 **Example: Container Update**
-```julia
+```@example
 using MultiPrecisionR2
+
 FP = [Float16,Float32,Float64]
 xini = ones(5)
 x = Tuple(fp.(xini) for fp in FP)
@@ -146,7 +149,7 @@ x # only x[2] and x[3] are updated
 ```
 
 **Example: Lower Precision Casting Error**
-```julia
+```@example
 x64 = [70000.0,1.000000001,0.000000001,-230000.0] # Vector{Float64}
 x16 = Float16.(x64) # definitely not x64
 ```
@@ -155,7 +158,7 @@ x16 = Float16.(x64) # definitely not x64
 A "forbidden evaluation" consists in evaluating the objective or the gradient with a FP format lower than the FP format of the point where it is evaluated. For example, if `x` is a `Vector{Float64}`, evaluating the objective with `Float16` implicitly casts `x` into a `Vector{Float16}` and then evaluate the objective with this `Float16` vector. The problem is that due to rounding error, the cast vector is different than the initial `Float64` vector `x`. The objective is therefore not evaluated at `x` but at a different point. This causes numerical instability in MPR2 and must be avoided.
 
 **Example: Forbidden Evaluation**
-```julia
+```@example
 f(x) = 1/(x-10000) # objective
 x64 = 10001.0
 f(x64) # returns 1 as expected
@@ -170,7 +173,7 @@ MPR2 implementation checks for possible under/overflow when computing the step `
 It is important to note that, even if the gradient `solver.g` has been computed with `solver.π.πg` precision, the precision `solver.π.πs` and `solver.π.πc` can be greater than `solver.π.πg` because overflow has occurred. As a consequence, the user should not take for granted than `solver.π.πc` == `solver.π.πg` when selecting FP format for objective/gradient evaluation at `solver.c` but must rely on the candidate precision `solver.π.πc`.
 
 **Example: Step Overflow**
-```julia
+```@example
 g(x) = 2*x # gradient
 x16 = Float16(1000)
 sigma = Float16(1/2^10) # regularization parameter
@@ -229,7 +232,8 @@ This example implements a precision selection strategy for the objective and gra
 
 The callback functions must handle precision selection for evaluations and optionally error/warning messages if evaluation fails (typically overflow or lack of precision)
 
-```julia
+```@example ex1
+using MultiPrecisionR2
 using LinearAlgebra
 using SolverCore
 
@@ -320,7 +324,7 @@ end
 
 Let's try this implementation on a simple quadratic objective.
 
-```julia
+```@example ex1
 FP = [Float16, Float32] # selected FP formats,
 f(x) = x[1]^2 + x[2]^2 # objective function
 omega = [0.0,0.0] # no evaluation error
@@ -336,7 +340,7 @@ stat  # first-order stationary point has been found
 
 Let's now try our implementation on the Rosenbrock function.
 
-```julia
+```@example ex1
 FP = [Float16, Float32] # selected FP formats,
 f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
 omega = [0.0,0.0]
@@ -357,7 +361,11 @@ It might happen that `solve!()` stops early because the objective evaluation lac
 `solve!()` implementation allows enough flexibility to do so. In the implementation below, the user defined structure `e` is used to indicate what "mode" the algorithm is running: default mode or gradient descent. The callbacks `compute_f_at_x!` sets `st.f = Inf` and `compute_f_at_c!` sets `st.f⁺ = 0` if gradient descent mode is used. This ensures that $\rho_k = Inf \geq \eta_1$ and the step is accepted in gradient descent mode.
 In the implementation below, `compute_f_at_x!` and `compute_f_at_c!` selects the precision such that $\omega f(x_k) \leq \eta_0 \Delta T_k$ in default mode. We implement `compute_g!` to set `σ` so that `ComputeStep!()` will use the learning rate `1/σ`. We use the default `recompute_g` callback.
 
-```julia
+```@example ex2
+using MultiPrecisionR2
+using LinearAlgebra
+using SolverCore
+
 mutable struct my_struct
   gdmode::Bool
   learning_rate
@@ -428,7 +436,7 @@ function my_compute_g!(m::FPMPNLPModel, solver::MPR2Solver, stats::GenericExecut
 end
 ```
 Let us first run `MPR2()` with the default implementation and relative evaluation error.
-```julia
+```@example ex2
 FP = [Float16, Float32] # selected FP formats,
 #f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
 f(x) = x[1]^2 + x[2]^2 +0.5
@@ -440,7 +448,7 @@ stat = MPR2(MPmodel,verbose=1); # stops at iteration 3, throw lack of precision 
 ```
 
 We run `MPR2()` with the callback functions defined above and the default callbacks for `compute_g!()` and `recompute_g!()`. We use relative objective and gradient error.
-```julia
+```@example ex2
 FP = [Float16, Float32] # selected FP formats,
 #f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
 f(x) = x[1]^2 + x[2]^2 +0.5

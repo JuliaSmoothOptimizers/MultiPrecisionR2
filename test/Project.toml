@@ -22,4 +22,3 @@ OptimizationProblems = "0.7"
 SolverBenchmark = "0.5"
 SolverCore = "0.3"
 SolverTest = "0.3"
-

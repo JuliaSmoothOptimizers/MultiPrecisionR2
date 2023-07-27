@@ -7,6 +7,7 @@
 By default, interval arithmetic is used for error bound computation. If relative error bounds have to be used, `ωfRelErr` and `ωgRelErr` keyword arguments must be used when calling the constructor function.
 
 **FPMPNLPModel Example 1: Interval Arithmetic for error bounds**
+
 ```@example
 using MultiPrecisionR2
 using IntervalArithmetic
@@ -25,6 +26,7 @@ g32, omega_g32 = graderrmp(MPmodel,x32) # evaluate gradient and error bound at x
 ```
 
 **FPMPNLPModel Example 2: Relative error bounds**
+
 ```@example
 using MultiPrecisionR2
 using ADNLPModels
@@ -42,6 +44,7 @@ g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x
 ```
 
 **FPMPNLPModel Example 3: Mixed Interval/Relative Error Bounds**
+
 It is possible to evaluate the objective with interval mode and the gradient with relative error mode, and vice-versa.
 
 ```@example
@@ -62,6 +65,7 @@ g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x
 ```
 
 **FPMPNLPModel Example 4: Interval evaluation is slow**
+
 Interval evaluation provides guaranteed bounds, but is slow compared with classical evaluation.
 
 ```@example
@@ -91,7 +95,7 @@ graderrmp(MPmodelRelative,x32)
 @time graderrmp(MPmodelRelative,x32) # classic evaluation of gradient
 ```
 
-### **High Precision Format**
+# **High Precision Format**
 `FPMPNLPModel` performs some operations with a high precision FP format to provide more numerical stability. The convergence of MPR2 relies on the fact that such operations are "exact", as if performed with infinite precision.
 
 This high precision format can be given as a keyword argument upon instanciation of `FPMPNLPModel`. The default value is `Float64`. Note that this high precision format corresponds to the type parameter `H` in `struct FPMPNLPModel{H,F,T<:Tuple}`. It is expected that `FPMPNLPModel.HPFormat` has at least equal or greater machine epsilon than the highest precision FP format that can be used for objective or gradient evaluation.
@@ -114,7 +118,8 @@ catch e
 end
 ```
 
-### **Gradient and Dot Product Error**: Gamma Callback Function
+# **Gradient and Dot Product Error**: Gamma Callback Function
+
 `FPMPNLPModel.graderrmp()` computes both the gradient and the error relative error bound $\omega_g$ such that = $||\nabla f(x) - fl(\nabla f(x))||_2 \leq \omega_g ||fl(\nabla f(x))||_2$. To do so, it is necessary to compute norm of the gradient and therefore to take the related error into account, given by the $\beta$ function:
 $\beta(n,u) = \max(|\sqrt{\gamma(n,u)-1}-1|,|\sqrt{\gamma(n,u)+1}-1|)$
 which expresses with $\gamma$ function which models the dot product error. This $\gamma$ function is a callback that can be provided to the `FPMPNLPModel` with the `γfunc`, and by default is $γfunc(n,u) = n*u$. An implicit condition is that $\gamma(n,u_{max}) \leq 1$, with $u_{max}$ the smallest unit-roundoff among the FPformats in `FPList`.
@@ -122,6 +127,7 @@ which expresses with $\gamma$ function which models the dot product error. This 
 For example, if the highest precision format `Float32` is used, $u_{max} \approx 1 e^{-7}$ which limits the size of the problems that can be solve to $\approx 1e^{7}$ variables with the default implementation $γ(n,u) = n*u$. If this is a problem, the user can provide its own callback function `FPMPNLPModels.γfunc`. This is illustrated in the example below.
 
 **FPMPNLPModel Example 5: Gradient and Dot Product Error**
+
 The code below returns an error at the instanciation of `FPMPNLPModels` indicating that the dimension of the problem is too big with respect to the highest precision FP format provided (`Float16`).
 ```@example ex
 using MultiPrecisionR2

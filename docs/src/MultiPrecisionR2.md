@@ -59,13 +59,13 @@ Some parameters of the algorithm can be given as keyword arguments of `MPR2()`. 
 MPR2 algorithm parameters for error tolerance and step acceptance can be given as `par::MPR2Params` keyword argument.
 These parameters correspond to `MPR2Params` fields, with type parameters `H::AbstractFloat` and `L::AbstractFloat`.
 
-|Field|Description|Default value|
+|Field|Default value|Description|
 |-----|-----------|-------------|
 `η₀::H` | `0.01` |  controls objective function error tolerance, convergence condition is ωf ≤ η₀ ΔT (see `FPMPNLPModel` for details on ωf) 
 `η₁::H` | `0.02` | step successful if ρ ≥ η₁ (update incumbent)
 `η₂::H` | `0.95` | step very successful if ρ ≥ η₂ (decrease σ ⟹ increase step length)
 `κₘ::H` | `0.02` | tolerance on gradient evaluation error, μ ≤ κₘ (see `computeMu`) 
-`γ₁::L` | `2^(-2)` σk+1 = σk * γ₁ if ρ ≥ η₂
+`γ₁::L` | `2^(-2)` | σk+1 = σk * γ₁ if ρ ≥ η₂
 `γ₂::L` | `2` | σk+1 = σk * γ₂ if ρ < η₁
 
 These parameters must satisfy some conditions, see `MPR2Params` for details. These conditions can be checked with `CheckMPR2ParamConditions()` function.

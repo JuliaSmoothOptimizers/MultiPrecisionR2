@@ -211,6 +211,7 @@ stats.dual_feas # access gradient norm at the solution
 MPR2 can be run with interval or relative error mode for objective and gradient evaluation error estimation. This error mode is chosen when instanciating the `FMPMNLPModel`.
 
 **Example**: Interval Error Mode
+
 ```@example
 using MultiPrecisionR2
 using IntervalArithmetic # need this to call setrounding function
@@ -224,6 +225,7 @@ MPR2(mpnlp) # runs MPR2 with interval estimation of the evaluation errors
 ```
 
 **Example**: Relative Error Mode
+
 ```@example
 using MultiPrecisionR2
 
@@ -321,6 +323,7 @@ stat = MPR2(MPmodel)
 Not that even if evaluation error for objective and gradient is set to zero as in the above code, early stop due to lack of precision might still occur since $\mu$ indicator is not null even when gradient error $\omega_g$ is null (see [MPR2 description section](#mpr2-algorithm-broad-description-differs-from-package-implementation)).
 
 **Example**: Last Resort
+
 If early stop due to lack of precision occurs even when modifying MPR2's parameters and setting the evaluation error to zero (above 2 examples), the user can provide its own function $\gamma$ to further decrease $\mu$ indicator (by decreasing $\gamma(n,u)$ and $\alpha(n,u)$).
 For example, the user can simply set $\gamma$ to 0, i.e. supposing that model reduction and norm computation are performed exactly. This however might break the convergence properties of MPR2.
 

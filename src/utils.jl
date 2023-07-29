@@ -2,7 +2,7 @@
     ObjIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
 
 Test interval evaluation of objective for all formats in `FPList`.
-Test fails and return an error if interval evaluation returns an error
+Test fails and return an error if interval evaluation returns an error.
 See [`FPMPNLPModel`], [`AbstractNLPModel`]
 """
 function ObjIntervalEval_test(nlp::AbstractNLPModel, FPList::AbstractArray)

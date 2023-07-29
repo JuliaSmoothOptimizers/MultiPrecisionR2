@@ -55,7 +55,7 @@ end
 """
     ObjTypeStableTest(nlp::AbstractNLPModel, FPList::AbstractArray)
 
-Tests if objective evaluation of `nlp` is type stable for FP format in FPList
+Tests if objective evaluation of `nlp` is type stable for FP format in FPList.
 """
 function ObjTypeStableTest(nlp::AbstractNLPModel, FPList::AbstractArray)
   for fp in FPList

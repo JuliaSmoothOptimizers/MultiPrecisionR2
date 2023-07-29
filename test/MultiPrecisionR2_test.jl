@@ -537,7 +537,7 @@ end
   FPFormats = [Float16,Float32,Float64]
   atol = 1e-6
   rtol = 1e-6
-  problem_set = SolverTest. unconstrained_nlp_set(gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
+  problem_set = SolverTest. unconstrained_nlp_set(backend = :generic)
   @testset "Interval Evaluation" begin
     setrounding(Interval,:accurate)
     for nlp in problem_set

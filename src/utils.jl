@@ -30,7 +30,7 @@ end
     GradIntervalEval_test(nlp::AbstractNLPModel,FPList::AbstractArray)
 
 Test interval evaluation of gradient for all FP formats.
-Test fails and return an error if interval evaluation returns an error
+Test fails and return an error if interval evaluation returns an error.
 See [`FPMPNLPModel`], [`AbstractNLPModel`]
 """
 function GradIntervalEval_test(nlp::AbstractNLPModel, FPList::AbstractArray)

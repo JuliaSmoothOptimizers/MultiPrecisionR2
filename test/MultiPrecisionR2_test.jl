@@ -534,15 +534,15 @@ end
 end
 
 @testset "Minimal problem tests" begin
-  FPFormats = [Float16,Float32,Float64]
+  FPFormats = [Float16, Float32, Float64]
   atol = 1e-6
   rtol = 1e-6
-  problem_set = SolverTest. unconstrained_nlp_set(backend = :generic)
+  problem_set = SolverTest.unconstrained_nlp_set(backend = :generic)
   @testset "Interval Evaluation" begin
-    setrounding(Interval,:accurate)
+    setrounding(Interval, :accurate)
     for nlp in problem_set
-      mpnlp = FPMPNLPModel(nlp,FPFormats)
-      stats = MPR2(mpnlp,max_iter = 1000000, max_time = 60.0)
+      mpnlp = FPMPNLPModel(nlp, FPFormats)
+      stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0)
       ng0 = rtol != 0 ? norm(grad(nlp, nlp.meta.x0)) : 0
       ϵ = atol + rtol * ng0
       primal, dual = kkt_checker(nlp, stats.solution)
@@ -558,7 +558,7 @@ end
     omega = Float64.([sqrt(eps(t)) for t in FPFormats])
     omega[end] = 0.0
     for nlp in problem_set
-      mpnlp = FPMPNLPModel(nlp,FPFormats;ωfRelErr = omega, ωgRelErr = omega)
+      mpnlp = FPMPNLPModel(nlp, FPFormats; ωfRelErr = omega, ωgRelErr = omega)
       stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0)
       ng0 = rtol != 0 ? norm(grad(nlp, nlp.meta.x0)) : 0
       ϵ = atol + rtol * ng0

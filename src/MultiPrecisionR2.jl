@@ -54,7 +54,8 @@ Base.copy(π::MPR2Precisions) =
   MPR2Precisions(π.πx, π.πnx, π.πs, π.πns, π.πc, π.πf, π.πf⁺, π.πg, π.πΔ)
 
 """
-  MPR2Params(LPFormat::DataType, HPFormat::DataType)
+    MPR2Params(LPFormat::DataType, HPFormat::DataType)
+    
 MPR2 parameters structure.
 
 # Fields
@@ -124,7 +125,7 @@ Solver structure containing all the variables necessary to MRP2.
 
 # Fields:
 
-- x::T : incumbent
+- `x::T`: incumbent
 - g::T : gradient
 - s::T : step 
 - c::T : candidate

@@ -60,7 +60,6 @@ The error models are :
   * `FPList::Vector{DataType}`: List of FP formats that can be used for evaluations
 
 # Keyword arguments: 
-- kwargs: 
   + `HPFormat=Float64` : high precision format (must be at least as accurate as FPList[end])
   + `γfunc=nothing` : use default if not provided (see Fields section above)
   + `ωfRelErr=nothing` : use interval evaluation if not provided
@@ -74,7 +73,7 @@ Some checks are performed upon instanciation. These checks include:
 + Interval evaluations: it might happen that interval evaluation of objective function and/or gradient is type-unstable or returns an error. The constructor returns an error in this case. This type of error is most likely due to `IntervalArithmetic.jl`.
 + FPList is ordered by increasing floating point format accuracy
 
-This checks can return `@warn` or `error`. 
+These checks can return `@warn` or `error`. 
 
 # Examples 
 ```julia

@@ -195,7 +195,7 @@ function NLPModels.obj(
   m::FPMPNLPModel,
   x::Union{AbstractVector{T}, AbstractVector{Interval{T}}},
 ) where {T <: AbstractFloat}
-  increment!(m, :neval_obj, T)
+  MultiPrecisionR2.increment!(m, :neval_obj, T)
   obj(m.Model, x)
 end
 
@@ -204,7 +204,7 @@ function NLPModels.grad!(
   x::S,
   g::S,
 ) where {T <: AbstractFloat, S <: Union{AbstractVector{T}, AbstractVector{Interval{T}}}}
-  increment!(m, :neval_grad, T)
+  MultiPrecisionR2.increment!(m, :neval_grad, T)
   grad!(m.Model, x, g)
 end
 

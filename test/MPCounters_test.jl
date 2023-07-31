@@ -15,19 +15,19 @@
   @test MultiPrecisionR2.sum_counters(mpnlp) == d
 
   for counter in fieldnames(MPCounters)
-    increment!(mpnlp, counter, Float16)
+    MultiPrecisionR2.increment!(mpnlp, counter, Float16)
   end
   # sum all counters of problem `mpnlp` except 
   # `cons`, `jac`, `jprod` and `jtprod` = 20-4(Float16)+2(Float32)
   d[Float16] = 16
   @test MultiPrecisionR2.sum_counters(mpnlp) == d
 
-  reset!(mpnlp)
+  MultiPrecisionR2.reset!(mpnlp)
   @test MultiPrecisionR2.sum_counters(mpnlp) == Dict([t => 0 for t in T])
 
   for counter in fieldnames(MPCounters)
-    increment!(mpnlp, counter, Float32)
-    decrement!(mpnlp, counter, Float32)
+    MultiPrecisionR2.increment!(mpnlp, counter, Float32)
+    MultiPrecisionR2.decrement!(mpnlp, counter, Float32)
   end
   @test MultiPrecisionR2.sum_counters(mpnlp) == Dict([t => 0 for t in T])
 end

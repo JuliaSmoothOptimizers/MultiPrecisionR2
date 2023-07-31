@@ -125,7 +125,7 @@ Solver structure containing all the variables necessary to MRP2.
 
 # Fields:
 
-- x::T : incumbent
+- `x::T`: incumbent
 - g::T : gradient
 - s::T : step 
 - c::T : candidate

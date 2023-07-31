@@ -105,7 +105,7 @@ function MPR2Params(LPFormat::DataType, HPFormat::DataType)
 end
 
 """
-  CheckMPR2ParamConditions(p::MPR2Params{H})
+    CheckMPR2ParamConditions(p::MPR2Params{H})
 
 Check if the MPR2 parameters conditions are satified.
 See [`MPR2Params`](@ref) for parameter conditions.
@@ -306,20 +306,24 @@ function SolverCore.solve!(
   if isinf(solver.f) || isinf(solver.ωf)
     @warn "Objective or ojective error overflow at x0"
     stats.status = :exception
+    stats.status_reliable = true
   end
 
   stats.objective = solver.f
+  stats.objective_reliable = true
   #SolverCore.set_objective!(stats, solver.f)
 
   compute_g!(MPnlp, solver, stats, e)
   if findfirst(x -> x === FP[end](Inf), solver.g) !== nothing || isinf(solver.ωg)
     @warn "Gradient or gradient error overflow at x0"
     stats.status = :exception
+    stats.status_reliable = true
   end
   umpt!(solver.g, solver.g[solver.π.πg])
   solver.g_norm = H(norm(solver.g[solver.π.πg]))
   
   stats.dual_feas = solver.g_norm
+  stats.dual_residual_reliable = true
   #SolverCore.set_dual_residual!(stats, solver.g_norm)
 
   σ0 = 2^round(log2(solver.g_norm + 1)) # ensures ||s_0|| ≈ 1 with sigma_0 = 2^n with n an interger, i.e. sigma_0 is exactly representable in n bits 
@@ -360,28 +364,30 @@ function SolverCore.solve!(
   #main loop
   while (!done)
     solver.π.πs = solver.π.πg
-    computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) || (stats.status = :exception)
-    computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || (stats.status = :exception)
-    computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || (stats.status = :exception)
+    computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
+    computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
+    computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
 
     g_recomp, g_succ = recompute_g!(MPnlp, solver, stats, e)
     if !g_succ && stats.status != :small_step
       stats.status = :exception
+      stats.status_reliable = true
     end
     if g_recomp #have to recompute everything depending on g
       umpt!(solver.g, solver.g[solver.π.πg])
-      computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) || (stats.status = :exception)
-      computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || (stats.status = :exception)
-      computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || (stats.status = :exception)
+      computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
+      computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
+      computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
     end
     stats.dual_feas = solver.g_norm
+    stats.dual_residual_reliable = true
     #SolverCore.set_dual_residual!(stats, solver.g_norm)
 
-    compute_f_at_x!(MPnlp, solver, stats, e) || (stats.status = :exception)
+    compute_f_at_x!(MPnlp, solver, stats, e) || ((stats.status = :exception) ; (stats.status_reliable = true))
     stats.objective = solver.f
     #SolverCore.set_objective!(stats, solver.f)
 
-    compute_f_at_c!(MPnlp, solver, stats, e) || (stats.status = :exception)
+    compute_f_at_c!(MPnlp, solver, stats, e) || ((stats.status = :exception) ; (stats.status_reliable = true))
 
     solver.ρ = (H(solver.f) - H(solver.f⁺)) / H(solver.ΔT)
 
@@ -393,18 +399,20 @@ function SolverCore.solve!(
     end
 
     if solver.ρ ≥ η₁
-      compute_g!(MPnlp, solver, stats, e) || (stats.status = :exception)
+      compute_g!(MPnlp, solver, stats, e) || ((stats.status = :exception) ; (stats.status_reliable = true))
       umpt!(solver.g, solver.g[solver.π.πg])
 
       if findfirst(x -> isinf(x), solver.g[end]) !== nothing || isinf(solver.ωg)
         @warn "gradient evaluation error at c too big to ensure convergence"
         stats.status = :exception
+        stats.status_reliable = true
       end
 
       solver.g_norm = H(norm(solver.g[solver.π.πg]))
       umpt!(solver.x, solver.c[solver.π.πc])
       solver.f = solver.f⁺
       stats.objective = solver.f⁺
+      stats.objective_reliable = true
       #SolverCore.set_objective!(stats, solver.f⁺)
       solver.ωf = solver.ωf⁺
 
@@ -416,6 +424,7 @@ function SolverCore.solve!(
     SolverCore.set_iter!(stats, stats.iter + 1)
     SolverCore.set_time!(stats, time() - start_time)
     stats.dual_feas = solver.g_norm
+    stats.dual_residual_reliable = true
     #SolverCore.set_dual_residual!(stats, solver.g_norm)
     optimal = solver.g_norm ≤ 1 / (1 + βfunc(n, U[solver.π.πg])) * ϵ / (1 + H(solver.ωg))
 
@@ -614,7 +623,7 @@ Compute model decrease with FP format avoiding underflow and overflow
 * `π::MPR2Precisions` : `π.πΔ` updated 
 
 # Outputs
-* ::bool : false if over/underflow occur with highest precision FP format, true otherwise
+* `::bool` : false if over/underflow occur with highest precision FP format, true otherwise
 
 """
 function computeModelDecrease!(
@@ -913,6 +922,7 @@ function recompute_g_default!(
   if isempty(prec) # step size too small compared to incumbent
     @warn "Algo stops because the step size is too small compare to the incumbent, addition unstable (due to rounding error or absorbtion) with highest precision level"
     stats.status = :small_step
+    stats.status_reliable = true
     return false, false
   end
   solver.μ = computeMu(m, solver)

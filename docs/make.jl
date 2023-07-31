@@ -9,18 +9,26 @@ makedocs(;
   linkcheck = false,
   strict = false,
   authors = "Dominique Monnet <monnetdo@gmail.com> and contributors",
-  repo = "",
+  repo = "https://github.com/JuliaSmoothOptimizers/MultiPrecisionR2",
   sitename = "MultiPrecisionR2.jl",
   format = Documenter.HTML(;
     prettyurls = get(ENV, "CI", "false") == "true",
     canonical = "",
     assets = ["assets/style.css"],
   ),
-  pages = ["Home" => "index.md", "Reference" => "reference.md"],
+  pages = [
+    "Home" => "index.md",
+    "Reference" => "reference.md",
+    "MPCounters" => "MPCounters.md",
+    "FPMPNLPModel" => "FPMPNLPModel.md",
+    "MultiPrecisionR2" => "MultiPrecisionR2.md",
+    "FPMPNLPModel Tutorial" => "tutoria_FPMPNLPModel.md",
+    "MPR2 Tutorial: Basic Use " => "tutorial_MPR2_basic_use.md",
+    "MPR2 Tutorial: Advanced Use " => "tutorial_MPR2_advanced_use.md"],
 )
 
 deploydocs(;
   repo = "github.com/JuliaSmoothOptimizers/MultiPrecisionR2.git",
   push_preview = true,
-  devbranch = "main",
+  devbranch = "doc-tutorial-update",
 )

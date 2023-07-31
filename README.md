@@ -6,7 +6,7 @@
 [![Build Status](https://api.cirrus-ci.com/github/JuliaSmoothOptimizers/MultiPrecisionR2.svg)](https://cirrus-ci.com/github/JuliaSmoothOptimizers/MultiPrecisionR2)
 [![Coverage](https://codecov.io/gh/JuliaSmoothOptimizers/MultiPrecisionR2/branch/main/graph/badge.svg)](https://codecov.io/gh/JuliaSmoothOptimizers/MultiPrecisionR2)
 
-`MultiPrecisionR2.jl` is a package that implements a multi-precision version of the Quadratic Regularization (R2) algorithm for solving non-convex, continuous, smooth optimization problems. The Floating Point (FP) format is adapted dynamically during algorithm execution to use low precision FP formats as much as possible while ensuring convergence and numerical stability.
+`MultiPrecisionR2.jl` is a package that implements a multi-precision version of the Quadratic Regularization (R2) algorithm, a first-order algorithm, for solving non-convex, continuous, smooth optimization problems. The Floating Point (FP) format is adapted dynamically during algorithm execution to use low precision FP formats as much as possible while ensuring convergence and numerical stability.
 
 The package also implements multi-precision models `FPMPNLPModel` structure that is meant to extend the `NLPModel`(see [NLPModels.jl](https://github.com/JuliaSmoothOptimizers/NLPModels.jl)) to multiple precision. The interfaces for objective and gradient evaluations are extended to provide evaluation errors.
 

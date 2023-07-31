@@ -1,6 +1,6 @@
 # MultiPrecisionR2 #
 
-`MultiPrecisionR2.jl` is a package that implements a multi-precision version of the Quadratic Regularization (R2) algorithm for solving non-convex, continuous, smooth optimization problems. The Floating Point (FP) format is adapted dynamically during algorithm execution to use low precision FP formats as much as possible while ensuring convergence and numerical stability.
+`MultiPrecisionR2.jl` is a package that implements a multi-precision version of the Quadratic Regularization (R2) algorithm, a first-order algorithm, for solving non-convex, continuous, smooth optimization problems. The Floating Point (FP) format is adapted dynamically during algorithm execution to use low precision FP formats as much as possible while ensuring convergence and numerical stability.
 
 The package also implements multi-precision models `FPMPNLPModel` structure that derives from `NLPModel` implemented in [NLPModels.jl](https://github.com/JuliaSmoothOptimizers/NLPModels.jl). The interfaces for objective and gradient evaluations are extended to provide evaluation errors.
 

@@ -1,4 +1,4 @@
-export MPCounters, reset!, decrement!
+export MPCounters
 
 """
     MPCounters

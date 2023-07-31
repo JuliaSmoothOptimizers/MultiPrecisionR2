@@ -534,20 +534,41 @@ end
 end
 
 @testset "Minimal problem tests" begin
-  setrounding(Interval, :accurate)
-  # Formats = [Float16,Float32,Float64], test error due to Float 16
-  Formats = [Float32, Float64]
-  # quadratic
-  f4(x) = x[1]^2 + x[2]^2
-  x₀ = ones(2)
-  mpmodel = FPMPNLPModel(f4, x₀, Formats)
-  stats = MPR2(mpmodel)
-  @test isapprox(stats.solution, [0.0, 0.0], atol = 1e-6)
-
-  #rosenbrock
-  # f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2
-  # x₀ = zeros(2)
-  # mpmodel = FPMPNLPModel(f,x₀,Formats)
-  # stat = MPR2(mpmodel)
-  # @test isapprox(stat.solution,[1.0,1.0],atol=1e-6)
+  FPFormats = [Float16,Float32,Float64]
+  atol = 1e-6
+  rtol = 1e-6
+  problem_set = SolverTest. unconstrained_nlp_set(backend = :generic)
+  @testset "Interval Evaluation" begin
+    setrounding(Interval,:accurate)
+    for nlp in problem_set
+      mpnlp = FPMPNLPModel(nlp,FPFormats)
+      stats = MPR2(mpnlp,max_iter = 1000000, max_time = 60.0)
+      ng0 = rtol != 0 ? norm(grad(nlp, nlp.meta.x0)) : 0
+      ϵ = atol + rtol * ng0
+      primal, dual = kkt_checker(nlp, stats.solution)
+      if stats.status != :exception
+        @test all(abs.(dual) .< ϵ)
+        @test all(abs.(primal) .< ϵ)
+        @test stats.dual_feas < ϵ
+        @test stats.status == :first_order
+      end
+    end
+  end
+  @testset "Relative Error" begin
+    omega = Float64.([sqrt(eps(t)) for t in FPFormats])
+    omega[end] = 0.0
+    for nlp in problem_set
+      mpnlp = FPMPNLPModel(nlp,FPFormats;ωfRelErr = omega, ωgRelErr = omega)
+      stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0)
+      ng0 = rtol != 0 ? norm(grad(nlp, nlp.meta.x0)) : 0
+      ϵ = atol + rtol * ng0
+      primal, dual = kkt_checker(nlp, stats.solution)
+      if stats.status != :exception
+        @test all(abs.(dual) .< ϵ)
+        @test all(abs.(primal) .< ϵ)
+        @test stats.dual_feas < ϵ
+        @test stats.status == :first_order
+      end
+    end
+  end
 end

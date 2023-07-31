@@ -124,6 +124,7 @@ function FPMPNLPModel(
     ωfRelErr = Vector{HPFormat}()
   else
     @lencheck length(FPList) ωfRelErr
+    ObjTypeStableTest(Model,FPList)
     ObjEvalMode = REL_ERR
   end
   GradEvalMode = INT_ERR
@@ -133,6 +134,7 @@ function FPMPNLPModel(
     ωgRelErr = Vector{HPFormat}()
   else
     @lencheck length(FPList) ωgRelErr
+    GradTypeStableTest(Model,FPList)
     GradEvalMode = REL_ERR
   end
   # instanciate interval containers X and G for point x and gradient g only if interval evaluation is used
@@ -193,7 +195,7 @@ function NLPModels.obj(
   m::FPMPNLPModel,
   x::Union{AbstractVector{T}, AbstractVector{Interval{T}}},
 ) where {T <: AbstractFloat}
-  increment!(m, :neval_obj, T)
+  MultiPrecisionR2.increment!(m, :neval_obj, T)
   obj(m.Model, x)
 end
 
@@ -202,7 +204,7 @@ function NLPModels.grad!(
   x::S,
   g::S,
 ) where {T <: AbstractFloat, S <: Union{AbstractVector{T}, AbstractVector{Interval{T}}}}
-  increment!(m, :neval_grad, T)
+  MultiPrecisionR2.increment!(m, :neval_grad, T)
   grad!(m.Model, x, g)
 end
 

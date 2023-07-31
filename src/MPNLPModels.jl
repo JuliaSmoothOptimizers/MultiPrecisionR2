@@ -60,7 +60,6 @@ The error models are :
   * `FPList::Vector{DataType}`: List of FP formats that can be used for evaluations
 
 # Keyword arguments: 
-- kwargs: 
   + `HPFormat=Float64` : high precision format (must be at least as accurate as FPList[end])
   + `γfunc=nothing` : use default if not provided (see Fields section above)
   + `ωfRelErr=nothing` : use interval evaluation if not provided

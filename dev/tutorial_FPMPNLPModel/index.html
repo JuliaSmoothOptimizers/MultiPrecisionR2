@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>FPMPNLPModel Tutorial · MultiPrecisionR2.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link rel="canonical" href="/tutorial_FPMPNLPModel/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/style.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="MultiPrecisionR2.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">MultiPrecisionR2.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../reference/">Reference</a></li><li><a class="tocitem" href="../MPCounters/">MPCounters</a></li><li><a class="tocitem" href="../FPMPNLPModel/">FPMPNLPModel</a></li><li><a class="tocitem" href="../MultiPrecisionR2/">MultiPrecisionR2</a></li><li class="is-active"><a class="tocitem" href>FPMPNLPModel Tutorial</a><ul class="internal"><li class="toplevel"><a class="tocitem" href="#**High-Precision-Format**"><span><strong>High Precision Format</strong></span></a></li><li class="toplevel"><a class="tocitem" href="#**Gradient-and-Dot-Product-Error**:-Gamma-Callback-Function"><span><strong>Gradient and Dot Product Error</strong>: Gamma Callback Function</span></a></li></ul></li><li><a class="tocitem" href="../tutorial_MPR2_basic_use/">MPR2 Tutorial: Basic Use </a></li><li><a class="tocitem" href="../tutorial_MPR2_advanced_use/">MPR2 Tutorial: Advanced Use </a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>FPMPNLPModel Tutorial</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>FPMPNLPModel Tutorial</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/JuliaSmoothOptimizers/MultiPrecisionR2" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Evaluation-Mode"><a class="docs-heading-anchor" href="#Evaluation-Mode">Evaluation Mode</a><a id="Evaluation-Mode-1"></a><a class="docs-heading-anchor-permalink" href="#Evaluation-Mode" title="Permalink"></a></h1><p><code>FPMPNLPModel</code> implements tools to evaluate the objective and the gradient and the error bounds <span>$\omega_f(x_k)$</span> and <span>$\omega_g(x_k)$</span> with two modes:</p><ol><li><strong>Relative Error</strong>: The error bounds <span>$\omega_f(x_k)$</span> and <span>$\omega_g(x_k)$</span> are <strong>estimated</strong> as fractions of <span>$|\hat{f}(x_k)|$</span> and <span>$\|\hat{g}(x_k)\|$</span>, respectively. It is to the user to provide these fraction values.  </li></ol><p>By default, interval arithmetic is used for error bound computation. If relative error bounds have to be used, <code>ωfRelErr</code> and <code>ωgRelErr</code> keyword arguments must be used when calling the constructor function.</p><ol><li><strong>Interval Arithmetic</strong>: Using interval arithmetic enables to track rounding errors and to provide guaranteed bounds.<code>MultiPrecisionR2.jl</code> relies on <a href="https://juliaintervals.github.io/pages/packages/intervalarithmetic/"><code>IntervalArithmetic.jl</code></a> library to perform interval evaluations of the gradient and the objective.  </li></ol><p><strong>Warning</strong>: Using interval evaluation can lead to significantly long computation time. Interval evaluation might fail for some objective functions due to <code>IntervalArithmetic.jl</code> errors.</p><p><strong>FPMPNLPModel Example 1: Interval Arithmetic for error bounds</strong></p><pre><code class="language- hljs">using MultiPrecisionR2
+using IntervalArithmetic
+
+setrounding(Interval,:accurate) # add this to avoid error with Float16 interval evaluations
+FP = [Float16, Float32] # selected FP formats
+f(x) = x[1]^2 + x[2]^2 # objective function
+x = ones(2) # initial point
+x16 = Float16.(x) # initial point in Float16
+x32 = Float32.(x) # initial point in Float32
+MPmodel = FPMPNLPModel(f,x32,FP, obj_int_eval = true, grad_int_eval = true); # will use interval arithmetic for error evaluation
+f16, omega_f16 = objerrmp(MPmodel,x16) # evaluate objective and error bound at x with T[1] = Float16 FP model
+f32, omega_f32 = objerrmp(MPmodel,x32) # evaluate objective and error bound at x with T[1] = Float16 FP model
+g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x with T[2] = Float32 FP model
+g32, omega_g32 = graderrmp(MPmodel,x32) # evaluate gradient and error bound at x with T[2] = Float32 FP model</code></pre><p><strong>FPMPNLPModel Example 2: Relative error bounds</strong></p><pre><code class="language- hljs">using MultiPrecisionR2
+using ADNLPModels
+
+FP = [Float16, Float32] # selected FP formats
+f(x) = x[1]^2 + x[2]^2 # objective function
+x = ones(2) # initial point
+x16 = Float16.(x) # initial point in Float16
+x32 = Float32.(x) # initial point in Float32
+ωfRelErr = [0.1,0.01] # objective error: 10% with Float16 and 1% with Float32
+ωgRelErr = [0.05,0.02] # gradient error (norm): 5% with Float16 and 2% with Float32
+MPmodel = FPMPNLPModel(f,x32,FP;ωfRelErr=ωfRelErr,ωgRelErr=ωgRelErr);
+f32, omega_f32 = objerrmp(MPmodel,x32) # evaluate objective and error bound at x with T[1] = Float32 FP model
+g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x with T[2] = Float16 FP model</code></pre><p><strong>FPMPNLPModel Example 3: Mixed Interval/Relative Error Bounds</strong></p><p>It is possible to evaluate the objective with interval mode and the gradient with relative error mode, and vice-versa.</p><pre><code class="language- hljs">using MultiPrecisionR2
+using IntervalArithmetic
+using ADNLPModels
+
+setrounding(Interval,:accurate)
+FP = [Float16, Float32] # selected FP formats
+f(x) = x[1]^2 + x[2]^2 # objective function
+x = ones(2) # initial point
+x16 = Float16.(x) # initial point in Float16
+x32 = Float32.(x) # initial point in Float32
+ωgRelErr = [0.05,0.02] # gradient error (norm): 5% with Float16 and 2% with Float32
+MPmodel = FPMPNLPModel(f,x32,FP; obj_int_err = true, ωgRelErr = ωgRelErr) # use interval for objective error bound and relative error bound for gradient
+f32, omega_f32 = objerrmp(MPmodel,x32) # evaluate objective and error bound with interval at x with T[1] = Float32 FP model
+g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x with T[2] = Float16 FP model</code></pre><p><strong>FPMPNLPModel Example 4: Interval evaluation is slow</strong></p><p>Interval evaluation provides guaranteed bounds, but is slow compared with classical evaluation.</p><pre><code class="language- hljs">using MultiPrecisionR2
+using IntervalArithmetic
+using ADNLPModels
+
+setrounding(Interval,:accurate)
+FP = [Float32] # selected FP formats
+n = 1000
+f(x) = sum([x[i]^2 for i =1:n])  # objective function
+x = ones(n) # initial point
+x32 = Float32.(x) # initial point in Float32
+MPmodelInterval = FPMPNLPModel(f,x32,FP) # use interval for objective and gradient error bounds
+MPmodelRelative = FPMPNLPModel(f,x32,FP) # will use default relative error bounds
+# precompile
+objerrmp(MPmodelInterval,x32)
+objerrmp(MPmodelRelative,x32)
+graderrmp(MPmodelInterval,x32)
+graderrmp(MPmodelRelative,x32)
+
+@time objerrmp(MPmodelInterval,x32) # interval evaluation of objective
+@time objerrmp(MPmodelRelative,x32) # classic evaluation of objective
+@time graderrmp(MPmodelInterval,x32) # interval evaluation of gradient
+@time graderrmp(MPmodelRelative,x32) # classic evaluation of gradient</code></pre><h1 id="**High-Precision-Format**"><a class="docs-heading-anchor" href="#**High-Precision-Format**"><strong>High Precision Format</strong></a><a id="**High-Precision-Format**-1"></a><a class="docs-heading-anchor-permalink" href="#**High-Precision-Format**" title="Permalink"></a></h1><p><code>FPMPNLPModel</code> performs some operations with a high precision FP format to provide more numerical stability. The convergence of MPR2 relies on the fact that such operations are &quot;exact&quot;, as if performed with infinite precision.</p><p>This high precision format can be given as a keyword argument upon instantiation of <code>FPMPNLPModel</code>. The default value is <code>Float64</code>. Note that this high precision format corresponds to the type parameter <code>H</code> in <code>struct FPMPNLPModel{H,F,T&lt;:Tuple}</code>. It is expected that <code>FPMPNLPModel.HPFormat</code> has at least equal or greater machine epsilon than the highest precision FP format that can be used for objective or gradient evaluation.</p><p><strong>FPMPNLPModel Example 5: HPFormat value</strong></p><pre><code class="language-julia hljs">using MultiPrecisionR2
+
+FP = [Float16, Float32, Float64] # selected FP formats, max eval precision is Float64
+f(x) = x[1]^2 + x[2]^2 # objective function
+x = ones(2) # initial point
+MPmodel = FPMPNLPModel(f,x,FP); # throws warning
+try
+  MPmodel = FPMPNLPModel(f,x,FP,HPFormat = Float32); # throws error
+catch e
+  e
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ErrorException(&quot;HPFormat (Float32) must be a FP format with precision equal or greater than NLPModels (max prec NLPModel: Float64)&quot;)</code></pre><h1 id="**Gradient-and-Dot-Product-Error**:-Gamma-Callback-Function"><a class="docs-heading-anchor" href="#**Gradient-and-Dot-Product-Error**:-Gamma-Callback-Function"><strong>Gradient and Dot Product Error</strong>: Gamma Callback Function</a><a id="**Gradient-and-Dot-Product-Error**:-Gamma-Callback-Function-1"></a><a class="docs-heading-anchor-permalink" href="#**Gradient-and-Dot-Product-Error**:-Gamma-Callback-Function" title="Permalink"></a></h1><p><code>FPMPNLPModel.graderrmp()</code> computes both the gradient and the error relative error bound <span>$\omega_g$</span> such that = <span>$||\nabla f(x) - fl(\nabla f(x))||_2 \leq \omega_g ||fl(\nabla f(x))||_2$</span>. To do so, it is necessary to compute norm of the gradient and therefore to take the related error into account, given by the <span>$\beta$</span> function: <span>$\beta(n,u) = \max(|\sqrt{\gamma(n,u)-1}-1|,|\sqrt{\gamma(n,u)+1}-1|)$</span> which expresses with <span>$\gamma$</span> function which models the dot product error. This <span>$\gamma$</span> function is a callback that can be provided to the <code>FPMPNLPModel</code> with the <code>γfunc</code>, and by default is <span>$γfunc(n,u) = n*u$</span>. An implicit condition is that <span>$\gamma(n,u_{max}) \leq 1$</span>, with <span>$u_{max}$</span> the smallest unit-roundoff among the FP formats in <code>FPList</code>.</p><p>For example, if the highest precision format <code>Float32</code> is used, <span>$u_{max} \approx 1 e^{-7}$</span> which limits the size of the problems that can be solved to <span>$\approx 1e^{7}$</span> variables with the default implementation <span>$γ(n,u) = n*u$</span>. If this is a problem, the user can provide its own callback function <code>FPMPNLPModels.γfunc</code>. This is illustrated in the example below.</p><p><strong>FPMPNLPModel Example 5: Gradient and Dot Product Error</strong></p><p>The code below returns an error at the instantiation of <code>FPMPNLPModels</code> indicating that the dimension of the problem is too big with respect to the highest precision FP format provided (<code>Float16</code>).</p><pre><code class="language-julia hljs">using MultiPrecisionR2
+
+FP = [Float16] # limits the size of the problem to n = 1/eps(Float16) (= 1000)
+dim = 2000 # dimension of the problem too large
+f(x) =sum([x[i]^2 for i=1:dim]) # objective function
+x = ones(Float16,dim) # initial point
+try
+  MPmodel = FPMPNLPModel(f,x,FP); # throw error
+catch e
+  e
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ErrorException(&quot;γfunc: dot product error greater than 100% with highest precision. Consider using higher precision floating point format, or provide a different callback function for γfunc (last option might cause numerical instability).&quot;)</code></pre><p>The user can provide a less pessimistic <span>$\gamma$</span> function for dot product error bound. <strong>Warning:</strong> Providing your own <span>$\gamma$</span> function might increase numerical instability of MPR2.</p><pre><code class="language-julia hljs">using MultiPrecisionR2
+
+gamma(n,u) = sqrt(n)*u # user defined γ function, less pessimistic than n*u used by default
+MPmodel = FPMPNLPModel(f,x,FP,γfunc = gamma); # no error since sqrt(dim)*eps(Float16) &lt; 1</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ADNLPModel - Model with automatic differentiation backend ADModelBackend{
+  GenericForwardDiffADGradient,
+  ForwardDiffADHvprod,
+  EmptyADbackend,
+  EmptyADbackend,
+  EmptyADbackend,
+  ForwardDiffADHessian,
+  EmptyADbackend,
+}
+  Problem name: Generic
+   All variables: ████████████████████ 2000   All constraints: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+            free: ████████████████████ 2000              free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           lower: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                lower: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           upper: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                upper: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+         low/upp: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0              low/upp: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           fixed: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                fixed: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+          infeas: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               infeas: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+            nnzh: (  0.00% sparsity)   2001000          linear: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+                                                    nonlinear: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+                                                         nnzj: (------% sparsity)         
+
+  Counters:
+             obj: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 grad: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 cons: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+        cons_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0             cons_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 jcon: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           jgrad: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                  jac: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0              jac_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+         jac_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                jprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0            jprod_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+       jprod_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               jtprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0           jtprod_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+      jtprod_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 hess: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                hprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           jhess: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               jhprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../MultiPrecisionR2/">« MultiPrecisionR2</a><a class="docs-footer-nextpage" href="../tutorial_MPR2_basic_use/">MPR2 Tutorial: Basic Use  »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Tuesday 1 August 2023 18:26">Tuesday 1 August 2023</span>. Using Julia version 1.9.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

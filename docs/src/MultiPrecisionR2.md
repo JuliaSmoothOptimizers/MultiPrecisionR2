@@ -2,7 +2,7 @@
 
 `MutliPrecisionR2.jl` implements MPR2 (Multi-Precision Quadratic Regularization) algorithm, a multiple Floating Point (FP) precision (or formats) adaptation of the Quadratic Regularization (R2) algorithm. R2 is a first order algorithm designed to solve unconstrained minimization problems
 
-$\min f(x)$,
+$\min_x f(x)$,
 
 with $f$ a smooth non-linear function and $x \in \mathbb{R}^n$.
 

@@ -124,7 +124,7 @@ function FPMPNLPModel(
     ωfRelErr = Vector{HPFormat}()
   else
     @lencheck length(FPList) ωfRelErr
-    ObjTypeStableTest(Model,FPList)
+    ObjTypeStableTest(Model, FPList)
     ObjEvalMode = REL_ERR
   end
   GradEvalMode = INT_ERR
@@ -134,7 +134,7 @@ function FPMPNLPModel(
     ωgRelErr = Vector{HPFormat}()
   else
     @lencheck length(FPList) ωgRelErr
-    GradTypeStableTest(Model,FPList)
+    GradTypeStableTest(Model, FPList)
     GradEvalMode = REL_ERR
   end
   # instanciate interval containers X and G for point x and gradient g only if interval evaluation is used

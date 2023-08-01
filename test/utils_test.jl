@@ -50,7 +50,7 @@ end
 
 @testset "Eval test functions" begin
   f(x) = 0.0
-  g!(gx,x) = begin
+  g!(gx, x) = begin
     gx[1] = 0.0
   end
   FPList = [Float32]

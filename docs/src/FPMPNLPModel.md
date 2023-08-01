@@ -1,7 +1,7 @@
 # FPMPNLPModel: Multi-Precision Models
 
 
-`FPMPNLPModel` (Floating Point Multi Precision Non Linear Model) is a structure meant to "augment" the `NLPModel` ([NLPModels.jl](https://github.com/JuliaSmoothOptimizers/NLPModels.jl)) structure and interfaces to deal with multiple floating point formats and handle evaluation errors.
+`FPMPNLPModel` (Floating Point Multi Precision Non Linear Model) is a subtype of `AbstractNLPModel` and implements the `NLPModel API` defined in [NLPModels.jl](https://github.com/JuliaSmoothOptimizers/NLPModels.jl) to deal with multiple floating point formats and handle evaluation errors.
 
 # Fields
 

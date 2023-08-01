@@ -51,7 +51,7 @@ Build a `ADNLPModel` from `f` and `x0` and call constructor 1.
   + `obj_int_eval = false` : if true, use interval arithmetic for objective value and error evaluation
   + `grad_int_eval = false` : if true, use interval arithmetic for gradient value and error evaluation
 
-## Checks upon instanciation
+## Checks upon instantiation
 Some checks are performed upon instanctiation. These checks include:
 + Length consistency of vector fields:  `FPList`, `EpsList`, `UList`
 + `HPFormat` is at least as accurate as the highest precision floating point format in `FPList`. Ideally HPFormat is more accurate to ensure the numerical stability.

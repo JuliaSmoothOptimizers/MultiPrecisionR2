@@ -5,7 +5,7 @@
 
 # Fields
 
-`FPMPNLPModel` structure basically contains a `NLPModel` field and additional field related to multiple precision.
+`FPMPNLPModel` structure contains a `NLPModel` field and additional field related to multiple precision.
 The types are:
 * `D < AbstractFloat`
 * `S < AbstractVector`
@@ -46,14 +46,16 @@ Build a `ADNLPModel` from `f` and `x0` and call constructor 1.
 ## Keyword arguments
   + `HPFormat=Float64` : high precision format (must be at least as accurate as `FPList[end]`), corrensponds to `H` parameter after instanciation
   + `γfunc=nothing` : use default callback if not provided (see Fields section above)
-  + `ωfRelErr=nothing` : use interval evaluation if not provided
-  + `ωgRelErr=nothing` : use interval evaluation if not provided
+  + `ωfRelErr=HPFormat.(sqrt.(eps.(FPList)))`: use relative error model by default for objective evaluation
+  + `ωgRelErr=HPFormat.(sqrt.(eps.(FPList)))`: use relative error model by default for gradient evaluation
+  + `obj_int_eval = false` : if true, use interval arithmetic for objective value and error evaluation
+  + `grad_int_eval = false` : if true, use interval arithmetic for gradient value and error evaluation
 
 ## Checks upon instanciation
 Some checks are performed upon instanciation. These checks include:
 + Length consistency of vector fields:  `FPList`, `EpsList`, `UList`
 + `HPFormat` is at least as accurate as the highest precision floating point format in `FPList`. Ideally HPFormat is more accurate to ensure the numerical stability.
-+ Interval evaluations: it might happen that interval evaluation of objective function and/or gradient is type-unstable or returns an error. The constructor returns an error in this case. This type of error is most likely due to `IntervalArithmetic.jl` package.
++ Interval evaluations: it might happen that interval evaluation of objective function and/or gradient is type-unstable or returns an error. The constructor returns an error in this case. This type of error is most likely due to [IntervalArithmetic.jl](https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md) package.
 + `FPList` is ordered by increasing floating point format accuracy
 
 This checks can return `@warn` or `error`.
@@ -66,9 +68,11 @@ The evaluation errors on the objective function and the gradient, $\omega_f$ and
 * Gradient : $||\nabla f(x) - fl(\nabla f(x))||_2 \leq \omega_g ||fl(\nabla f(x))||_2$
 where $fl()$ denotes the finite-precision computation with one of the FP formats in `FPList`.
 
-`FPNLPModel` enables to determine evaluation errors $\omega_f$ and $\omega_g$:
-* in a guaranteed way based on interval evaluation with `IntervalArithmetic.jl` package.,
-* based on relative error assumption with `ωfRelErr` and `ωgRelErr`
+`FPNLPModel` enables to determine evaluation errors $\omega_f$ and $\omega_g$ either:
+* based on relative error model with `ωfRelErr` and `ωgRelErr`,
+* in a guaranteed way based on interval evaluation with `IntervalArithmetic.jl` package.
+By default, relative error model is used. Interval evaluation can be selected upon instanciation of `FPMPNLPModel` with `obj_int_eval` and `grad_int_eval` kwargs.
+
 
 ## Taking Norm Computation Error Into Account
 For the gradient error, the 2-norm computation error due to finite-precision computations is taken into account via `γfunc`, such that $\omega_g$ is guaranteed. The norm computation error is given by $| ||x||_2 - fl(||x||_2) | \leq \beta(n+2,u) fl(||x||_2)$, with $n$ the dimension of the problem, $u$ the unit-roundoff of the FP format used to perform the norm computation, and
@@ -77,9 +81,18 @@ $\beta(n,u) = \max(|\sqrt{\gamma func(n,u)-1}-1|,|\sqrt{\gamma func(n,u)+1}-1|)$
 
 The high precision format `H` is used to compute $\beta(n+2,u)$.
 
+## Relative Error Evaluation
+By default, evaluation errors for objective and gradient are estimated with the relative error model.
+
+The error models are: 
+* Objective: $|f(x) - fl(f(x))| \leq$`ωfRelErr[id]`$*fl(f(x))$ where `id` is the index of the FP format of $x$ in `FPList`. `objerrmp` returns the value of the classic evaluation of the objective as the value of the objective, and `ωfRelErr[id]`$*fl(f(x))$ as the evaluation error $\omega_f$, where `id` is the index of the FP format of $x$ in `FPList`
+* Gradient: $||\nabla f(x) - fl(\nabla f(x))||_2 \leq$`ωgRelErr[id]`$||fl(\nabla f(x))||_2$ where where `id` is the index of the FP format of $x$ in `FPList`. `graderrmp` returns the value of the classic evaluation of the gradient as the value of the gradient, and `ωgRelErr[id]` as the value of the evaluation error.
+
+See keyword arguments section for `ωfRelErr` and `ωgRelErr` default values. 
+
 ## Interval Error Evaluation
 
-By default, if the keyword arguments `ωfRelErr` (resp. `ωgRelErr`) is not provided, error of the objective (resp. gradient) evaluation is determined with interval arithmetic.
+Error of the objective (resp. gradient) evaluation can be determined with interval arithmetic. This evaluation mode can be set upon `FPMPNLPModel` instanciation with `obj_int_eval` and `grad_int_eval`.
 
 * Objective: evaluating the objective with interval arithmetic provides the interval $[\underline{f},\overline{f}]$ such that $\underline{f}\leq fl(f) \leq \overline{f}$. `objerrmp` returns the middle of the interval as the value of the objective, that is $(\underline{f}+\overline{f})/2$, and returns the diameter of the interval as $\omega_f$, that is, $\omega_f = (\underline{f}-\overline{f})/2$
 
@@ -88,14 +101,12 @@ By default, if the keyword arguments `ωfRelErr` (resp. `ωgRelErr`) is not prov
 **Warning**
 * Interval evaluation is slow compared with "classic" evaluation.
 * Although guaranteed, interval bounds can be quite pessimistic.
-* Interval evaluation might fail with rounding mode other than `:accurate` for FP formats other than `Float32` and `Float64`
-
-## Relative Error Evaluation
-The user can provide evaluation error models through `ωfRelErr` (resp. `ωgRelErr`) for the objective (resp. gradient) evaluation.
-The error models are: 
-* Objective: $|f(x) - fl(f(x))| \leq$`ωfRelErr[id]`$*fl(f(x))$ where `id` is the index of the FP format of $x$ in `FPList`. `objerrmp` returns the value of the classic evaluation of the objective as the value of the objective, and `ωfRelErr[id]`$*fl(f(x))$ as the evaluation error $\omega_f$, where `id` is the index of the FP format of $x$ in `FPList`
-* Gradient: $||\nabla f(x) - fl(\nabla f(x))||_2 \leq$`ωgRelErr[id]`$||fl(\nabla f(x))||_2$ where where `id` is the index of the FP format of $x$ in `FPList`. `graderrmp` returns the value of the classic evaluation of the gradient as the value of the gradient, and `ωgRelErr[id]` as the value of the evaluation error.
-
+* Interval evaluation might fail with rounding mode other than `:accurate` for FP formats other than `Float32` and `Float64`. When using interval evaluation, it is recommended to call 
+```julia
+using IntervalArithmetic
+setrounding(Interval,:accurate)
+``` 
+before instanciating a `FPMPNLPModel`.
 
 ## HPFormat
 `FPMPNLPModel` requires a high-precision FP format, given by `HPFormat` constructor's keyword argument. This format is used to compute accurately a bound on finite-precision norm evaluation error, to further guaranteed the bound $\omega_g$ in interval evaluation context.

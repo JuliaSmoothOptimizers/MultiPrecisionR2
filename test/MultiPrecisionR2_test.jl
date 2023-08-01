@@ -235,12 +235,12 @@ end
   dim = 2^5
   x0 = 1 / 10 .* ones(dim)
   gamma0(n, u) = 0.0
-  m = FPMPNLPModel(f, x0, Formats, γfunc = gamma0)
+  m = FPMPNLPModel(f, x0, Formats, γfunc = gamma0, obj_int_eval = true, grad_int_eval = true)
   solver = MPR2Solver(m)
   solver.ϕ = 0.0
   u = eps(Float64) / 2
   @test MultiPrecisionR2.computeMu(m, solver) == (u + u) / (1 - u)
-  m = FPMPNLPModel(f, x0, Formats)
+  m = FPMPNLPModel(f, x0, Formats, obj_int_eval = true, grad_int_eval = true)
   solver = MPR2Solver(m)
   π = MPR2Precisions(1)
   πr = copy(π)
@@ -540,7 +540,7 @@ end
   # quadratic
   f4(x) = x[1]^2 + x[2]^2
   x₀ = ones(2)
-  mpmodel = FPMPNLPModel(f4, x₀, Formats)
+  mpmodel = FPMPNLPModel(f4, x₀, Formats, obj_int_eval = true, grad_int_eval = true)
   stats = MPR2(mpmodel)
   @test isapprox(stats.solution, [0.0, 0.0], atol = 1e-6)
 

@@ -1,13 +1,12 @@
 # MutiPrecisionR2
 
-`MutliPrecisionR2.jl` implements MPR2 (Multi-Precision Quadratic Regularization) algorithm, a multiple floating point precision (or formats) adaptation of the Quadratic Regularization (R2) algorithm.
-MPR2 is designed to solve unconstrained minimization problems
+`MutliPrecisionR2.jl` implements MPR2 (Multi-Precision Quadratic Regularization) algorithm, a multiple Floating Point (FP) precision (or formats) adaptation of the Quadratic Regularization (R2) algorithm. R2 is a first order algorithm designed to solve unconstrained minimization problems
 
 $\min f(x)$,
 
 with $f$ a smooth non-linear function and $x \in \mathbb{R}^n$.
 
-MPR2 dynamically adapts the floating point formats used for objective and gradient evaluations so that the convergence is guaranteed in spite of evaluation errors due to finite-precision computations and over/underflow are avoided.
+MPR2 extends R2 by dynamically adapting the FP formats used for objective and gradient evaluations so that the convergence is guaranteed in spite of evaluation errors due to finite-precision computations and over/underflow are avoided.
 
 MPR2 relies on `FPMPNLPModel` structure (see documentation) to evaluate the objective and gradient with multiple floating point format and control the evaluation errors.
 
@@ -19,17 +18,15 @@ MPR2 algorithm is run with `MPR2()` function, which returns a [`GenericExecution
 ```@example
 using MultiPrecisionR2
 
-T = [Float32,Float64] # floating point formats used for evaluation
+T = [Float16,Float32] # floating point formats used for evaluation
 f(x) = sum(x.^2) # objective function
 n = 100 # problem dimension
-x0 = ones(n) # initial solution
+x0 = ones(Float32,n) # initial solution
 mpnlp = FPMPNLPModel(f,x0,T) # creates a multi-precision model of the problem
 stats = MPR2(mpnlp)
 println("Objective was evaluated $(neval_obj(mpnlp,Float32)) times with Float32 and $(neval_obj(mpnlp,Float64)) times with Float64")
 println("Gradient was evaluated $(neval_grad(mpnlp,Float32)) times with Float32 and $(neval_grad(mpnlp,Float64)) times with Float64")
 ```
-
-For advanced use, see `MPR2Solver` solver structure and `solve!()` functions.
 
 # Solver Options
 
@@ -39,7 +36,7 @@ Some parameters of the algorithm can be given as keyword arguments of `MPR2()`. 
 
 |kwarg|description|
 |-----|-----------|
-`x₀::S = MPnlp.Model.meta.x0` | initial guess 
+`x₀::S = MPnlp.Model.meta.x0` | initial guess, FP format must be in `mpnlp.FPList` 
 `par::MPR2Params = MPR2Params(MPnlp.FPList[1],H)` | MPR2 parameters, see `MPR2Params` for details
 `atol::H = H(sqrt(eps(T)))` | absolute tolerance on first order criterion 
 `rtol::H = H(sqrt(eps(T)))` | relative tolerance on first order criterion
@@ -72,7 +69,7 @@ These parameters must satisfy some conditions, see `MPR2Params` for details. The
 
 # Evaluation Error Mode
 
-MPR2 convergence is ensured by taking into account objective and gradient evaluation errors. These errors can be evaluated with interval arithmetic of based on relative error assumption. The error evaluation mode is chosen upon the `FPMPNLPModel` instanciation given as argument of `MPR2()`. Evaluating the objective/gradient and the error is done with the interfaces provided in `MPNLPModels.jl`, see `FPMPNLPModel` documentation. 
+MPR2 convergence is ensured by taking into account objective and gradient evaluation errors. These errors can be evaluated with interval arithmetic of based on relative error assumption. The error evaluation mode is chosen upon the `FPMPNLPModel` instanciation, given as argument of `MPR2()`. Evaluating the objective/gradient and the error is done with the interfaces provided in `MPNLPModels.jl`, see `FPMPNLPModel` documentation. 
 
 # Callbacks for Personalized Implementation
 

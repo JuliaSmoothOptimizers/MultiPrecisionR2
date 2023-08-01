@@ -192,7 +192,7 @@ MPR2 solver is run with `MPR2()` function which takes a `FPMPNLPModel` argument 
 ```@example ex1
 using MultiPrecisionR2
 
-T = [Float32,Float64] # defines FP format used for evaluations
+T = [Float16,Float32] # defines FP format used for evaluations
 f(x) = sum(x.^2) # objective function
 x = ones(Float32,2) # initial point
 mpnlp = FPMPNLPModel(f,x,T) # instanciate a FPMPNLPModel
@@ -220,7 +220,7 @@ T = [Float16,Float32]
 setrounding(Interval,:accurate) # need this since Float16 is used, see warnings in the README
 f(x) = sum(x.^2)
 x = ones(Float32,2)
-mpnlp = FPMPNLPModel(f,x,T) # instanciate a FPMPNLPModel, interval evaluation will be used for error estimation
+mpnlp = FPMPNLPModel(f,x,T,obj_int_eval = true, grad_err_eval = true) # instanciate a FPMPNLPModel, interval evaluation will be used for error estimation
 MPR2(mpnlp) # runs MPR2 with interval estimation of the evaluation errors
 ```
 
@@ -230,12 +230,11 @@ MPR2(mpnlp) # runs MPR2 with interval estimation of the evaluation errors
 using MultiPrecisionR2
 
 T = [Float16,Float32] 
-setrounding(Interval,:accurate) # need this since Float16 is used, see warnings in the README
 f(x) = sum(x.^2)
 omega = [0.01,0.001] # 1% and 0.1% relative error for Float16 and Float32 evaluations
 x = ones(Float32,2)
 mpnlp = FPMPNLPModel(f, x, T; ωfRelErr = omega, ωgRelErr = omega) # instanciate a FPMPNLPModel, relative error model will be used for error estimation
-MPR2(mpnlp) # runs MPR2 with interval estimation of the evaluation errors
+MPR2(mpnlp) # runs MPR2 with relative error model estimation
 ```
 
 ## **High Precision Format**
@@ -285,7 +284,7 @@ FP = [Float16, Float32] # selected FP formats, max eval precision is Float64
 f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
 x = Float32.(1.5*ones(2)) # initial point
 HPFormat = Float64
-MPmodel = FPMPNLPModel(f,x,FP,HPFormat = HPFormat);
+MPmodel = FPMPNLPModel(f,x,FP,HPFormat = HPFormat,obj_int_eval = true, grad_int_eval = true);
 solver = MPR2Solver(MPmodel);
 stat = MPR2(MPmodel) 
 ```
@@ -299,7 +298,7 @@ Running the above code block returns a warning indicating that R2 stops because 
 γ₁ = Float16(1/2) # must be FP format of lowest evaluation precision for numerical stability
 γ₂ = Float16(2) # must be FP format of lowest evaluation precision for numerical stability
 param = MPR2Params(η₀,η₁,η₂,κₘ,γ₁,γ₂)
-stat = MPR2(MPmodel,par = param,max_iter = 10000) 
+stat = MPR2(MPmodel,par = param,max_iter = 10000,obj_int_eval = true, grad_int_eval = true) 
 ```
 Now MPR2 converges to a first order critical point since we tolerate enough error on the objective evaluation.
 
@@ -325,7 +324,7 @@ Not that even if evaluation error for objective and gradient is set to zero as i
 **Example**: Last Resort
 
 If early stop due to lack of precision occurs even when modifying MPR2's parameters and setting the evaluation error to zero (above 2 examples), the user can provide its own function $\gamma$ to further decrease $\mu$ indicator (by decreasing $\gamma(n,u)$ and $\alpha(n,u)$).
-For example, the user can simply set $\gamma$ to 0, i.e. supposing that model reduction and norm computation are performed exactly. This however might break the convergence properties of MPR2.
+For example, the user can simply set $\gamma$ to 0, i.e. supposing that model reduction and norm computation are performed exactly. This however might increase numerical instability of MPR2.
 
 ```@example
 using MultiPrecisionR2
@@ -348,9 +347,7 @@ MPR2 counts the number of objective and gradient evaluations are counted for eac
 
 ```@example
 using MultiPrecisionR2
-using IntervalArithmetic
 
-setrounding(Interval,:accurate)
 FP = [Float16, Float32, Float64]
 f(x) = sum(x.^2) 
 x0 = ones(10)

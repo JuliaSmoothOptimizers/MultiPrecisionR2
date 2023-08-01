@@ -33,7 +33,6 @@ The error models are :
 + interval analysis (can be very slow)
 + based on relative error assumption (see `ωfRelErr` and `ωgRelErr` field description below)   
 
-
 # Fields
 - `Model::AbstractNLPModel` : NLPModel
 - `FPList::Vector{DataType}` : List of floating point formats
@@ -62,9 +61,11 @@ The error models are :
 # Keyword arguments: 
   + `HPFormat=Float64` : high precision format (must be at least as accurate as FPList[end])
   + `γfunc=nothing` : use default if not provided (see Fields section above)
-  + `ωfRelErr=nothing` : use interval evaluation if not provided
-  + `ωgRelErr=nothing` : use interval evaluation if not provided
-
+  + `ωfRelErr=HPFormat.(sqrt.(eps.(FPList)))`: use relative error model by default for objective evaluation
+  + `ωgRelErr=HPFormat.(sqrt.(eps.(FPList)))`: use relative error model by default for gradient evaluation
+  + `obj_int_eval = false` : if true, use interval arithmetic for objective value and error evaluation
+  + `grad_int_eval = false` : if true, use interval arithmetic for gradient value and error evaluation
+  
 # Checks upon instanciation
 
 Some checks are performed upon instanciation. These checks include:
@@ -119,8 +120,10 @@ function FPMPNLPModel(
   FPList::Vector{K};
   HPFormat = Float64,
   γfunc = nothing,
-  ωfRelErr = nothing,
-  ωgRelErr = nothing,
+  ωfRelErr = HPFormat.(sqrt.(eps.(FPList))),
+  ωgRelErr = HPFormat.(sqrt.(eps.(FPList))),
+  obj_int_eval = false,
+  grad_int_eval = false
 ) where {D, S, K <: DataType}
   EpsList = convert.(HPFormat, eps.(FPList))
   UList = EpsList .* HPFormat(1 / 2) # assume rounding mode is rounding to the nearest
@@ -137,23 +140,24 @@ function FPMPNLPModel(
   end
   γfunc_test_error_bound(Model.meta.nvar, EpsList[end], γfunc)
 
-  ObjEvalMode = INT_ERR
-  if ωfRelErr === nothing
-    @info "Interval evaluation used by default for objective error evaluation: might significantly increase computation time"
+  if obj_int_eval
+    ObjEvalMode = INT_ERR
+    @info "Interval evaluation used for objective error evaluation: might significantly increase computation time"
     ObjIntervalEval_test(Model, FPList)
-    ωfRelErr = Vector{HPFormat}()
   else
     @lencheck length(FPList) ωfRelErr
     ObjEvalMode = REL_ERR
+    @info "Using relative error model for objective evaluation."
   end
-  GradEvalMode = INT_ERR
-  if ωgRelErr === nothing
-    @info "Interval evaluation used by default for gradient error evaluation: might significantly increase computation time"
+  
+  if grad_int_eval
+    GradEvalMode = INT_ERR
+    @info "Interval evaluation used for gradient error evaluation: might significantly increase computation time"
     GradIntervalEval_test(Model, FPList)
-    ωgRelErr = Vector{HPFormat}()
   else
     @lencheck length(FPList) ωgRelErr
     GradEvalMode = REL_ERR
+    @info "Using relative error model for gradient evaluation."
   end
   # instanciate interval containers X and G for point x and gradient g only if interval evaluation is used
   X = tuple()
@@ -186,15 +190,6 @@ function FPMPNLPModel(
     G,
   )
 end
-
-# function FPMPNLPModel(s::Symbol,
-#   FPList::Vector{DataType};
-#   nvar::Int=100,
-#   kwargs...
-# )
-#   Model = eval(s)(type = Val(FPList[end]),n=nvar,gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
-#   FPMPNLPModel(Model,FPList;kwargs...)
-# end
 
 function FPMPNLPModel(f, x0, FPList::Vector{DataType}; kwargs...)
   type = eltype(x0)

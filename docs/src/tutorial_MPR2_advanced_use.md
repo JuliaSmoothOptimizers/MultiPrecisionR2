@@ -442,7 +442,9 @@ function my_compute_g!(m::FPMPNLPModel, solver::MPR2Solver, stats::GenericExecut
   return true
 end
 ```
+
 Let us first run `MPR2()` with the default implementation and relative evaluation error.
+
 ```@example ex2
 FP = [Float16, Float32] # selected FP formats,
 #f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
@@ -455,6 +457,7 @@ stat = MPR2(MPmodel,verbose=1); # stops at iteration 3, throw lack of precision 
 ```
 
 We run `MPR2()` with the callback functions defined above and the default callbacks for `compute_g!()` and `recompute_g!()`. We use relative objective and gradient error.
+
 ```@example ex2
 FP = [Float16, Float32] # selected FP formats,
 #f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function

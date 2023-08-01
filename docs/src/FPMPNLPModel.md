@@ -53,10 +53,10 @@ Build a `ADNLPModel` from `f` and `x0` and call constructor 1.
 
 ## Checks upon instantiation
 Some checks are performed upon instanctiation. These checks include:
-+ Length consistency of vector fields:  `FPList`, `EpsList`, `UList`
-+ `HPFormat` is at least as accurate as the highest precision floating point format in `FPList`. Ideally HPFormat is more accurate to ensure the numerical stability.
-+ Interval evaluations: it might happen that interval evaluation of objective function and/or gradient is type-unstable or returns an error. The constructor returns an error in this case. This type of error is most likely due to [IntervalArithmetic.jl](https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md) package.
-+ `FPList` is ordered by increasing floating point format accuracy
++ Length consistency of vector fields:  `FPList`, `EpsList`, `UList`;
++ `HPFormat` is at least as accurate as the highest precision floating point format in `FPList`. Ideally HPFormat is more accurate to ensure the numerical stability;
++ Interval evaluations: it might happen that interval evaluation of objective function and/or gradient is type-unstable or returns an error. The constructor returns an error in this case. This type of error is most likely due to [IntervalArithmetic.jl](https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md) package;
++ `FPList` is ordered by increasing floating point format accuracy.
 
 This checks can return `@warn` or `error`.
 

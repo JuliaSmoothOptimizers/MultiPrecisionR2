@@ -198,7 +198,7 @@ function FPMPNLPModel(f, x0, FPList::Vector{DataType}; kwargs...)
   if !(type in FPList)
     error("eltype of x0 ($type) must be in FPList ($FPList)")
   end
-  Model = ADNLPModel(f, x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
+  Model = ADNLPModel(f, x0, backend = :generic)
   FPMPNLPModel(Model, FPList; kwargs...)
 end
 
@@ -221,6 +221,50 @@ function NLPModels.grad!(
 ) where {T <: AbstractFloat, S <: Union{AbstractVector{T}, AbstractVector{Interval{T}}}}
   MultiPrecisionR2.increment!(m, :neval_grad, T)
   grad!(m.Model, x, g)
+end
+
+function NLPModels.hprod!(
+  m::FPMPNLPModel,
+  x::AbstractVector{T},
+  v::AbstractVector{T},
+  Hv::AbstractVector{T};
+  obj_weight::Real = one(T),
+) where {T, S}
+  hprod!(m,x,zeros(T, m.meta.ncon),v,Hv,obj_weight = obj_weight)
+end
+
+function NLPModels.hprod!(
+  m::FPMPNLPModel,
+  x::AbstractVector{T},
+  y::AbstractVector{T},
+  v::AbstractVector{T},
+  Hv::AbstractVector{T};
+  obj_weight::Real = one(T),
+) where {T, S}
+  MultiPrecisionR2.increment!(m, :neval_hprod,T)
+  hprod!(m.Model,x,y,v,Hv,obj_weight = obj_weight)
+end
+
+function NLPModels.hess_coord!(
+  m::FPMPNLPModel,
+  x::AbstractVector{T},
+  vals::AbstractVector{T};
+  obj_weight::Real = one(T),
+) where {T, S}
+  @lencheck m.meta.nvar x
+  @lencheck m.meta.nnzh vals
+  hess_coord!(m,x,zeros(T, m.meta.ncon),vals,obj_weight = obj_weight)
+end
+
+function NLPModels.hess_coord!(
+  m::FPMPNLPModel,
+  x::AbstractVector{T},
+  y::AbstractVector{T},
+  vals::AbstractVector{T};
+  obj_weight::Real = one(T),
+) where {T, S}
+  MultiPrecisionR2.increment!(m, :neval_hess, T)
+  hess_coord!(m.Model,x,y,vals,obj_weight = obj_weight)
 end
 
 """
@@ -461,3 +505,4 @@ end
   ωg, id = gradReachPrec!(m, x, g, err_bound, π = π)
   return g, H(ωg), id
 end
+

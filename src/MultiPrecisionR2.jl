@@ -197,7 +197,6 @@ function MPR2Solver(MPnlp::M) where {S, H, B, D, M <: FPMPNLPModel{H, B, D, S}}
   )
 end
 
-
 """
     MPR2(MPnlp; kwargs...)
 An implementation of the quadratic regularization algorithm with dynamic selection of floating point format for objective and gradient evaluation, robust against finite precision rounding errors.
@@ -322,7 +321,7 @@ function SolverCore.solve!(
   end
   umpt!(solver.g, solver.g[solver.π.πg])
   solver.g_norm = H(norm(solver.g[solver.π.πg]))
-  
+
   stats.dual_feas = solver.g_norm
   stats.dual_residual_reliable = true
   #SolverCore.set_dual_residual!(stats, solver.g_norm)
@@ -365,9 +364,12 @@ function SolverCore.solve!(
   #main loop
   while (!done)
     solver.π.πs = solver.π.πg
-    computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
-    computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
-    computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
+    computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) ||
+      ((stats.status = :exception); (stats.status_reliable = true))
+    computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) ||
+      ((stats.status = :exception); (stats.status_reliable = true))
+    computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) ||
+      ((stats.status = :exception); (stats.status_reliable = true))
 
     g_recomp, g_succ = recompute_g!(MPnlp, solver, stats, e)
     if !g_succ && stats.status != :small_step
@@ -376,19 +378,24 @@ function SolverCore.solve!(
     end
     if g_recomp #have to recompute everything depending on g
       umpt!(solver.g, solver.g[solver.π.πg])
-      computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
-      computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
-      computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
+      computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) ||
+        ((stats.status = :exception); (stats.status_reliable = true))
+      computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) ||
+        ((stats.status = :exception); (stats.status_reliable = true))
+      computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) ||
+        ((stats.status = :exception); (stats.status_reliable = true))
     end
     stats.dual_feas = solver.g_norm
     stats.dual_residual_reliable = true
     #SolverCore.set_dual_residual!(stats, solver.g_norm)
 
-    compute_f_at_x!(MPnlp, solver, stats, e) || ((stats.status = :exception) ; (stats.status_reliable = true))
+    compute_f_at_x!(MPnlp, solver, stats, e) ||
+      ((stats.status = :exception); (stats.status_reliable = true))
     stats.objective = solver.f
     #SolverCore.set_objective!(stats, solver.f)
 
-    compute_f_at_c!(MPnlp, solver, stats, e) || ((stats.status = :exception) ; (stats.status_reliable = true))
+    compute_f_at_c!(MPnlp, solver, stats, e) ||
+      ((stats.status = :exception); (stats.status_reliable = true))
 
     solver.ρ = (H(solver.f) - H(solver.f⁺)) / H(solver.ΔT)
 
@@ -400,7 +407,8 @@ function SolverCore.solve!(
     end
 
     if solver.ρ ≥ η₁
-      compute_g!(MPnlp, solver, stats, e) || ((stats.status = :exception) ; (stats.status_reliable = true))
+      compute_g!(MPnlp, solver, stats, e) ||
+        ((stats.status = :exception); (stats.status_reliable = true))
       umpt!(solver.g, solver.g[solver.π.πg])
 
       if findfirst(x -> isinf(x), solver.g[end]) !== nothing || isinf(solver.ωg)

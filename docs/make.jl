@@ -24,7 +24,8 @@ makedocs(;
     "MultiPrecisionR2" => "MultiPrecisionR2.md",
     "FPMPNLPModel Tutorial" => "tutorial_FPMPNLPModel.md",
     "MPR2 Tutorial: Basic Use " => "tutorial_MPR2_basic_use.md",
-    "MPR2 Tutorial: Advanced Use " => "tutorial_MPR2_advanced_use.md"],
+    "MPR2 Tutorial: Advanced Use " => "tutorial_MPR2_advanced_use.md",
+  ],
 )
 
 deploydocs(;

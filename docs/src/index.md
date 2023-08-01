@@ -11,13 +11,11 @@ The package also implements multi-precision models `FPMPNLPModel` structure that
 using Pkg
 Pkg.add("MultiPrecisionR2")
 ```
+
 ## Minimal examples
 ```@example
 using MultiPrecisionR2
-using ADNLPModels
-using IntervalArithmetic
 
-setrounding(Interval,:accurate) # set interval mode for guaranteed evaluation of the objective function and the gradient 
 FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
 f(x) = x[1]^2 + x[2]^2 # some objective function
 x0 = ones(Float32,2) # initial point
@@ -28,11 +26,9 @@ stat = MPR2(mpmodel) # run the algorithm
 ```@example
 using MultiPrecisionR2
 using ADNLPModels
-using IntervalArithmetic
 using OptimizationProblems
 using OptimizationProblems.ADNLPProblems
 
-setrounding(Interval,:accurate)
 FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
 s = :woods # select problem
 nlp = eval(s)(n=12,type = Val(FP[end]), gradient_backend = ADNLPModels.GenericForwardDiffADGradient)

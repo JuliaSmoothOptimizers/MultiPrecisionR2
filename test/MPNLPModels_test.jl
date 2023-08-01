@@ -99,7 +99,7 @@ end
   end
 end
 
-@testset "Interval instanciation" begin
+@testset "Interval instantiation" begin
   f5(x) = x[1] + x[2]
   x0 = zeros(2)
   Formats = [Float32, Float64]

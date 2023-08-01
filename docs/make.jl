@@ -30,5 +30,5 @@ makedocs(;
 deploydocs(;
   repo = "github.com/JuliaSmoothOptimizers/MultiPrecisionR2.git",
   push_preview = true,
-  devbranch = "doc-tutorial-update",
+  devbranch = "main",
 )

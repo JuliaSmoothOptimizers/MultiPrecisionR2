@@ -99,21 +99,19 @@ end
   end
 end
 
-@testset "Default Interval instanciation" begin
+@testset "Interval instantiation" begin
   f5(x) = x[1] + x[2]
   x0 = zeros(2)
   Formats = [Float32, Float64]
   @test_logs (
     :info,
-    "Interval evaluation used by default for objective error evaluation: might significantly increase computation time",
+    "Interval evaluation used for objective error evaluation: might significantly increase computation time",
   )
   (
     :info,
-    "Interval evaluation used by default for gradient error evaluation: might significantly increase computation time",
+    "Interval evaluation used for gradient error evaluation: might significantly increase computation time",
   )
-  MPnlp = FPMPNLPModel(f5, x0, Formats)
-  @test MPnlp.ωfRelErr == Vector{Float64}()
-  @test MPnlp.ωgRelErr == Vector{Float64}()
+  MPnlp = FPMPNLPModel(f5, x0, Formats; obj_int_eval = true, grad_int_eval = true)
 end
 
 @testset verbose = true "Obj and grad evaluation" begin
@@ -122,7 +120,7 @@ end
     f6(x) = x[1] + x[2]
     x0 = zeros(2)
     Formats = [Float32, Float64]
-    MPnlp = FPMPNLPModel(f6, x0, Formats)
+    MPnlp = FPMPNLPModel(f6, x0, Formats; obj_int_eval = true, grad_int_eval = true)
     x16 = Float16.(x0)
     try
       objerrmp(MPnlp, x16)
@@ -152,7 +150,7 @@ end
     #obj test
     f8(x) = c * x[1]
     x0 = ones(2)
-    MPnlp = FPMPNLPModel(f8, Format.(x0), [Format])
+    MPnlp = FPMPNLPModel(f8, Format.(x0), [Format]; obj_int_eval = true, grad_int_eval = true)
     @test objerrmp(MPnlp, Format.(x0)) == (0, Inf)
     #grad testf(x) = c+x[1]
     @test graderrmp(MPnlp, Format.(x0)) == (zeros(2), Inf)
@@ -178,7 +176,7 @@ end
       x₀ = [1 / 10, 1 / 10]
       Formats = [Float32, Float64]
       γfunc(n, u) = 0.0 # ignore rounding errors for the tests
-      mpmodel = FPMPNLPModel(f1, x₀, Formats, γfunc = γfunc)
+      mpmodel = FPMPNLPModel(f1, x₀, Formats, γfunc = γfunc, obj_int_eval = true, grad_int_eval = true)
       x = (Float32.(x₀), x₀)
       #obj test
       fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 2.0 * eps(Float64))

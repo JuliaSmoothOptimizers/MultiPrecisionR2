@@ -17,11 +17,22 @@ include("MPNLPModels.jl")
 include("utils.jl")
 
 """
-    function MPR2Precisions(π::Int)
+    MPR2Precisions(π::Int)
 
-Precision  of variables and precision evaluation of obj, grad, model reduction and norms.
-Precisions are represented by integers, and correspond to FP format of corresponding index in `FPMPNLPModel.FPList`. i.e., precision `i` correpsonds to FP format `FPMPNLPModel.FPList[i]`
-See `FPMPNLPModel`.
+FP format index storage structure.
+
+Stores FP formats index in `FPMPNLPModel.FPList` of obj, grad, model reduction and norms evaluations, and FP format index of MPR2 algorithm vector variables. 
+
+# Fields
+- `πx::Int` : Current FP format of current incumbent `x`
+- `πnx::Int` : FP format used for `x` norm evaluation
+- `πs::Int` : Current FP format of step`s`
+- `πns::Int` : FP format used for `s` norm evaluation
+- `πc::Int` : Current FP format of candidate `c`
+- `πf::Int` : FP format used for objective evaluation at `x`
+- `πf⁺::Int` : FP format used for objective evaluation at `c`
+- `πg::Int` : FP format used for gradient evaluation at `c`
+- `πΔ::Int` : FP format used for model reduction computation
 """
 mutable struct MPR2Precisions
   πx::Int
@@ -43,8 +54,9 @@ Base.copy(π::MPR2Precisions) =
   MPR2Precisions(π.πx, π.πnx, π.πs, π.πns, π.πc, π.πf, π.πf⁺, π.πg, π.πΔ)
 
 """
-  MPR2Params(LPFormat::DataType, HPFormat::DataType)
-MPR2 parameters.
+    MPR2Params(LPFormat::DataType, HPFormat::DataType)
+    
+MPR2 parameters structure.
 
 # Fields
 - `η₀::H` : controls objective function error tolerance, convergence condition is ωf ≤ η₀ ΔT (see `FPMPNLPModel` for details on ωf)
@@ -94,12 +106,12 @@ function MPR2Params(LPFormat::DataType, HPFormat::DataType)
 end
 
 """
-  CheckMPR2ParamConditions(p::MPR2Params{H})
+    CheckMPR2ParamConditions(p::MPR2Params{H})
 
 Check if the MPR2 parameters conditions are satified.
 See [`MPR2Params`](@ref) for parameter conditions.
 """
-function CheckMPR2ParamConditions(p::MPR2Params{H}) where {H}
+function CheckMPR2ParamConditions(p::MPR2Params)
   0 ≤ p.η₀ ≤ 1 / 2 * p.η₁ || error("Expected 0 ≤ η₀ ≤ 1/2*η₁")
   p.η₁ ≤ p.η₂ < 1 || error("Expected η₁ ≤ η₂ < 1")
   p.η₀ + p.κₘ / 2 ≤ 0.5 * (1 - p.η₂) || error("Expected η₀+κₘ/2 ≤0.5*(1-η₂)")
@@ -107,38 +119,35 @@ function CheckMPR2ParamConditions(p::MPR2Params{H}) where {H}
 end
 
 """
-    MPR2(MPnlp; kwargs...)
-An implementation of the quadratic regularization algorithm with dynamic selection of floating point format for objective and gradient evaluation, robust against finite precision rounding errors.
+    MPR2Solver(MPnlp::FPMPNLPModel)
 
-# Arguments
-- `MPnlp::FPMPNLPModel` : Multi precision model, see `FPMPNLPModel`
-Keyword agruments:
-- `x₀::S = MPnlp.Model.meta.x0` : initial guess 
-- `par::MPR2Params = MPR2Params(MPnlp.FPList[1],H)` : MPR2 parameters, see `MPR2Params` for details
-- `atol::H = H(sqrt(eps(T)))` : absolute tolerance on first order criterion 
-- `rtol::H = H(sqrt(eps(T)))` : relative tolerance on first order criterion
-- `max_eval::Int = -1`: maximum number of evaluation of the objective function.
-- `max_iter::Int = 1000` : maximum number of iteration allowed
-- `σmin::T = sqrt(T(MPnlp.EpsList[end]))` : minimal value for regularization parameter. Value must be representable in any of the floating point formats of MPnlp. 
-- `verbose::Int=0` : display iteration information if > 0
-- `e::E` : user defined structure, used as argument for `compute_f_at_x!`, `compute_f_at_c!` `compute_g!` and `recompute_g!` callback functions.
-- `compute_f_at_x!` : callback function to select precision and compute objective value and error bound at the current point. Allows to reevaluate the objective at x if more precision is needed.
-- `compute_f_at_c!` : callback function to select precision and compute objective value and error bound at candidate.
-- `compute_g!` : callback function to select precision and compute gradient value and error bound. Called at the end of main loop.
-- `recompute_g!` : callback function to select precision and recompute gradient value if more precision is needed. Called after step, candidate and model decrease computation in main loop.
-- `selectPic!` : callback function to select FP format of `c` at the next iteration
-# Outputs
-Returns a `GenericExecutionStats`, see `SolverCore.jl`
-`GenericExecutionStats.status` is set to `:exception` 
-# Example
-```julia
-T = [Float16, Float32]
-f(x) = x[1]^2+x[2]^2
-x = ones(2)
-nlp_list = [ADNLPModel(f,t.(x)) for t in T ]
-MPnlp = FPMPNLPModel(nlp_list)
-mpr2s(MPnlp) 
-```
+Solver structure containing all the variables necessary to MRP2.
+
+# Fields:
+
+- `x::T`: incumbent
+- g::T : gradient
+- s::T : step 
+- c::T : candidate
+- π::MPR2Precisions : FP format indices (precision) structure
+- p::MPR2Params : MPR2 parameters
+- x_norm::H : norm of `x`
+- s_norm::H : norm of `s`
+- g_norm::H : norm of `g`
+- ΔT::H : model decrease
+- ρ::H : success ratio
+- ϕ::H : guaranteed upper bound on ||x||/||s||
+- ϕhat::H : computed value of ||x||/||s||
+- μ::H : error indicator
+- f::H : objective value at `x`
+- f⁺::H : objective value at `c`
+- ωf::H : objective evaluation error at `x`, |f(x) - fl(f(x))| <= `ωf`
+- ωf⁺::H : objective evaluation error at `c`, |f(c) - fl(f(c))| <= `ωf⁺`
+- ωg::H : gradient evaluation error at `c`, ||∇f(c) - fl(∇f(c))||₂ <= `ωg`||fl(∇f(c))||₂
+- ωfBound::H : error tolerance on objective evaluation
+- σ::H : regularization parameter
+- πmax::Int : number of FP formats available for evaluations
+- init::Bool : initialized with `true`, set to `false` when entering main loop 
 """
 mutable struct MPR2Solver{T <: Tuple, H <: AbstractFloat} <: AbstractOptimizationSolver
   x::T
@@ -188,7 +197,44 @@ function MPR2Solver(MPnlp::M) where {S, H, B, D, M <: FPMPNLPModel{H, B, D, S}}
   )
 end
 
-@doc (@doc MPR2Solver) function MPR2(MPnlp::FPMPNLPModel; kwargs...)
+
+"""
+    MPR2(MPnlp; kwargs...)
+An implementation of the quadratic regularization algorithm with dynamic selection of floating point format for objective and gradient evaluation, robust against finite precision rounding errors.
+Type parameters are: `S::AbstractVector`, `H::AbstractFloat`, `T::AbstractFloat`, `E::DataType` 
+
+# Arguments
+- `MPnlp::FPMPNLPModel` : Multi precision model, see `FPMPNLPModel`
+
+Keyword agruments:
+- `x₀::S = MPnlp.Model.meta.x0` : initial guess 
+- `par::MPR2Params = MPR2Params(MPnlp.FPList[1],H)` : MPR2 parameters, see `MPR2Params` for details
+- `atol::H = H(sqrt(eps(T)))` : absolute tolerance on first order criterion 
+- `rtol::H = H(sqrt(eps(T)))` : relative tolerance on first order criterion
+- `max_eval::Int = -1`: maximum number of evaluation of the objective function.
+- `max_iter::Int = 1000` : maximum number of iteration allowed
+- `σmin::T = sqrt(T(MPnlp.EpsList[end]))` : minimal value for regularization parameter. Value must be representable in any of the floating point formats of MPnlp. 
+- `verbose::Int=0` : display iteration information if > 0
+- `e::E` : user defined structure, used as argument for `compute_f_at_x!`, `compute_f_at_c!` `compute_g!` and `recompute_g!` callback functions.
+- `compute_f_at_x!` : callback function to select precision and compute objective value and error bound at the current point. Allows to reevaluate the objective at x if more precision is needed.
+- `compute_f_at_c!` : callback function to select precision and compute objective value and error bound at candidate.
+- `compute_g!` : callback function to select precision and compute gradient value and error bound. Called at the end of main loop.
+- `recompute_g!` : callback function to select precision and recompute gradient value if more precision is needed. Called after step, candidate and model decrease computation in main loop.
+- `selectPic!` : callback function to select FP format of `c` at the next iteration
+
+# Outputs
+1. `GenericExecutionStats`: execution stats containing information about algorithm execution (nb. of iteration, termination status, ...). See `SolverCore.jl`
+
+# Example
+```julia
+T = [Float32, Float64]
+f(x) = sum(x.^2)
+x = ones(Float32,2)
+mpnlp = FPMPNLPModel(f,x,T)
+MPR2(mpnlp)
+```
+"""
+function MPR2(MPnlp::FPMPNLPModel; kwargs...)
   solver = MPR2Solver(MPnlp)
   return SolverCore.solve!(solver, MPnlp; kwargs...)
 end
@@ -261,17 +307,25 @@ function SolverCore.solve!(
   if isinf(solver.f) || isinf(solver.ωf)
     @warn "Objective or ojective error overflow at x0"
     stats.status = :exception
+    stats.status_reliable = true
   end
-  SolverCore.set_objective!(stats, solver.f)
+
+  stats.objective = solver.f
+  stats.objective_reliable = true
+  #SolverCore.set_objective!(stats, solver.f)
 
   compute_g!(MPnlp, solver, stats, e)
   if findfirst(x -> x === FP[end](Inf), solver.g) !== nothing || isinf(solver.ωg)
     @warn "Gradient or gradient error overflow at x0"
     stats.status = :exception
+    stats.status_reliable = true
   end
   umpt!(solver.g, solver.g[solver.π.πg])
   solver.g_norm = H(norm(solver.g[solver.π.πg]))
-  SolverCore.set_dual_residual!(stats, solver.g_norm)
+  
+  stats.dual_feas = solver.g_norm
+  stats.dual_residual_reliable = true
+  #SolverCore.set_dual_residual!(stats, solver.g_norm)
 
   σ0 = 2^round(log2(solver.g_norm + 1)) # ensures ||s_0|| ≈ 1 with sigma_0 = 2^n with n an interger, i.e. sigma_0 is exactly representable in n bits 
   solver.σ = H(σ0) # declare σ with the highest precision, convert it when computing sk to keep it at precision πg
@@ -311,26 +365,30 @@ function SolverCore.solve!(
   #main loop
   while (!done)
     solver.π.πs = solver.π.πg
-    computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) || (stats.status = :exception)
-    computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || (stats.status = :exception)
-    computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || (stats.status = :exception)
+    computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
+    computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
+    computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
 
     g_recomp, g_succ = recompute_g!(MPnlp, solver, stats, e)
     if !g_succ && stats.status != :small_step
       stats.status = :exception
+      stats.status_reliable = true
     end
     if g_recomp #have to recompute everything depending on g
       umpt!(solver.g, solver.g[solver.π.πg])
-      computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) || (stats.status = :exception)
-      computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || (stats.status = :exception)
-      computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || (stats.status = :exception)
+      computeStep!(solver.s, solver.g, solver.σ, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
+      computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
+      computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) || ((stats.status = :exception) ; (stats.status_reliable = true))
     end
-    SolverCore.set_dual_residual!(stats, solver.g_norm)
+    stats.dual_feas = solver.g_norm
+    stats.dual_residual_reliable = true
+    #SolverCore.set_dual_residual!(stats, solver.g_norm)
 
-    compute_f_at_x!(MPnlp, solver, stats, e) || (stats.status = :exception)
-    SolverCore.set_objective!(stats, solver.f)
+    compute_f_at_x!(MPnlp, solver, stats, e) || ((stats.status = :exception) ; (stats.status_reliable = true))
+    stats.objective = solver.f
+    #SolverCore.set_objective!(stats, solver.f)
 
-    compute_f_at_c!(MPnlp, solver, stats, e) || (stats.status = :exception)
+    compute_f_at_c!(MPnlp, solver, stats, e) || ((stats.status = :exception) ; (stats.status_reliable = true))
 
     solver.ρ = (H(solver.f) - H(solver.f⁺)) / H(solver.ΔT)
 
@@ -342,18 +400,21 @@ function SolverCore.solve!(
     end
 
     if solver.ρ ≥ η₁
-      compute_g!(MPnlp, solver, stats, e) || (stats.status = :exception)
+      compute_g!(MPnlp, solver, stats, e) || ((stats.status = :exception) ; (stats.status_reliable = true))
       umpt!(solver.g, solver.g[solver.π.πg])
 
       if findfirst(x -> isinf(x), solver.g[end]) !== nothing || isinf(solver.ωg)
         @warn "gradient evaluation error at c too big to ensure convergence"
         stats.status = :exception
+        stats.status_reliable = true
       end
 
       solver.g_norm = H(norm(solver.g[solver.π.πg]))
       umpt!(solver.x, solver.c[solver.π.πc])
       solver.f = solver.f⁺
-      SolverCore.set_objective!(stats, solver.f⁺)
+      stats.objective = solver.f⁺
+      stats.objective_reliable = true
+      #SolverCore.set_objective!(stats, solver.f⁺)
       solver.ωf = solver.ωf⁺
 
       solver.π.πf = solver.π.πf⁺
@@ -363,7 +424,9 @@ function SolverCore.solve!(
 
     SolverCore.set_iter!(stats, stats.iter + 1)
     SolverCore.set_time!(stats, time() - start_time)
-    SolverCore.set_dual_residual!(stats, solver.g_norm)
+    stats.dual_feas = solver.g_norm
+    stats.dual_residual_reliable = true
+    #SolverCore.set_dual_residual!(stats, solver.g_norm)
     optimal = solver.g_norm ≤ 1 / (1 + βfunc(n, U[solver.π.πg])) * ϵ / (1 + H(solver.ωg))
 
     if verbose > 0
@@ -390,17 +453,18 @@ function SolverCore.solve!(
     done = stats.status != :unknown
   end
 
-  SolverCore.set_solution!(stats, solver.x[end])
+  stats.solution = solver.x[end]
+  #SolverCore.set_solution!(stats, solver.x[end])
   return stats
 end
 
 """
     CheckUnderOverflowStep(s::AbstractVector)
 
-Check if step over/underflow. Step cannot be zero in theory, if this happens it means that underflow occurs.
+Check if step `s` over/underflow. Step cannot be zero in theory, if this happens it means that underflow occurs.
 
-# Outpus:
-* ::bool : true if over/underflow
+# Outputs:
+1. ::bool : true if over/underflow
 """
 
 function CheckUnderOverflowStep(s::AbstractVector, g::AbstractVector)
@@ -412,10 +476,10 @@ end
 """
     CheckUnderOverflowCandidate(c::AbstractVector)
 
-Check if candidate over/underflow.
+Check if candidate `c` over/underflow.
 
 # Outputs: 
-* ::bool : true if over/underflow occurs
+1. ::bool : true if over/underflow occurs
 """
 
 function CheckUnderOverflowCandidate(c::AbstractVector, x::AbstractVector, s::AbstractVector)
@@ -427,8 +491,10 @@ end
 """
     CheckUnderOverflowMD(ΔT)
 
-Check if model decrease ΔT over/underflow. ΔT=0 implies underflow since it is theoretically not possible to have this value.
+Check if model decrease ΔT over/underflow. ΔT==0 implies underflow since it is theoretically not possible to have this value (obtainable only for null gradient but MPR2 would have terminated).
 
+# Outputs
+1. ::bool : true if over/underflow occurs
 """
 
 function CheckUnderOverflowMD(ΔT::AbstractFloat)
@@ -438,8 +504,9 @@ end
 """
     umpt!(x::Tuple, y::Vector{S})
 
-Update multi precision containers. 
-Update is occuring only if precision input vector y is lower or equal to the one of the element of the container (vector) to avoid rounding error due to conversion. 
+Update the elements of the multi precision containers `x` with the value `y`.
+Only the elements of `x` of FP formats with precision greater or equal than `y` are updated (avoid rounding error).
+
 """
 function umpt!(x::Tuple, y::Vector{S}) where {S}
   for xel in x
@@ -451,19 +518,22 @@ end
 """
     computeStep!(s::T, g::T, σ::H, FP::Vector{DataType}, π::MPR2Precisions) where {T <: Tuple, H}
 
-Compute step with FP format avoiding underflow and overflow
+Compute step with proper FP format to avoid underflow and overflow
+
 # Arguments
-* `s::Vector{T}` : step 
-* `g::Vector{T}` : gradient 
+* `s::T` : step 
+* `g::T` : gradient 
 * `πg::Int` : `g` FP index
 * `σ::H` : regularization parameter
 * `FP::Vector{Int}` : Available floating point formats
+* `π::MPR2Precisions` : FP format index storage structure 
 
 # Modified arguments :
-* `s::Vector` : step vector container
-* `π::MPR2Precisions` : hold the FP format indices
-# Output
-* ::bool : false if over/underflow occur, true otherwise
+* `s::T` : updated with computed step
+* `π::MPR2Precisions` : `π.πs` updated with FP format used for step computation
+
+# Outputs
+* `::bool` : false if over/underflow occurs, true otherwise
 """
 function computeStep!(
   s::T,
@@ -497,19 +567,19 @@ end
 """
     computeCandidate!(c::T, x::T, s::T, FP::Vector{DataType}, π::MPR2Precisions) where {T <: Tuple}
 
-Compute candidate with FP format avoiding underflow and overflow
+Compute candidate with proper FP format to avoid underflow and overflow
 # Arguments
-* x::Vector{T} : incumbent 
-* s::Vector{T} : step
-* FP::Vector{Int} : Available floating point formats
-* π::MPR2Precisions
+* `x::T` : incumbent 
+* `s::T` : step
+* `FP::Vector{Int}` : Available floating point formats
+* `π::MPR2Precisions` : FP format index storage structure
 
 # Modified arguments:
-* c::Vector{T} : candidate
-* π::MPR2Precisions : π.πc updated
-
-# Outputs
-* ::bool : false if over/underflow occur with highest precision FP format, true otherwise
+* `c::T` : updated with candidate
+* `π::MPR2Precisions` : `π.πc` updated with FP format index used for computation
+ 
+# Outputs:
+* `::bool` : false if over/underflow occur with highest precision FP format, true otherwise
 """
 function computeCandidate!(
   c::T,
@@ -543,18 +613,18 @@ end
 Compute model decrease with FP format avoiding underflow and overflow
 
 # Arguments
-* g::Vector{T} : gradient 
-* s::Vector{T} : step
-* solver::MPR2Solver: algo status
-* FP::Vector{Int} : Available floating point formats
-* π::MPR2Precisions : hold the FP format indices
+* `g::T` : gradient 
+* `s::T` : step
+* `solver::MPR2Solver` : solver structure, stores intermediate variables
+* `FP::Vector{Int}` : Available floating point formats
+* `π::MPR2Precisions` : FP format index storage structure
 
 # Modified Arguments
-* solver::MPR2Solver : solver.ΔT updated 
-* π::MPR2Precisions : π.πΔ updated 
+* `solver::MPR2Solver` : `solver.ΔT` updated 
+* `π::MPR2Precisions` : `π.πΔ` updated 
 
 # Outputs
-* ::bool : false if over/underflow occur with highest precision FP format, true otherwise
+* `::bool` : false if over/underflow occur with highest precision FP format, true otherwise
 
 """
 function computeModelDecrease!(
@@ -583,7 +653,6 @@ function computeModelDecrease!(
   return true
 end
 
-####### Default strategy for precision selections #######
 """
     computeMu(m::FPMPNLPModel, solver::MPR2Solver{T,H}; π::MPR2Precisions = solver.π)
 
@@ -606,9 +675,9 @@ end
 
 Default strategy to select new precisions to recompute μ in the case where μ > κₘ. Return false if no precision can be increased.
 # Modified arguments:
-* πr: contains new precision that will be used to recompute mu, see [`recomputeMu!`](@ref)
+* `πr`: contains new precision that will be used to recompute mu, see [`recomputeMu!`](@ref)
 # Ouptputs
-* max_prec::bool : return true if maximum precision levels have been reached
+* `max_prec::bool` : return true if maximum precision levels have been reached
 """
 function recomputeMuPrecSelection!(π::MPR2Precisions, πr::MPR2Precisions, πmax)
   minprec = min(π.πnx, π.πns)
@@ -646,7 +715,7 @@ Possible operations are:
 - recompute model reduction with higher precision to decrease αfunc(n,U[π.πΔ])
 Does not make the over/underflow check as in main loop, since it is a repetition of the main loop with higher precisions and these issue shouldn't occur
 # Outputs:
-* g_recompute::Bool : true if gradient has been modified, false otherwise
+* `g_recompute::Bool` : true if gradient has been modified, false otherwise
 See [`recomputeMuPrecSelection!`](@ref)
 """
 function recomputeMu!(
@@ -695,6 +764,9 @@ Evaluation is predicted as:
   + Interval evaluation error is proportional to f(x)
   + Interval evaluation error depends linearly with unit-roundoff 
 * Other: Lowest precision that does not cast candidate in a lower prec FP format and f(c) predicted does not overflow
+
+# Modified arguments:
+  * `solver.π.πf⁺`: updated with FP format index chosen for objective evaluation
 """
 function selectPif!(m::FPMPNLPModel, solver::MPR2Solver{T, H}, ωfBound::H) where {T, H}
   πmin_no_ov = findfirst(x -> x > abs(solver.f - solver.ΔT), m.OFList) # lowest precision level such that predicted f(ck) ≈ fk+gk'ck does not overflow
@@ -734,7 +806,7 @@ end
 Compute objective function at the candidate. Updates related fields of solver.
 
 # Outputs:
-*bool : returns false if couldn't reach sufficiently small evaluation error or overflow occured. 
+* `::bool `: returns false if couldn't reach sufficiently small evaluation error or overflow occured. 
 
 """
 function compute_f_at_c_default!(
@@ -763,7 +835,7 @@ end
 Compute objective function at the current incumbent. Updates related fields of solver.
 
 # Outputs:
-*bool : returns false if couldn't reach sufficiently small evaluation error or overflow occured. 
+* `::bool` : returns false if couldn't reach sufficiently small evaluation error or overflow occured. 
 
 """
 function compute_f_at_x_default!(
@@ -802,7 +874,7 @@ end
 Compute gradient at x if solver.init == true (first gradient eval outside of main loop), at c otherwise.
 
 # Outputs:
-*bool : always returns true (comply with callback template)
+* `::bool` : always true (needed to comply with callback template)
 """
 function compute_g_default!(
   m::FPMPNLPModel,
@@ -827,7 +899,7 @@ Increase operation precision levels until sufficiently small μ indicator is ach
 See also [`computeMu`](@ref), [`recomputeMuPrecSelection!`](@ref), [`recomputeMu!`](@ref)
 
 # Outputs:
-*bool : returns false if couldn't reach sufficiently small evaluation error or overflow occured. 
+* `::bool` : returns false if couldn't reach sufficiently small evaluation error or overflow occured. 
 """
 function recompute_g_default!(
   m::FPMPNLPModel,
@@ -851,6 +923,7 @@ function recompute_g_default!(
   if isempty(prec) # step size too small compared to incumbent
     @warn "Algo stops because the step size is too small compare to the incumbent, addition unstable (due to rounding error or absorbtion) with highest precision level"
     stats.status = :small_step
+    stats.status_reliable = true
     return false, false
   end
   solver.μ = computeMu(m, solver)

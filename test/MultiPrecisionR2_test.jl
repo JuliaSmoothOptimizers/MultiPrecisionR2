@@ -235,12 +235,12 @@ end
   dim = 2^5
   x0 = 1 / 10 .* ones(dim)
   gamma0(n, u) = 0.0
-  m = FPMPNLPModel(f, x0, Formats, γfunc = gamma0)
+  m = FPMPNLPModel(f, x0, Formats, γfunc = gamma0, obj_int_eval = true, grad_int_eval = true)
   solver = MPR2Solver(m)
   solver.ϕ = 0.0
   u = eps(Float64) / 2
   @test MultiPrecisionR2.computeMu(m, solver) == (u + u) / (1 - u)
-  m = FPMPNLPModel(f, x0, Formats)
+  m = FPMPNLPModel(f, x0, Formats, obj_int_eval = true, grad_int_eval = true)
   solver = MPR2Solver(m)
   π = MPR2Precisions(1)
   πr = copy(π)
@@ -291,7 +291,7 @@ end
   f(x) = sum(x)
   Formats = [Float16, Float32]
   x0 = ones(Float32, 2)
-  η0 = 0.01 # default η0 value upon solver instanciation
+  η0 = 0.01 # default η0 value upon solver instantiation
   ω = [0.1 * η0, 0.01 * η0]
   gamma0(n, u) = 0.0
   m = FPMPNLPModel(f, x0, Formats, γfunc = gamma0, ωfRelErr = ω, ωgRelErr = ω)
@@ -541,7 +541,7 @@ end
   @testset "Interval Evaluation" begin
     setrounding(Interval, :accurate)
     for nlp in problem_set
-      mpnlp = FPMPNLPModel(nlp, FPFormats)
+      mpnlp = FPMPNLPModel(nlp, FPFormats; obj_int_eval = true, grad_int_eval = true)
       stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0)
       ng0 = rtol != 0 ? norm(grad(nlp, nlp.meta.x0)) : 0
       ϵ = atol + rtol * ng0

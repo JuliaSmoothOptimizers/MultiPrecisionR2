@@ -5,7 +5,7 @@ export MPCounters
 
 Struct for storing the number of function evaluations with each floating point format.
 The fields are the same as [NLPModels.Counters](https://jso.dev/NLPModels.jl/stable/reference/#NLPModels.Counters),
-but contains a `Dict{DataType,Int}`.
+but are `Dict{DataType,Int}` instead of `Int`.
 
 ---
 
@@ -13,6 +13,7 @@ but contains a `Dict{DataType,Int}`.
 
 Creates an empty MPCounters struct for types in the vector `FPformats`.
 
+# Example 
 ```julia
 using MultiPrecisionR2.jl
 FPformats = [Float16, Float32]
@@ -54,7 +55,7 @@ for mpcounter in fieldnames(MPCounters)
         $($mpcounter)(nlp,T)
 
     Get the total number (all FP formats) of `$(split("$($mpcounter)", "_")[2])` evaluations.
-    If extra argument T is provided, returns  turn number of `$(split("$($mpcounter)", "_")[2])` evaluations for the given FP format T.
+    If extra argument T is provided, returns the number of `$(split("$($mpcounter)", "_")[2])` evaluations for the given FP format T.
     """
     NLPModels.$mpcounter(nlp::AbstractMPNLPModel) = sum(collect(values(nlp.counters.$mpcounter)))
     NLPModels.$mpcounter(nlp::AbstractMPNLPModel, T::DataType) = nlp.counters.$mpcounter[T]
@@ -94,7 +95,7 @@ end
 """
     sum_counters(c::MPCounters)
 
-Sum all counters of `counters` except `cons`, `jac`, `jprod` and `jtprod`.
+Sum all counters of `c` except `cons`, `jac`, `jprod` and `jtprod`.
 """
 function sum_counters(c::MPCounters)
   s = Dict{DataType, Int}()
@@ -108,7 +109,7 @@ end
 """
     sum_counters(mpnlp)
 
-Sum all counters of problem `nlp` except `cons`, `jac`, `jprod` and `jtprod`.
+Sum all counters of problem `mpnlp` except `cons`, `jac`, `jprod` and `jtprod`.
 """
 sum_counters(mpnlp::AbstractMPNLPModel) = sum_counters(mpnlp.counters)
 

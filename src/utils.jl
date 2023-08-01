@@ -117,10 +117,10 @@ end
 """
     check_overflow(f)
 
-* f::AbstractFloat: Returns true if `f` is inf or nan, false otherwise.
-* f::Interval : Returns true if `diam(f)` is inf or nan, false otherwise.
-* f::AbstractVector{AbstractFloat} : Returns true if on element of `f` is inf or nan, false otherwise.
-* f::AbstractVector{Interval} : Returns true if on element of `diam(f)` is inf, false otherwise.
+* `f::AbstractFloat`: Returns true if `f` is inf or nan, false otherwise.
+* `f::Interval` : Returns true if `diam(f)` is inf or nan, false otherwise.
+* `f::AbstractVector{AbstractFloat}` : Returns true if on element of `f` is inf or nan, false otherwise.
+* `f::AbstractVector{Interval}`: Returns true if on element of `diam(f)` is inf, false otherwise.
 """
 function check_overflow(f::AbstractFloat)
   return isinf(f) || isnan(f)

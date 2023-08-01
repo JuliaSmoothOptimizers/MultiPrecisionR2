@@ -146,6 +146,7 @@ function FPMPNLPModel(
     ObjIntervalEval_test(Model, FPList)
   else
     @lencheck length(FPList) ωfRelErr
+    ObjTypeStableTest(Model, FPList)
     ObjEvalMode = REL_ERR
     @info "Using relative error model for objective evaluation."
   end
@@ -156,6 +157,7 @@ function FPMPNLPModel(
     GradIntervalEval_test(Model, FPList)
   else
     @lencheck length(FPList) ωgRelErr
+    GradTypeStableTest(Model, FPList)
     GradEvalMode = REL_ERR
     @info "Using relative error model for gradient evaluation."
   end
@@ -208,7 +210,7 @@ function NLPModels.obj(
   m::FPMPNLPModel,
   x::Union{AbstractVector{T}, AbstractVector{Interval{T}}},
 ) where {T <: AbstractFloat}
-  increment!(m, :neval_obj, T)
+  MultiPrecisionR2.increment!(m, :neval_obj, T)
   obj(m.Model, x)
 end
 
@@ -217,7 +219,7 @@ function NLPModels.grad!(
   x::S,
   g::S,
 ) where {T <: AbstractFloat, S <: Union{AbstractVector{T}, AbstractVector{Interval{T}}}}
-  increment!(m, :neval_grad, T)
+  MultiPrecisionR2.increment!(m, :neval_grad, T)
   grad!(m.Model, x, g)
 end
 

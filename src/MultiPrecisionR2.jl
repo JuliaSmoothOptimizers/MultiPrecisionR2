@@ -545,7 +545,7 @@ function computeStep!(
   πmax = length(FP)
   while FP[π.πs](σ) === FP[π.πs](0) || isinf(FP[π.πs](σ)) # σ cast underflow or overflow
     if π.πs == πmax # over/underflow at max prec FP
-      @error "over/underflow of σ with maximum precision FP format ($(FP[πmax]))"
+      @error "Step over/underflow of σ with maximum precision FP format ($(FP[πmax]))"
       return false
     end
     π.πs += 1
@@ -554,7 +554,7 @@ function computeStep!(
   # increase FP prec until no overflow or underflow occurs
   while CheckUnderOverflowStep(s[π.πs], g[π.πg])
     if π.πs == πmax #not enough precision to avoid over/underflow 
-      @error "over/underflow with maximum precision FP format ($(FP[πmax]))"
+      @error "Step over/underflow with maximum precision FP format ($(FP[πmax]))"
       return false
     end
     π.πs += 1
@@ -595,7 +595,7 @@ function computeCandidate!(
   c[πc] .= FP[πc].(x[max(πc, πx)] .+ s[max(πc, πs)])
   while CheckUnderOverflowCandidate(c[πc], x[πx], s[πs])
     if πc == πmax #not enough precision to avoid underflow
-      @warn "over/underflow with maximum precision FP format ($(FP[πmax]))"
+      @warn "Candidate over/underflow with maximum precision FP format ($(FP[πmax]))"
       π.πc = πc
       return false
     end
@@ -642,7 +642,7 @@ function computeModelDecrease!(
   solver.ΔT = H.(-dot(g[πΔ], s[πΔ]))
   while CheckUnderOverflowMD(solver.ΔT)
     if πΔ == πmax
-      @warn "over/underflow with maximum precision FP format ($(FP[πmax]))"
+      @warn "Model decrease over/underflow with maximum precision FP format ($(FP[πmax]))"
       π.πΔ = πΔ
       return false
     end

@@ -50,27 +50,50 @@ end
 
 @testset "Eval test functions" begin
   f(x) = 0.0
+  g!(gx, x) = begin
+    gx[1] = 0.0
+  end
   FPList = [Float32]
   x0 = zeros(1)
-  nlp = ADNLPModel(f, x0)
-  try
-    MultiPrecisionR2.ObjIntervalEval_test(nlp, FPList)
-    @test false
-  catch e
-    buf = IOBuffer()
-    showerror(buf, e)
-    err_msg = String(take!(buf))
-    @test err_msg ==
-          "Objective function evaluation error with interval, error model must be provided. Error detail:"
-  end
-  try
-    MultiPrecisionR2.GradIntervalEval_test(nlp, FPList)
-    @test false
-  catch e
-    buf = IOBuffer()
-    showerror(buf, e)
-    err_msg = String(take!(buf))
-    @test err_msg ==
-          "Gradient evaluation error with interval, error model must be provided. Error detail:"
-  end
+  nlp = NLPModel(x0, f, grad = g!)
+
+  @test_logs (
+    :warn,
+    "Interval evaluation of objective function not type stable (Float32 -> Float64): evaluations are likely to be all perfomed with Float64 FP format.",
+  ) min_level = Logging.Warn MultiPrecisionR2.ObjIntervalEval_test(nlp, FPList)
+  # try
+  #   MultiPrecisionR2.ObjIntervalEval_test(nlp, FPList)
+  #   @test false
+  # catch e
+  #   buf = IOBuffer()
+  #   showerror(buf, e)
+  #   err_msg = String(take!(buf))
+  #   @test err_msg ==
+  #         "Objective function evaluation error with interval, error model must be provided. Error detail:"
+  # end
+
+  @test_logs (
+    :warn,
+    "Interval evaluation of gradient not type stable (Float32 -> Float64): evaluations are likely to be all perfomed with Float64 FP format.",
+  ) min_level = Logging.Warn MultiPrecisionR2.GradIntervalEval_test(nlp, FPList)
+  # try
+  #   MultiPrecisionR2.GradIntervalEval_test(nlp, FPList)
+  #   @test false
+  # catch e
+  #   buf = IOBuffer()
+  #   showerror(buf, e)
+  #   err_msg = String(take!(buf))
+  #   @test err_msg ==
+  #         "Gradient evaluation error with interval, error model must be provided. Error detail:"
+  # end
+
+  @test_logs (
+    :warn,
+    "Evaluation of objective function not type stable (Float32 -> Float64): evaluations are likely to be all perfomed with Float64 FP format.",
+  ) min_level = Logging.Warn MultiPrecisionR2.ObjTypeStableTest(nlp, FPList)
+
+  @test_logs (
+    :warn,
+    "Evaluation of gradient not type stable (Float32 -> Float64): evaluations are likely to be all perfomed with Float64 FP format.",
+  ) min_level = Logging.Warn MultiPrecisionR2.GradTypeStableTest(nlp, FPList)
 end

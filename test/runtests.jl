@@ -4,11 +4,14 @@ using LinearAlgebra
 using Logging
 using Test
 using ADNLPModels
+using NLPModels
 using IntervalArithmetic
 using OptimizationProblems
 using OptimizationProblems.ADNLPProblems
 using JSOSolvers
 using SolverCore
+using SolverTest
+using ManualNLPModels
 
 with_logger(NullLogger()) do
   @testset "utils.jl" begin

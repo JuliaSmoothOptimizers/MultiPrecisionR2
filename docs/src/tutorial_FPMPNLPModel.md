@@ -96,7 +96,7 @@ graderrmp(MPmodelRelative,x32)
 # **High Precision Format**
 `FPMPNLPModel` performs some operations with a high precision FP format to provide more numerical stability. The convergence of MPR2 relies on the fact that such operations are "exact", as if performed with infinite precision.
 
-This high precision format can be given as a keyword argument upon instanciation of `FPMPNLPModel`. The default value is `Float64`. Note that this high precision format corresponds to the type parameter `H` in `struct FPMPNLPModel{H,F,T<:Tuple}`. It is expected that `FPMPNLPModel.HPFormat` has at least equal or greater machine epsilon than the highest precision FP format that can be used for objective or gradient evaluation.
+This high precision format can be given as a keyword argument upon instantiation of `FPMPNLPModel`. The default value is `Float64`. Note that this high precision format corresponds to the type parameter `H` in `struct FPMPNLPModel{H,F,T<:Tuple}`. It is expected that `FPMPNLPModel.HPFormat` has at least equal or greater machine epsilon than the highest precision FP format that can be used for objective or gradient evaluation.
 
 **FPMPNLPModel Example 5: HPFormat value**
 
@@ -124,7 +124,7 @@ For example, if the highest precision format `Float32` is used, $u_{max} \approx
 
 **FPMPNLPModel Example 5: Gradient and Dot Product Error**
 
-The code below returns an error at the instanciation of `FPMPNLPModels` indicating that the dimension of the problem is too big with respect to the highest precision FP format provided (`Float16`).
+The code below returns an error at the instantiation of `FPMPNLPModels` indicating that the dimension of the problem is too big with respect to the highest precision FP format provided (`Float16`).
 ```@example ex
 using MultiPrecisionR2
 

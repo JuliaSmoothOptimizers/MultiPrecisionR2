@@ -69,7 +69,7 @@ These parameters must satisfy some conditions, see `MPR2Params` for details. The
 
 # Evaluation Error Mode
 
-MPR2 convergence is ensured by taking into account objective and gradient evaluation errors. These errors can be evaluated with interval arithmetic of based on relative error assumption. The error evaluation mode is chosen upon the `FPMPNLPModel` instanciation, given as argument of `MPR2()`. Evaluating the objective/gradient and the error is done with the interfaces provided in `MPNLPModels.jl`, see `FPMPNLPModel` documentation. 
+MPR2 convergence is ensured by taking into account objective and gradient evaluation errors. These errors can be evaluated with interval arithmetic of based on relative error assumption. The error evaluation mode is chosen upon the `FPMPNLPModel` instantiation, given as argument of `MPR2()`. Evaluating the objective/gradient and the error is done with the interfaces provided in `MPNLPModels.jl`, see `FPMPNLPModel` documentation. 
 
 # Callbacks for Personalized Implementation
 

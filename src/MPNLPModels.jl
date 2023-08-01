@@ -38,13 +38,13 @@ The error models are :
 - `FPList::Vector{DataType}` : List of floating point formats
 - `EpsList::Vector{H}` : List of machine epsilons of the floating point formats in `FPList`
 - `UList::Vector{H}` : List of unit round-off of the floating point formats in `FPList`
-- `γfunc` : callback function for dot product rounding error parameter |γ|, |fl(x.y) - x.y| ≤ |x|.|y| γ. Expected signature is `γfunc(n::Int,u::H)` and output is `H`. Default callback `γfunc(n::Int,u::H) = n*u` is implemented upon instanciation. 
+- `γfunc` : callback function for dot product rounding error parameter |γ|, |fl(x.y) - x.y| ≤ |x|.|y| γ. Expected signature is `γfunc(n::Int,u::H)` and output is `H`. Default callback `γfunc(n::Int,u::H) = n*u` is implemented upon instantiation. 
 - `ωfRelErr::Vector{H}` : List of relative error factor for objective function evaluation for formats in `FPList`. Error model is |f(x)-fl(f(x))| ≤ ωfRelErr * |fl(f(x))| 
 - `ωgRelErr::Vector{H}` : List of relative error factor for gradient evaluation for formats in `FPList`. Error model is ||∇f(x)-fl(∇f(x))||₂ ≤ ωgRelErr * ||fl(∇f(x))||₂ 
-- `ObjEvalMode::Int` : Evalutation mode for objective and error. Set automatically upon instanciation. Possible values:
+- `ObjEvalMode::Int` : Evalutation mode for objective and error. Set automatically upon instantiation. Possible values:
   + `INT_ERR` : interval evaluation of objective (chosen as middle of the interval) and error
   + `REL_ERR` : classical evaluation and use relative error model (with `ωfRelErr` value)
-- `GradEvalMode::Int` : Evalutation mode for gradient and error. Set automatically upon instanciation. Possible values:
+- `GradEvalMode::Int` : Evalutation mode for gradient and error. Set automatically upon instantiation. Possible values:
   + `INT_ERR` : interval evaluation of gradient (chosen as middle of interval vector) and error
   + `REL_ERR` : classical evaluation and use relative error model (with `ωgRelErr` value)
 
@@ -66,9 +66,9 @@ The error models are :
   + `obj_int_eval = false` : if true, use interval arithmetic for objective value and error evaluation
   + `grad_int_eval = false` : if true, use interval arithmetic for gradient value and error evaluation
   
-# Checks upon instanciation
+# Checks upon instantiation
 
-Some checks are performed upon instanciation. These checks include:
+Some checks are performed upon instantiation. These checks include:
 + Length consistency of vector fields:  FPList, EpsList
 + HPFormat is at least as accurate as the highest precision floating point format in `FPList`. Ideally HPFormat is more accurate to ensure the numerical stability of MPR2 algorithm.
 + Interval evaluations: it might happen that interval evaluation of objective function and/or gradient is type-unstable or returns an error. The constructor returns an error in this case. This type of error is most likely due to `IntervalArithmetic.jl`.

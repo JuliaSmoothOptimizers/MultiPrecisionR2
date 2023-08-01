@@ -44,7 +44,7 @@ This function is used to take finite-precision norm computation error into accou
 Build a `ADNLPModel` from `f` and `x0` and call constructor 1.
 
 ## Keyword arguments
-  + `HPFormat=Float64` : high precision format (must be at least as accurate as `FPList[end]`), corrensponds to `H` parameter after instanciation
+  + `HPFormat=Float64` : high precision format (must be at least as accurate as `FPList[end]`), corrensponds to `H` parameter after instantiation
   + `γfunc=nothing` : use default callback if not provided (see Fields section above)
   + `ωfRelErr=HPFormat.(sqrt.(eps.(FPList)))`: use relative error model by default for objective evaluation
   + `ωgRelErr=HPFormat.(sqrt.(eps.(FPList)))`: use relative error model by default for gradient evaluation
@@ -92,7 +92,7 @@ See keyword arguments section for `ωfRelErr` and `ωgRelErr` default values.
 
 ## Interval Error Evaluation
 
-Error of the objective (resp. gradient) evaluation can be determined with interval arithmetic. This evaluation mode can be set upon `FPMPNLPModel` instanciation with `obj_int_eval` and `grad_int_eval`.
+Error of the objective (resp. gradient) evaluation can be determined with interval arithmetic. This evaluation mode can be set upon `FPMPNLPModel` instantiation with `obj_int_eval` and `grad_int_eval`.
 
 * Objective: evaluating the objective with interval arithmetic provides the interval $[\underline{f},\overline{f}]$ such that $\underline{f}\leq fl(f) \leq \overline{f}$. `objerrmp` returns the middle of the interval as the value of the objective, that is $(\underline{f}+\overline{f})/2$, and returns the diameter of the interval as $\omega_f$, that is, $\omega_f = (\underline{f}-\overline{f})/2$
 

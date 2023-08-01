@@ -48,8 +48,8 @@ using IntervalArithmetic
 setrounding(Interval,:accurate)
 ``` 
 before instanciating a `FPMPNLPModel`.
- 
-3. If interval evaluation mode is used, interval evaluations of the objective and the gradient are automatically tested upon `FPMPNLPModel` instanciation.  An error is thrown if the evaluation fails. This might happen for several reasons related to [IntervalArithmetic.jl](https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md) package.
+
+3. If interval evaluation mode is used, interval evaluations of the objective and the gradient are automatically tested upon `FPMPNLPModel` instantiation.  An error is thrown if the evaluation fails. This might happen for several reasons related to [IntervalArithmetic.jl](https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md) package.
 
 
 ## Bug reports and discussions

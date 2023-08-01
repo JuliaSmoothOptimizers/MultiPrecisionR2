@@ -291,7 +291,7 @@ end
   f(x) = sum(x)
   Formats = [Float16, Float32]
   x0 = ones(Float32, 2)
-  η0 = 0.01 # default η0 value upon solver instanciation
+  η0 = 0.01 # default η0 value upon solver instantiation
   ω = [0.1 * η0, 0.01 * η0]
   gamma0(n, u) = 0.0
   m = FPMPNLPModel(f, x0, Formats, γfunc = gamma0, ωfRelErr = ω, ωgRelErr = ω)

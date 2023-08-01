@@ -238,7 +238,7 @@ MPR2(mpnlp) # runs MPR2 with relative error model estimation
 ```
 
 ## **High Precision Format**
-MPR2 uses a high precision format to compute "exactly" the values that are *defined* (see section [MPR2 Algorithm Broad Description](#mpr2-algorithm-broad-description-differs-from-package-implementation)). This high precision format corresponds to the type parameter `H` in `MPR2()` template. The high precision format used by MPR2 is `MPnlp::FPMPNLPModel`'s `H` parameter type which can be chosen upon `MPnlp` instanciation (see `FPMPNLPModel` documentation).
+MPR2 uses a high precision format to compute "exactly" the values that are *defined* (see section [MPR2 Algorithm Broad Description](#mpr2-algorithm-broad-description-differs-from-package-implementation)). This high precision format corresponds to the type parameter `H` in `MPR2()` template. The high precision format used by MPR2 is `MPnlp::FPMPNLPModel`'s `H` parameter type which can be chosen upon `MPnlp` instantiation (see `FPMPNLPModel` documentation).
 
 ```@example
 using MultiPrecisionR2

@@ -71,7 +71,7 @@ where $fl()$ denotes the finite-precision computation with one of the FP formats
 `FPNLPModel` enables to determine evaluation errors $\omega_f$ and $\omega_g$ either:
 * based on relative error model with `ωfRelErr` and `ωgRelErr`,
 * in a guaranteed way based on interval evaluation with `IntervalArithmetic.jl` package.
-By default, relative error model is used. Interval evaluation can be selected upon instanciation of `FPMPNLPModel` with `obj_int_eval` and `grad_int_eval` kwargs.
+By default, the relative error model is used. Interval evaluation can be selected upon instantiation of `FPMPNLPModel` with `obj_int_eval` and `grad_int_eval` kwargs.
 
 
 ## Taking Norm Computation Error Into Account

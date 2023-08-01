@@ -52,7 +52,7 @@ Build a `ADNLPModel` from `f` and `x0` and call constructor 1.
   + `grad_int_eval = false` : if true, use interval arithmetic for gradient value and error evaluation
 
 ## Checks upon instanciation
-Some checks are performed upon instanciation. These checks include:
+Some checks are performed upon instanctiation. These checks include:
 + Length consistency of vector fields:  `FPList`, `EpsList`, `UList`
 + `HPFormat` is at least as accurate as the highest precision floating point format in `FPList`. Ideally HPFormat is more accurate to ensure the numerical stability.
 + Interval evaluations: it might happen that interval evaluation of objective function and/or gradient is type-unstable or returns an error. The constructor returns an error in this case. This type of error is most likely due to [IntervalArithmetic.jl](https://github.com/JuliaIntervals/IntervalArithmetic.jl/blob/master/README.md) package.

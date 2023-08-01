@@ -123,7 +123,7 @@ function FPMPNLPModel(
   ωfRelErr = HPFormat.(sqrt.(eps.(FPList))),
   ωgRelErr = HPFormat.(sqrt.(eps.(FPList))),
   obj_int_eval = false,
-  grad_int_eval = false
+  grad_int_eval = false,
 ) where {D, S, K <: DataType}
   EpsList = convert.(HPFormat, eps.(FPList))
   UList = EpsList .* HPFormat(1 / 2) # assume rounding mode is rounding to the nearest
@@ -150,7 +150,7 @@ function FPMPNLPModel(
     ObjEvalMode = REL_ERR
     @info "Using relative error model for objective evaluation."
   end
-  
+
   if grad_int_eval
     GradEvalMode = INT_ERR
     @info "Interval evaluation used for gradient error evaluation: might significantly increase computation time"

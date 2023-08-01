@@ -176,7 +176,8 @@ end
       x₀ = [1 / 10, 1 / 10]
       Formats = [Float32, Float64]
       γfunc(n, u) = 0.0 # ignore rounding errors for the tests
-      mpmodel = FPMPNLPModel(f1, x₀, Formats, γfunc = γfunc, obj_int_eval = true, grad_int_eval = true)
+      mpmodel =
+        FPMPNLPModel(f1, x₀, Formats, γfunc = γfunc, obj_int_eval = true, grad_int_eval = true)
       x = (Float32.(x₀), x₀)
       #obj test
       fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 2.0 * eps(Float64))

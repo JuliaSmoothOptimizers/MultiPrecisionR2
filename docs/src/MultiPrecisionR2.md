@@ -4,7 +4,7 @@
 
 $\min_x f(x)$,
 
-with $f$ a smooth non-linear function and $x \in \mathbb{R}^n$.
+with $f:\mathbb{R}^n \rightarrow \mathbb{R}$ a smooth non-linear function and $x \in \mathbb{R}^n$.
 
 MPR2 extends R2 by dynamically adapting the FP formats used for objective and gradient evaluations so that the convergence is guaranteed in spite of evaluation errors due to finite-precision computations and over/underflow are avoided.
 

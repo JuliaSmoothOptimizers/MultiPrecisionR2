@@ -267,6 +267,14 @@ function NLPModels.hess_coord!(
   hess_coord!(m.Model,x,y,vals,obj_weight = obj_weight)
 end
 
+function NLPModels.hess_structure!(
+  m::FPMPNLPModel,
+  rows::AbstractVector{<:Integer},
+  cols::AbstractVector{<:Integer},
+)
+  hess_structure!(m.Model,rows,cols)
+end
+
 """
     get_id(m::FPMPNLPModel, FPFormat::DataType)
 

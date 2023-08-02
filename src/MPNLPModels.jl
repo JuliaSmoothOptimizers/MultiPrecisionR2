@@ -485,7 +485,7 @@ function gradReachPrec!(
     ωg = graderrmp!(m, x[id], g[id])
     umpt!(g, g[id])
   end
-  if findfirst(x -> x == Inf, g) !== nothing
+  if findfirst(x -> isinf(x), g) !== nothing
     @warn "Gradient evaluation overflows with highest FP format at x0"
   end
   if id == πmax && isinf(ωg)

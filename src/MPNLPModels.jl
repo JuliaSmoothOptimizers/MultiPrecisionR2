@@ -241,7 +241,7 @@ function NLPModels.hprod!(
   Hv::AbstractVector{T};
   obj_weight::Real = one(T),
 ) where {T}
-  MultiPrecisionR2.increment!(m, :neval_hprod,T)
+  increment!(m, :neval_hprod,T)
   hprod!(m.Model,x,y,v,Hv,obj_weight = obj_weight)
 end
 

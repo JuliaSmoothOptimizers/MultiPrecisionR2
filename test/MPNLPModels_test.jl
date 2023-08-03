@@ -249,4 +249,17 @@ end
       @test πg == 1
     end
   end
+  @testset "hprod_ov_mp and hess_prod_ov_mp overflow test" begin
+    T = [Float16,Float32]
+    a = prevfloat(typemax(T[1]))
+    f(x) = sum(a .* x.^2)
+    dim = 2
+    x0 = ones(T[1],dim)
+    mpmodel = FPMPNLPModel(f,x0,T)
+    x = Tuple(ones(t,2) for t in T)
+    v = Tuple(ones(t,2) for t in T)
+    Hv, id = hprod_of_mp(mpmodel,x,v)
+    @test id == 2
+    @test Hv[2] == 2.0* a .* v[2]
+  end
 end

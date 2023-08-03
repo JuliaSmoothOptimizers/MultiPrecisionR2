@@ -8,7 +8,7 @@ export AbstractMPNLPModel,
   grad,
   grad!,
   hprod!,
-  hess_prod!,
+  hess_coord!,
   objerrmp,
   graderrmp,
   graderrmp!,
@@ -17,6 +17,8 @@ export AbstractMPNLPModel,
   gradReachPrec!,
   hprod_of_mp,
   hprod_of_mp!,
+  hess_coord_of_mp,
+  hess_coord_of_mp!,
   AbstractMPNLPModel
 
 const INT_ERR = 0

@@ -567,7 +567,15 @@ function hprod_of_mp!(
   obj_weight::Real = 1.0,
   π::Int = 1
 ) where {T <: Tuple}
-  hprod_of_mp!(m,x,Tuple(zeros(t, m.meta.ncon) for t in m.FPList),v,Hv,obj_weight = obj_weight,π=π)
+id = π
+πmax = length(m.FPList)
+hprod!(m,x[id],v[id],Hv[id],obj_weight = m.FPList[id](obj_weight))
+while check_overflow(Hv[id]) && id <= πmax -1
+  id += 1
+  hprod!(m,x[id],v[id],Hv[id],obj_weight = m.FPList[id](obj_weight))
+end
+umpt!(Hv, Hv[id])
+return id
 end
 
 function hprod_of_mp(
@@ -601,7 +609,7 @@ end
     hess_coord_of_mp!(m::FPMPNLPModel, x::T, vals::T; obj_weight::Real = 1.0, π::Int = 1) where {T <: Tuple}
     hess_coord_of_mp!(m::FPMPNLPModel, x::T, y::T, vals::T; obj_weight::Real = 1.0, π::Int = 1) where {T <: Tuple}
 
-Call `hess_coord!` recursively from the π-th element of the tuple arguments until `vals` does not overflow.
+Call `hess_coord!` recursively from the π-th element of the `T <: Tuple` arguments until `vals` does not overflow.
 
 # Modified argument
 * `vals::T`
@@ -621,12 +629,12 @@ function hess_coord_of_mp!(
 ) where {T <: Tuple}
   id = π
   πmax = length(m.FPList)
-  hprod!(m,x[id],y[id],vals[id],obj_weight = m.FPList[id](obj_weight))
-  while check_overflow(Hv[id]) && id <= πmax -1
+  hess_coord!(m,x[id],y[id],vals[id],obj_weight = m.FPList[id](obj_weight))
+  while check_overflow(vals[id]) && id <= πmax -1
     id += 1
-    hprod!(m,x[id],y[id],vals[id],obj_weight = m.FPList[id](obj_weight))
+    hess_coord!(m,x[id],y[id],vals[id],obj_weight = m.FPList[id](obj_weight))
   end
-  umpt!(Hv, Hv[id])
+  umpt!(vals, vals[id])
   return id
 end
 
@@ -637,7 +645,15 @@ function hess_coord_of_mp!(
   obj_weight::Real = 1.0,
   π::Int = 1
 ) where {T <: Tuple}
-  hess_coord_of_mp!(m,x,Tuple(zeros(t, m.meta.ncon) for t in m.FPList),vals,obj_weight = obj_weight,π=π)
+id = π
+  πmax = length(m.FPList)
+  hess_coord!(m,x[id],vals[id],obj_weight = m.FPList[id](obj_weight))
+  while check_overflow(vals[id]) && id <= πmax -1
+    id += 1
+    hess_coord!(m,x[id],vals[id],obj_weight = m.FPList[id](obj_weight))
+  end
+  umpt!(vals, vals[id])
+  return id
 end
 
 function hess_coord_of_mp(

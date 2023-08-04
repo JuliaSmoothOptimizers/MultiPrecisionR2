@@ -261,7 +261,8 @@ function NLPModels.hess_coord!(
 ) where {T}
   @lencheck m.meta.nvar x
   @lencheck m.meta.nnzh vals
-  hess_coord!(m,x,zeros(T, m.meta.ncon),vals,obj_weight = obj_weight)
+  increment!(m, :neval_hess, T)
+  hess_coord!(m.Model,x,vals,obj_weight = obj_weight)
 end
 
 function NLPModels.hess_coord!(

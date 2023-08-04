@@ -269,7 +269,7 @@ function NLPModels.hess_coord!(
   vals::AbstractVector{T};
   obj_weight::Real = one(T),
 ) where {T}
-  MultiPrecisionR2.increment!(m, :neval_hess, T)
+  increment!(m, :neval_hess, T)
   hess_coord!(m.Model,x,y,vals,obj_weight = obj_weight)
 end
 

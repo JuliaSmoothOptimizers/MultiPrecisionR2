@@ -236,7 +236,8 @@ function NLPModels.hprod!(
   Hv::AbstractVector{T};
   obj_weight::Real = one(T),
 ) where {T}
-  hprod!(m,x,zeros(T, m.meta.ncon),v,Hv,obj_weight = obj_weight)
+  increment!(m, :neval_hprod,T)
+  hprod!(m.Model,x,v,Hv,obj_weight = obj_weight)
 end
 
 function NLPModels.hprod!(

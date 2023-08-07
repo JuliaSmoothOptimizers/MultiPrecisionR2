@@ -237,8 +237,8 @@ function NLPModels.hprod!(
   Hv::AbstractVector{T};
   obj_weight::Real = one(T),
 ) where {T}
-  increment!(m, :neval_hprod,T)
-  hprod!(m.Model,x,v,Hv,obj_weight = obj_weight)
+  increment!(m, :neval_hprod, T)
+  hprod!(m.Model, x, v, Hv, obj_weight = obj_weight)
 end
 
 function NLPModels.hprod!(
@@ -249,8 +249,8 @@ function NLPModels.hprod!(
   Hv::AbstractVector{T};
   obj_weight::Real = one(T),
 ) where {T}
-  increment!(m, :neval_hprod,T)
-  hprod!(m.Model,x,y,v,Hv,obj_weight = obj_weight)
+  increment!(m, :neval_hprod, T)
+  hprod!(m.Model, x, y, v, Hv, obj_weight = obj_weight)
 end
 
 function NLPModels.hess_coord!(
@@ -262,7 +262,7 @@ function NLPModels.hess_coord!(
   @lencheck m.meta.nvar x
   @lencheck m.meta.nnzh vals
   increment!(m, :neval_hess, T)
-  hess_coord!(m.Model,x,vals,obj_weight = obj_weight)
+  hess_coord!(m.Model, x, vals, obj_weight = obj_weight)
 end
 
 function NLPModels.hess_coord!(
@@ -273,7 +273,7 @@ function NLPModels.hess_coord!(
   obj_weight::Real = one(T),
 ) where {T}
   increment!(m, :neval_hess, T)
-  hess_coord!(m.Model,x,y,vals,obj_weight = obj_weight)
+  hess_coord!(m.Model, x, y, vals, obj_weight = obj_weight)
 end
 
 function NLPModels.hess_structure!(
@@ -281,7 +281,7 @@ function NLPModels.hess_structure!(
   rows::AbstractVector{<:Integer},
   cols::AbstractVector{<:Integer},
 )
-  hess_structure!(m.Model,rows,cols)
+  hess_structure!(m.Model, rows, cols)
 end
 
 """
@@ -546,14 +546,14 @@ function hprod_of_mp!(
   v::T,
   Hv::T;
   obj_weight::Real = 1.0,
-  π::Int = 1
+  π::Int = 1,
 ) where {T <: Tuple}
   id = π
   πmax = length(m.FPList)
-  hprod!(m,x[id],y[id],v[id],Hv[id],obj_weight = m.FPList[id](obj_weight))
-  while check_overflow(Hv[id]) && id <= πmax -1
+  hprod!(m, x[id], y[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
+  while check_overflow(Hv[id]) && id <= πmax - 1
     id += 1
-    hprod!(m,x[id],y[id],v[id],Hv[id],obj_weight = m.FPList[id](obj_weight))
+    hprod!(m, x[id], y[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
   end
   umpt!(Hv, Hv[id])
   return id
@@ -565,17 +565,17 @@ function hprod_of_mp!(
   v::T,
   Hv::T;
   obj_weight::Real = 1.0,
-  π::Int = 1
+  π::Int = 1,
 ) where {T <: Tuple}
-id = π
-πmax = length(m.FPList)
-hprod!(m,x[id],v[id],Hv[id],obj_weight = m.FPList[id](obj_weight))
-while check_overflow(Hv[id]) && id <= πmax -1
-  id += 1
-  hprod!(m,x[id],v[id],Hv[id],obj_weight = m.FPList[id](obj_weight))
-end
-umpt!(Hv, Hv[id])
-return id
+  id = π
+  πmax = length(m.FPList)
+  hprod!(m, x[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
+  while check_overflow(Hv[id]) && id <= πmax - 1
+    id += 1
+    hprod!(m, x[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
+  end
+  umpt!(Hv, Hv[id])
+  return id
 end
 
 function hprod_of_mp(
@@ -584,10 +584,10 @@ function hprod_of_mp(
   y::T,
   v::T;
   obj_weight::Real = 1.0,
-  π::Int = 1
+  π::Int = 1,
 ) where {T <: Tuple}
   Hv = Tuple(similar(x[i]) for i in eachindex(x))
-  id = hprod_of_mp!(m,x,y,v,Hv,obj_weight = obj_weight,π = π)
+  id = hprod_of_mp!(m, x, y, v, Hv, obj_weight = obj_weight, π = π)
   return Hv, id
 end
 
@@ -596,10 +596,10 @@ function hprod_of_mp(
   x::T,
   v::T;
   obj_weight::Real = 1.0,
-  π::Int = 1
+  π::Int = 1,
 ) where {T <: Tuple}
   Hv = Tuple(similar(x[i]) for i in eachindex(x))
-  id = hprod_of_mp!(m,x,v,Hv,obj_weight = obj_weight,π = π)
+  id = hprod_of_mp!(m, x, v, Hv, obj_weight = obj_weight, π = π)
   return Hv, id
 end
 
@@ -623,16 +623,17 @@ function hess_coord_of_mp!(
   m::FPMPNLPModel,
   x::T,
   y::T,
-  vals::T,;
+  vals::T,
+  ;
   obj_weight::Real = 1.0,
-  π::Int = 1
+  π::Int = 1,
 ) where {T <: Tuple}
   id = π
   πmax = length(m.FPList)
-  hess_coord!(m,x[id],y[id],vals[id],obj_weight = m.FPList[id](obj_weight))
-  while check_overflow(vals[id]) && id <= πmax -1
+  hess_coord!(m, x[id], y[id], vals[id], obj_weight = m.FPList[id](obj_weight))
+  while check_overflow(vals[id]) && id <= πmax - 1
     id += 1
-    hess_coord!(m,x[id],y[id],vals[id],obj_weight = m.FPList[id](obj_weight))
+    hess_coord!(m, x[id], y[id], vals[id], obj_weight = m.FPList[id](obj_weight))
   end
   umpt!(vals, vals[id])
   return id
@@ -643,14 +644,14 @@ function hess_coord_of_mp!(
   x::T,
   vals::T;
   obj_weight::Real = 1.0,
-  π::Int = 1
+  π::Int = 1,
 ) where {T <: Tuple}
-id = π
+  id = π
   πmax = length(m.FPList)
-  hess_coord!(m,x[id],vals[id],obj_weight = m.FPList[id](obj_weight))
-  while check_overflow(vals[id]) && id <= πmax -1
+  hess_coord!(m, x[id], vals[id], obj_weight = m.FPList[id](obj_weight))
+  while check_overflow(vals[id]) && id <= πmax - 1
     id += 1
-    hess_coord!(m,x[id],vals[id],obj_weight = m.FPList[id](obj_weight))
+    hess_coord!(m, x[id], vals[id], obj_weight = m.FPList[id](obj_weight))
   end
   umpt!(vals, vals[id])
   return id
@@ -661,10 +662,10 @@ function hess_coord_of_mp(
   x::T,
   y::T;
   obj_weight::Real = 1.0,
-  π::Int = 1
+  π::Int = 1,
 ) where {T <: Tuple}
-  vals = Tuple(Vector{t}(undef,m.meta.nnzh) for t in m.FPList)
-  id = hess_coord_of_mp!(m,x,y,vals,obj_weight = obj_weight,π = π)
+  vals = Tuple(Vector{t}(undef, m.meta.nnzh) for t in m.FPList)
+  id = hess_coord_of_mp!(m, x, y, vals, obj_weight = obj_weight, π = π)
   return vals, id
 end
 
@@ -672,9 +673,9 @@ function hess_coord_of_mp(
   m::FPMPNLPModel,
   x::T;
   obj_weight::Real = 1.0,
-  π::Int = 1
+  π::Int = 1,
 ) where {T <: Tuple}
-  vals = Tuple(Vector{t}(undef,m.meta.nnzh) for t in m.FPList)
-  id = hess_coord_of_mp!(m,x,vals,obj_weight = obj_weight,π = π)
+  vals = Tuple(Vector{t}(undef, m.meta.nnzh) for t in m.FPList)
+  id = hess_coord_of_mp!(m, x, vals, obj_weight = obj_weight, π = π)
   return vals, id
 end

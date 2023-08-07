@@ -8,8 +8,8 @@
     @eval @test $counter($nlp) == 0
   end
 
-  MultiPrecisionR2.increment!(mpnlp,:neval_obj,Float32)
-  MultiPrecisionR2.increment!(mpnlp,:neval_grad,Float32)
+  MultiPrecisionR2.increment!(mpnlp, :neval_obj, Float32)
+  MultiPrecisionR2.increment!(mpnlp, :neval_grad, Float32)
   d = Dict([t => 0 for t in T])
   d[Float32] = 2
   @test MultiPrecisionR2.sum_counters(mpnlp) == d

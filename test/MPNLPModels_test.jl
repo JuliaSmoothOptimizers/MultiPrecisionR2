@@ -263,6 +263,6 @@ end
     @test Hv[2] == 2.0* a .* v[2]
     vals, id = hess_coord_of_mp(mpmodel,x)
     @test id == 2
-    @test vals[2] == [2.0 * a, 2.0 * a]
+    @test vals[2] == [2.0 * a, 0, 2.0 * a]
   end
 end

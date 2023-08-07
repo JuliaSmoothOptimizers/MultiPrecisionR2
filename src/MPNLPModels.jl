@@ -7,12 +7,19 @@ export AbstractMPNLPModel,
   obj,
   grad,
   grad!,
+  hprod!,
+  hess_coord!,
+  hess_structure!,
   objerrmp,
   graderrmp,
   graderrmp!,
   objReachPrec,
   gradReachPrec,
   gradReachPrec!,
+  hprod_of_mp,
+  hprod_of_mp!,
+  hess_coord_of_mp,
+  hess_coord_of_mp!,
   AbstractMPNLPModel
 
 const INT_ERR = 0
@@ -198,7 +205,7 @@ function FPMPNLPModel(f, x0, FPList::Vector{DataType}; kwargs...)
   if !(type in FPList)
     error("eltype of x0 ($type) must be in FPList ($FPList)")
   end
-  Model = ADNLPModel(f, x0, gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
+  Model = ADNLPModel(f, x0, backend = :generic)
   FPMPNLPModel(Model, FPList; kwargs...)
 end
 
@@ -221,6 +228,60 @@ function NLPModels.grad!(
 ) where {T <: AbstractFloat, S <: Union{AbstractVector{T}, AbstractVector{Interval{T}}}}
   MultiPrecisionR2.increment!(m, :neval_grad, T)
   grad!(m.Model, x, g)
+end
+
+function NLPModels.hprod!(
+  m::FPMPNLPModel,
+  x::AbstractVector{T},
+  v::AbstractVector{T},
+  Hv::AbstractVector{T};
+  obj_weight::Real = one(T),
+) where {T}
+  increment!(m, :neval_hprod,T)
+  hprod!(m.Model,x,v,Hv,obj_weight = obj_weight)
+end
+
+function NLPModels.hprod!(
+  m::FPMPNLPModel,
+  x::AbstractVector{T},
+  y::AbstractVector{T},
+  v::AbstractVector{T},
+  Hv::AbstractVector{T};
+  obj_weight::Real = one(T),
+) where {T}
+  increment!(m, :neval_hprod,T)
+  hprod!(m.Model,x,y,v,Hv,obj_weight = obj_weight)
+end
+
+function NLPModels.hess_coord!(
+  m::FPMPNLPModel,
+  x::AbstractVector{T},
+  vals::AbstractVector{T};
+  obj_weight::Real = one(T),
+) where {T}
+  @lencheck m.meta.nvar x
+  @lencheck m.meta.nnzh vals
+  increment!(m, :neval_hess, T)
+  hess_coord!(m.Model,x,vals,obj_weight = obj_weight)
+end
+
+function NLPModels.hess_coord!(
+  m::FPMPNLPModel,
+  x::AbstractVector{T},
+  y::AbstractVector{T},
+  vals::AbstractVector{T};
+  obj_weight::Real = one(T),
+) where {T}
+  increment!(m, :neval_hess, T)
+  hess_coord!(m.Model,x,y,vals,obj_weight = obj_weight)
+end
+
+function NLPModels.hess_structure!(
+  m::FPMPNLPModel,
+  rows::AbstractVector{<:Integer},
+  cols::AbstractVector{<:Integer},
+)
+  hess_structure!(m.Model,rows,cols)
 end
 
 """
@@ -441,7 +502,7 @@ function gradReachPrec!(
     ωg = graderrmp!(m, x[id], g[id])
     umpt!(g, g[id])
   end
-  if findfirst(x -> x == Inf, g) !== nothing
+  if check_overflow(g[end])
     @warn "Gradient evaluation overflows with highest FP format at x0"
   end
   if id == πmax && isinf(ωg)
@@ -460,4 +521,160 @@ end
   g = Tuple(Vector{ElType}(undef, nvar) for ElType in m.FPList)
   ωg, id = gradReachPrec!(m, x, g, err_bound, π = π)
   return g, H(ωg), id
+end
+
+"""
+    hprod_of_mp(m::FPMPNLPModel, x::T, v::T; obj_weight::Real = 1.0, π::Int = 1) where {T <: Tuple}
+    hprod_of_mp(m::FPMPNLPModel, x::T, y::T, v::T; obj_weight::Real = 1.0, π::Int = 1) where {T <: Tuple}
+    hprod_of_mp!(m::FPMPNLPModel, x::T, v::T, Hv::T; obj_weight::Real = 1.0, π::Int = 1) where {T <: Tuple}
+    hprod_of_mp!(m::FPMPNLPModel, x::T, y::T, v::T, Hv::T; obj_weight::Real = 1.0, π::Int = 1) where {T <: Tuple}
+
+Call `hprod!` recursively from the π-th element of the tuple arguments until `Hv` does not overflow.
+
+# Modified argument
+* `Hv::T`
+
+# Outputs
+1. `Hv::T`: only returned with `hprod_of_mp`
+2. `id::Int` : index of updated `Hv` element
+
+"""
+function hprod_of_mp!(
+  m::FPMPNLPModel,
+  x::T,
+  y::T,
+  v::T,
+  Hv::T;
+  obj_weight::Real = 1.0,
+  π::Int = 1
+) where {T <: Tuple}
+  id = π
+  πmax = length(m.FPList)
+  hprod!(m,x[id],y[id],v[id],Hv[id],obj_weight = m.FPList[id](obj_weight))
+  while check_overflow(Hv[id]) && id <= πmax -1
+    id += 1
+    hprod!(m,x[id],y[id],v[id],Hv[id],obj_weight = m.FPList[id](obj_weight))
+  end
+  umpt!(Hv, Hv[id])
+  return id
+end
+
+function hprod_of_mp!(
+  m::FPMPNLPModel,
+  x::T,
+  v::T,
+  Hv::T;
+  obj_weight::Real = 1.0,
+  π::Int = 1
+) where {T <: Tuple}
+id = π
+πmax = length(m.FPList)
+hprod!(m,x[id],v[id],Hv[id],obj_weight = m.FPList[id](obj_weight))
+while check_overflow(Hv[id]) && id <= πmax -1
+  id += 1
+  hprod!(m,x[id],v[id],Hv[id],obj_weight = m.FPList[id](obj_weight))
+end
+umpt!(Hv, Hv[id])
+return id
+end
+
+function hprod_of_mp(
+  m::FPMPNLPModel,
+  x::T,
+  y::T,
+  v::T;
+  obj_weight::Real = 1.0,
+  π::Int = 1
+) where {T <: Tuple}
+  Hv = Tuple(similar(x[i]) for i in eachindex(x))
+  id = hprod_of_mp!(m,x,y,v,Hv,obj_weight = obj_weight,π = π)
+  return Hv, id
+end
+
+function hprod_of_mp(
+  m::FPMPNLPModel,
+  x::T,
+  v::T;
+  obj_weight::Real = 1.0,
+  π::Int = 1
+) where {T <: Tuple}
+  Hv = Tuple(similar(x[i]) for i in eachindex(x))
+  id = hprod_of_mp!(m,x,v,Hv,obj_weight = obj_weight,π = π)
+  return Hv, id
+end
+
+"""
+    hess_coord_of_mp(m::FPMPNLPModel, x::T; obj_weight::Real = 1.0, π::Int = 1) where {T <: Tuple}
+    hess_coord_of_mp(m::FPMPNLPModel, x::T, y::T; obj_weight::Real = 1.0, π::Int = 1) where {T <: Tuple}
+    hess_coord_of_mp!(m::FPMPNLPModel, x::T, vals::T; obj_weight::Real = 1.0, π::Int = 1) where {T <: Tuple}
+    hess_coord_of_mp!(m::FPMPNLPModel, x::T, y::T, vals::T; obj_weight::Real = 1.0, π::Int = 1) where {T <: Tuple}
+
+Call `hess_coord!` recursively from the π-th element of the `T <: Tuple` arguments until `vals` does not overflow.
+
+# Modified argument
+* `vals::T`
+
+# Outputs
+1. `vals::T`: only returned with `hess_coord_of_mp`
+2. `id::Int` : index of updated `vals` element
+
+"""
+function hess_coord_of_mp!(
+  m::FPMPNLPModel,
+  x::T,
+  y::T,
+  vals::T,;
+  obj_weight::Real = 1.0,
+  π::Int = 1
+) where {T <: Tuple}
+  id = π
+  πmax = length(m.FPList)
+  hess_coord!(m,x[id],y[id],vals[id],obj_weight = m.FPList[id](obj_weight))
+  while check_overflow(vals[id]) && id <= πmax -1
+    id += 1
+    hess_coord!(m,x[id],y[id],vals[id],obj_weight = m.FPList[id](obj_weight))
+  end
+  umpt!(vals, vals[id])
+  return id
+end
+
+function hess_coord_of_mp!(
+  m::FPMPNLPModel,
+  x::T,
+  vals::T;
+  obj_weight::Real = 1.0,
+  π::Int = 1
+) where {T <: Tuple}
+id = π
+  πmax = length(m.FPList)
+  hess_coord!(m,x[id],vals[id],obj_weight = m.FPList[id](obj_weight))
+  while check_overflow(vals[id]) && id <= πmax -1
+    id += 1
+    hess_coord!(m,x[id],vals[id],obj_weight = m.FPList[id](obj_weight))
+  end
+  umpt!(vals, vals[id])
+  return id
+end
+
+function hess_coord_of_mp(
+  m::FPMPNLPModel,
+  x::T,
+  y::T;
+  obj_weight::Real = 1.0,
+  π::Int = 1
+) where {T <: Tuple}
+  vals = Tuple(Vector{t}(undef,m.meta.nnzh) for t in m.FPList)
+  id = hess_coord_of_mp!(m,x,y,vals,obj_weight = obj_weight,π = π)
+  return vals, id
+end
+
+function hess_coord_of_mp(
+  m::FPMPNLPModel,
+  x::T;
+  obj_weight::Real = 1.0,
+  π::Int = 1
+) where {T <: Tuple}
+  vals = Tuple(Vector{t}(undef,m.meta.nnzh) for t in m.FPList)
+  id = hess_coord_of_mp!(m,x,vals,obj_weight = obj_weight,π = π)
+  return vals, id
 end

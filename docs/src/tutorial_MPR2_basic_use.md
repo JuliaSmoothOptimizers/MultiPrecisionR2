@@ -30,7 +30,7 @@ max_iter = 1000
 meta = OptimizationProblems.meta
 names_pb_vars = meta[(meta.has_bounds .== false) .& (meta.ncon .== 0), [:nvar, :name]] #select unconstrained problems
 for pb in eachrow(names_pb_vars)
-  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(n=$nvar,type=Val(Float64),gradient_backend = ADNLPModels.GenericForwardDiffADGradient)"))
+  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(n=$nvar,type=Val(Float64),backend = :generic)"))
   mpmodel = FPMPNLPModel(nlp,FP,HPFormat = Float128, ωfRelErr=omega, ωgRelErr=omega);
   statr2 = R2(nlp,max_eval=max_iter)
   r2_obj_eval .+= nlp.counters.neval_obj

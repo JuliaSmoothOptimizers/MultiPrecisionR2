@@ -115,6 +115,39 @@ end
 end
 
 @testset verbose = true "Obj and grad evaluation" begin
+  @testset "MPCounters incrementation" begin
+    f(x) = x[1] + x[2]
+    x0 = zeros(2)
+    Formats = [Float32, Float64]
+    MPnlp = FPMPNLPModel(f, x0, Formats)
+    x32 = ones(Float32,2)
+    v32 = ones(Float32,2)
+    x64 = ones(Float64,2)
+    v64 = ones(Float64,2)
+    vals32 = Vector{Float32}()
+    vals64 = Vector{Float64}()
+    
+    obj(MPnlp,x32)
+    @test neval_obj(MPnlp,Float32) == 1
+    obj(MPnlp,x64)
+    @test neval_obj(MPnlp,Float64) == 1
+    
+    grad(MPnlp,x32)
+    @test neval_grad(MPnlp,Float32) == 1
+    grad(MPnlp,x64)
+    @test neval_grad(MPnlp,Float64) == 1
+
+    NLPModels.hprod(MPnlp,x32,v32)
+    @test neval_hprod(MPnlp,Float32) == 1
+    NLPModels.hprod(MPnlp,x64,v64)
+    @test neval_hprod(MPnlp,Float64) == 1
+
+    NLPModels.hess_coord(MPnlp,x32,vals32)
+    @test neval_hess(MPnlp,Float32) == 1
+    NLPModels.hess_coord(MPnlp,x64,vals64)
+    @test neval_hess(MPnlp,Float64) == 1
+
+  end
   @testset "Input FP formats consistency" begin
     setrounding(Interval, :accurate)
     f6(x) = x[1] + x[2]
@@ -216,5 +249,21 @@ end
       @test ωg == 1.0
       @test πg == 1
     end
+  end
+  @testset "hprod_ov_mp and hess_prod_ov_mp overflow test" begin
+    T = [Float16,Float32]
+    a = prevfloat(typemax(T[1]))
+    f(x) = sum(a .* x.^2)
+    dim = 2
+    x0 = ones(T[1],dim)
+    mpmodel = FPMPNLPModel(f,x0,T)
+    x = Tuple(ones(t,2) for t in T)
+    v = Tuple(ones(t,2) for t in T)
+    Hv, id = hprod_of_mp(mpmodel,x,v)
+    @test id == 2
+    @test Hv[2] == 2.0* a .* v[2]
+    vals, id = hess_coord_of_mp(mpmodel,x)
+    @test id == 2
+    @test vals[2] == [2.0 * a, 0, 2.0 * a]
   end
 end

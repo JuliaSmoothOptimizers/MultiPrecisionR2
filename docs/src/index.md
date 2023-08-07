@@ -31,7 +31,7 @@ using OptimizationProblems.ADNLPProblems
 
 FP = [Float16,Float32] # define floating point formats used by the algorithm for objective and gradient evaluation
 s = :woods # select problem
-nlp = eval(s)(n=12,type = Val(FP[end]), gradient_backend = ADNLPModels.GenericForwardDiffADGradient)
+nlp = eval(s)(n=12,type = Val(FP[end]), backend = :generic)
 mpmodel = FPMPNLPModel(nlp,FP); # instanciate a Floating Point Multi Precision NLPModel (FPMPNLPModel)
 stat = MPR2(mpmodel) # run the algorithm
 ```

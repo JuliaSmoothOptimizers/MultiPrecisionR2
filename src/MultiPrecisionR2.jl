@@ -394,14 +394,17 @@ function SolverCore.solve!(
     stats.dual_residual_reliable = true
     #SolverCore.set_dual_residual!(stats, solver.g_norm)
 
-    (compute_f_at_x!(MPnlp, solver, stats, e) && !run_free) ||
-      ((stats.status = :exception); (stats.status_reliable = true))
+    if compute_f_at_x!(MPnlp, solver, stats, e) && !run_free
+      stats.status = :exception
+      stats.status_reliable = true
+    end
     stats.objective = solver.f
     #SolverCore.set_objective!(stats, solver.f)
 
-    (compute_f_at_c!(MPnlp, solver, stats, e) && !run_free) ||
-      ((stats.status = :exception); (stats.status_reliable = true))
-
+    if compute_f_at_c!(MPnlp, solver, stats, e) && !run_free
+      stats.status = :exception
+      stats.status_reliable = true
+    end
     solver.ρ = (H(solver.f) - H(solver.f⁺)) / H(solver.ΔT)
 
     if solver.ρ ≥ η₂
@@ -412,8 +415,10 @@ function SolverCore.solve!(
     end
 
     if solver.ρ ≥ η₁
-      (compute_g!(MPnlp, solver, stats, e) && !run_free) ||
-        ((stats.status = :exception); (stats.status_reliable = true))
+      if compute_g!(MPnlp, solver, stats, e) && !run_free
+        stats.status = :exception
+        stats.status_reliable = true
+      end
       umpt!(solver.g, solver.g[solver.π.πg])
 
       if findfirst(x -> isinf(x), solver.g[end]) !== nothing || isinf(solver.ωg)

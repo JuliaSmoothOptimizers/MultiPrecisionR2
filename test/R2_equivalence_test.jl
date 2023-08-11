@@ -26,7 +26,7 @@
     @testset "Testing $(nlp.meta.name)" begin
       statr2 =
         R2(nlp, γ1 = γ1, η1 = η1, η2 = η2, max_time = max_time, σmin = σmin, max_iter = max_iter)
-      statmpr2 = MPR2(mpmodel, par = mpr2param, max_iter = max_iter, σmin = σmin)
+      statmpr2 = MPR2(mpmodel, par = mpr2param, max_iter = max_iter, σmin = σmin, run_free = true)
       if (statmpr2.status != :exception # might happen that mpr2 stops if μ too big (μ ≠ 0 even if ωg = 0), or under/overflow
       && statmpr2.status != :small_step) # mpr2 returns small_step if relative step size is too small, r2 if absolute step size too small
         @test statr2.iter == statmpr2.iter

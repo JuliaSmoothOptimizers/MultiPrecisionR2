@@ -285,7 +285,6 @@ f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
 x = Float32.(1.5*ones(2)) # initial point
 HPFormat = Float64
 MPmodel = FPMPNLPModel(f,x,FP,HPFormat = HPFormat,obj_int_eval = true, grad_int_eval = true);
-solver = MPR2Solver(MPmodel);
 stat = MPR2(MPmodel) 
 ```
 Running the above code block returns a warning indicating that R2 stops because the error on the objective function is too big to ensure convergence. The problem can be overcome in this example by tolerating more error on the objective by increasing $\eta_0$.
@@ -304,7 +303,7 @@ Now MPR2 converges to a first order critical point since we tolerate enough erro
 
 **Example**: Avoiding Lack of Precision With Relative Errors
 
-If the `FPMPNLPModel` model is instanciated with relative error model (see `FPMPNLPModel` documentation), one can simply set the error to zero with the highest FP format used for evaluation. 
+If the `FPMPNLPModel` model is instantiated with relative error model (see `FPMPNLPModel` documentation), one can simply set the error to zero with the highest FP format used for evaluation. 
 This avoids the algorithm to stop due to lack of precision, but MPR2 is not guaranteed to converge to a first order critical point.
 
 ```@example
@@ -316,12 +315,11 @@ x = Float32.(1.5*ones(2)) # initial point
 HPFormat = Float64
 omega = [0.01,0.0] # 1% error with Float16, no error with Float32
 MPmodel = FPMPNLPModel(f,x,FP; ωfRelErr = omega, ωgRelErr = omega, HPFormat = HPFormat);
-solver = MPR2Solver(MPmodel);
 stat = MPR2(MPmodel) 
 ```
 Not that even if evaluation error for objective and gradient is set to zero as in the above code, early stop due to lack of precision might still occur since $\mu$ indicator is not null even when gradient error $\omega_g$ is null (see [MPR2 description section](#mpr2-algorithm-broad-description-differs-from-package-implementation)).
 
-**Example**: Last Resort
+**Example**: Decreasing Error Bounds for Norm and Model Decrease
 
 If early stop due to lack of precision occurs even when modifying MPR2's parameters and setting the evaluation error to zero (above 2 examples), the user can provide its own function $\gamma$ to further decrease $\mu$ indicator (by decreasing $\gamma(n,u)$ and $\alpha(n,u)$).
 For example, the user can simply set $\gamma$ to 0, i.e. supposing that model reduction and norm computation are performed exactly. This however might increase numerical instability of MPR2.
@@ -336,10 +334,23 @@ HPFormat = Float64
 omega = [0.01,0.0] # 1% error with Float16, no error with Float32
 gamma(n,u) = HPFormat(0) # gamma function set to zero
 MPmodel = FPMPNLPModel(f,x,FP; ωfRelErr = omega, ωgRelErr = omega, γfunc = gamma , HPFormat = HPFormat);
-solver = MPR2Solver(MPmodel);
 stat = MPR2(MPmodel)
 ```
 
+**Example**: Letting MPR2 Run Despite Numerical Instability: `run_free` Option
+
+The user can choose to let MPR2 run even when precision lacks with the maximum of precision levels have been reached for the objective and gradient evaluations and intermediate values computation ($\phi$, model decrease, ...). This can be done by providing `MPR2` keyword argument `run_free = true`, which default value is `false`.
+
+```@example
+using MultiPrecisionR2
+
+FP = [Float16, Float32] # selected FP formats, max eval precision is Float64
+f(x) = (1-x[1])^2 + 100*(x[2]-x[1]^2)^2 # Rosenbrock function
+x = Float32.(1.5*ones(2)) # initial point
+HPFormat = Float64
+MPmodel = FPMPNLPModel(f,x,FP);
+stat = MPR2(MPmodel,verbose = 1)
+```
 
 ### **Evaluation Counters**
 

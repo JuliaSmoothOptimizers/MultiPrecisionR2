@@ -126,28 +126,28 @@ Solver structure containing all the variables necessary to MRP2.
 # Fields:
 
 - `x::T`: incumbent
-- g::T : gradient
-- s::T : step 
-- c::T : candidate
-- π::MPR2Precisions : FP format indices (precision) structure
-- p::MPR2Params : MPR2 parameters
-- x_norm::H : norm of `x`
-- s_norm::H : norm of `s`
-- g_norm::H : norm of `g`
-- ΔT::H : model decrease
-- ρ::H : success ratio
-- ϕ::H : guaranteed upper bound on ||x||/||s||
-- ϕhat::H : computed value of ||x||/||s||
-- μ::H : error indicator
-- f::H : objective value at `x`
-- f⁺::H : objective value at `c`
-- ωf::H : objective evaluation error at `x`, |f(x) - fl(f(x))| <= `ωf`
-- ωf⁺::H : objective evaluation error at `c`, |f(c) - fl(f(c))| <= `ωf⁺`
-- ωg::H : gradient evaluation error at `c`, ||∇f(c) - fl(∇f(c))||₂ <= `ωg`||fl(∇f(c))||₂
-- ωfBound::H : error tolerance on objective evaluation
-- σ::H : regularization parameter
-- πmax::Int : number of FP formats available for evaluations
-- init::Bool : initialized with `true`, set to `false` when entering main loop 
+- `g::T` : gradient
+- `s::T` : step 
+- `c::T` : candidate
+- `π::MPR2Precisions` : FP format indices (precision) structure
+- `p::MPR2Params` : MPR2 parameters
+- `x_norm::H` : norm of `x`
+- `s_norm::H` : norm of `s`
+- `g_norm::H` : norm of `g`
+- `ΔT::H` : model decrease
+- `ρ::H` : success ratio
+- `ϕ::H` : guaranteed upper bound on ||x||/||s||
+- `ϕhat::H` : computed value of ||x||/||s||
+- `μ::H` : error indicator
+- `f::H` : objective value at `x`
+- `f⁺::H` : objective value at `c`
+- `ωf::H` : objective evaluation error at `x`, |f(x) - fl(f(x))| <= `ωf`
+- `ωf⁺::H` : objective evaluation error at `c`, |f(c) - fl(f(c))| <= `ωf⁺`
+- `ωg::H` : gradient evaluation error at `c`, ||∇f(c) - fl(∇f(c))||₂ <= `ωg`||fl(∇f(c))||₂
+- `ωfBound::H` : error tolerance on objective evaluation
+- `σ::H` : regularization parameter
+- `πmax::Int` : number of FP formats available for evaluations
+- `init::Bool` : initialized with `true`, set to `false` when entering main loop
 """
 mutable struct MPR2Solver{T <: Tuple, H <: AbstractFloat} <: AbstractOptimizationSolver
   x::T
@@ -193,7 +193,7 @@ function MPR2Solver(MPnlp::M) where {S, H, B, D, M <: FPMPNLPModel{H, B, D, S}}
     par,
     [H(0) for _ = 1:(fieldcount(MPR2Solver) - 8)]...,
     πmax,
-    true,
+    true
   )
 end
 
@@ -212,7 +212,9 @@ Keyword agruments:
 - `rtol::H = H(sqrt(eps(T)))` : relative tolerance on first order criterion
 - `max_eval::Int = -1`: maximum number of evaluation of the objective function.
 - `max_iter::Int = 1000` : maximum number of iteration allowed
+- `max_time::Float = 30.0` : runing time limit 
 - `σmin::T = sqrt(T(MPnlp.EpsList[end]))` : minimal value for regularization parameter. Value must be representable in any of the floating point formats of MPnlp. 
+- `run_free = false` : if true, let MPR2 run when maximum precision levels have been reach but numerical stability is not ensured (avoid early stop because of lack of precision)
 - `verbose::Int=0` : display iteration information if > 0
 - `e::E` : user defined structure, used as argument for `compute_f_at_x!`, `compute_f_at_c!` `compute_g!` and `recompute_g!` callback functions.
 - `compute_f_at_x!` : callback function to select precision and compute objective value and error bound at the current point. Allows to reevaluate the objective at x if more precision is needed.
@@ -265,6 +267,7 @@ function SolverCore.solve!(
   max_iter::Int = 1000,
   max_time::Float64 = 30.0,
   σmin::H = H(sqrt(MPnlp.FPList[end](MPnlp.EpsList[end]))),
+  run_free = false,
   verbose::Int = 0,
   e::E = nothing,
   compute_f_at_x! = compute_f_at_x_default!,
@@ -372,8 +375,10 @@ function SolverCore.solve!(
       ((stats.status = :exception); (stats.status_reliable = true))
 
     g_recomp, g_succ = recompute_g!(MPnlp, solver, stats, e)
-    if !g_succ && stats.status != :small_step
-      stats.status = :exception
+    if !g_succ && !run_free
+      if stats.status == :small_step
+        stats.status = :exception
+      end
       stats.status_reliable = true
     end
     if g_recomp #have to recompute everything depending on g
@@ -389,14 +394,17 @@ function SolverCore.solve!(
     stats.dual_residual_reliable = true
     #SolverCore.set_dual_residual!(stats, solver.g_norm)
 
-    compute_f_at_x!(MPnlp, solver, stats, e) ||
-      ((stats.status = :exception); (stats.status_reliable = true))
+    if compute_f_at_x!(MPnlp, solver, stats, e) && !run_free
+      stats.status = :exception
+      stats.status_reliable = true
+    end
     stats.objective = solver.f
     #SolverCore.set_objective!(stats, solver.f)
 
-    compute_f_at_c!(MPnlp, solver, stats, e) ||
-      ((stats.status = :exception); (stats.status_reliable = true))
-
+    if compute_f_at_c!(MPnlp, solver, stats, e) && !run_free
+      stats.status = :exception
+      stats.status_reliable = true
+    end
     solver.ρ = (H(solver.f) - H(solver.f⁺)) / H(solver.ΔT)
 
     if solver.ρ ≥ η₂
@@ -407,8 +415,10 @@ function SolverCore.solve!(
     end
 
     if solver.ρ ≥ η₁
-      compute_g!(MPnlp, solver, stats, e) ||
-        ((stats.status = :exception); (stats.status_reliable = true))
+      if compute_g!(MPnlp, solver, stats, e) && !run_free
+        stats.status = :exception
+        stats.status_reliable = true
+      end
       umpt!(solver.g, solver.g[solver.π.πg])
 
       if findfirst(x -> isinf(x), solver.g[end]) !== nothing || isinf(solver.ωg)

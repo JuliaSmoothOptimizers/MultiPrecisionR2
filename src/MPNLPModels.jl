@@ -337,11 +337,15 @@ function objerrmp(m::FPMPNLPModel{H}, x::AbstractVector{S}, ::Val{REL_ERR}) wher
   f = obj(m, x)
   if check_overflow(f) #overflow case
     return f, Inf
-  else
-    id = get_id(m, S)
-    ωf = H(abs(f)) * m.ωfRelErr[id] # Computed with H ≈> exact evaluation 
-    return f, ωf # FP format of second returned value is H 
   end
+  id = get_id(m, S)
+  if m.ωfRelErr[id] == 0
+    return f, H(0)
+  else
+    ωf = H(abs(f)) * m.ωfRelErr[id] # Computed with H ≈> exact evaluation 
+  end
+  return f, ωf # FP format of second returned value is H 
+  
 end
 
 """
@@ -365,7 +369,7 @@ Note: ωg FP format may be different than `S`
 * `g::V`: updated with gradient value
 
 Overflow cases:
-* Interval evaluation: if at least one element of `g` has infinite diameter, returns [0]ⁿ, Inf
+* Interval evaluation: if at least one element of `g` has infinite diameter, returns [0]ⁿ, `Inf`
 * Classical evaluation: if at least one element of `g` overflows, returns `g, Inf` 
 """
 function graderrmp!(m::FPMPNLPModel{H}, x::V, g::V) where {H, S, V <: AbstractVector{S}}
@@ -416,10 +420,7 @@ function graderrmp!(
   if check_overflow(g)
     return Inf
   end
-  n = m.meta.nvar # ::Int
   id = get_id(m, S)
-  u = m.UList[id] # ::H
-  γₙ = m.γfunc(n, u) # ::H
   ωg = m.ωgRelErr[id]
   return ωg #::Vector{S} ::H
 end

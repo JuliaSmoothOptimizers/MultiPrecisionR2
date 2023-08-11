@@ -193,7 +193,7 @@ function MPR2Solver(MPnlp::M) where {S, H, B, D, M <: FPMPNLPModel{H, B, D, S}}
     par,
     [H(0) for _ = 1:(fieldcount(MPR2Solver) - 8)]...,
     πmax,
-    true
+    true,
   )
 end
 

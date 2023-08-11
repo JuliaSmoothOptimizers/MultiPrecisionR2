@@ -345,7 +345,6 @@ function objerrmp(m::FPMPNLPModel{H}, x::AbstractVector{S}, ::Val{REL_ERR}) wher
     ωf = H(abs(f)) * m.ωfRelErr[id] # Computed with H ≈> exact evaluation 
   end
   return f, ωf # FP format of second returned value is H 
-  
 end
 
 """

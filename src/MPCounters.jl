@@ -92,6 +92,53 @@ function decrement!(mpnlp::AbstractNLPModel, s::Symbol, FPFormat::DataType)
   setproperty!(mpnlp.counters, s, counter)
 end
 
+# fail counters counterpart
+
+for mpcounter in fieldnames(MPCounters)
+  mpcounter_fail = Symbol("$(mpcounter)_fail")
+  @eval begin
+    """
+        $($mpcounter_fail)(nlp)
+        $($mpcounter_fail)(nlp,T)
+
+    Get the total number (all FP formats) of `$(split("$($mpcounter)", "_")[2])` failed evaluations.
+    If extra argument T is provided, returns the number of `$(split("$($mpcounter)", "_")[2])` evaluations for the given FP format T.
+    """
+    $mpcounter_fail(nlp::AbstractMPNLPModel) = sum(collect(values(nlp.counters_fail.$mpcounter)))
+    $mpcounter_fail(nlp::AbstractMPNLPModel, T::DataType) = nlp.counters_fail.$mpcounter[T]
+    export $mpcounter_fail
+  end
+end
+
+"""
+    increment_fail!(nlp, s)
+
+Increment counter `s` of problem `nlp`.
+"""
+@inline function increment_fail!(nlp::AbstractMPNLPModel, s::Symbol, T::DataType)
+  increment_fail!(nlp, Val(s), T)
+end
+
+for fun in fieldnames(MPCounters)
+  @eval begin
+    function increment_fail!(nlp::AbstractMPNLPModel, ::Val{$(Meta.quot(fun))}, T::DataType)
+      nlp.counters_fail.$fun[T] += 1
+    end
+  end
+end
+
+"""
+    decrement_fail!(mpnlp, s, FPFormat)
+
+Decrement counter `s` of problem `mpnlp` for the given FPFormat provided.
+"""
+
+function decrement_fail!(mpnlp::AbstractNLPModel, s::Symbol, FPFormat::DataType)
+  counter_fail = getproperty(mpnlp.counters_fail, s)
+  counter_fail[FPFormat] -= 1
+  setproperty!(mpnlp.counters_fail, s, counter_fail)
+end
+
 """
     sum_counters(c::MPCounters)
 
@@ -112,6 +159,13 @@ end
 Sum all counters of problem `mpnlp` except `cons`, `jac`, `jprod` and `jtprod`.
 """
 sum_counters(mpnlp::AbstractMPNLPModel) = sum_counters(mpnlp.counters)
+
+"""
+    sum_counters_fail(mpnlp)
+
+Sum all counters for failed evaluations of problem `mpnlp` except `cons`, `jac`, `jprod` and `jtprod`.
+"""
+sum_counters_fail(mpnlp::AbstractMPNLPModel) = sum_counters(mpnlp.counters_fail)
 
 """
     reset!(counters::MPCounters)
@@ -136,6 +190,7 @@ Reset evaluation count and model data (if appropriate) in `mpnlp`.
 """
 function reset!(mpnlp::AbstractMPNLPModel)
   reset!(mpnlp.counters)
+  reset!(mpnlp.counters_fail)
   reset_data!(mpnlp.Model)
   return mpnlp
 end

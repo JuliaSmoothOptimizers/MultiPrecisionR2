@@ -42,6 +42,9 @@ The error models are :
 
 # Fields
 - `Model::AbstractNLPModel` : NLPModel
+- `meta::NLPModelMeta` : meta data
+- `counters::MPCounters` : evaluation counters (objective, gradient,...)
+- `counters_fail::MPCounters` : failed evaluations (overflow, not enough precision,...) counters
 - `FPList::Vector{DataType}` : List of floating point formats
 - `EpsList::Vector{H}` : List of machine epsilons of the floating point formats in `FPList`
 - `UList::Vector{H}` : List of unit round-off of the floating point formats in `FPList`
@@ -54,6 +57,8 @@ The error models are :
 - `GradEvalMode::Int` : Evalutation mode for gradient and error. Set automatically upon instantiation. Possible values:
   + `INT_ERR` : interval evaluation of gradient (chosen as middle of interval vector) and error
   + `REL_ERR` : classical evaluation and use relative error model (with `ωgRelErr` value)
+- `X::B` : container for interval evaluation (memory pre-allocation)
+- `G::B` : container for interval evaluation (memory pre-allocation)
 
 # Constructors:
 - `FPMPModel(Model, FPList; kwargs...)` :
@@ -109,6 +114,7 @@ struct FPMPNLPModel{H, B <: Tuple, D, S} <: AbstractMPNLPModel{D, S}
   Model::AbstractNLPModel{D, S}
   meta::NLPModelMeta
   counters::MPCounters
+  counters_fail::MPCounters
   FPList::Vector{DataType}
   EpsList::Vector{H}
   UList::Vector{H}
@@ -185,6 +191,7 @@ function FPMPNLPModel(
   FPMPNLPModel(
     Model,
     Model.meta,
+    MPCounters(FPList),
     MPCounters(FPList),
     FPList,
     EpsList,
@@ -455,6 +462,7 @@ function objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where
   πmax = length(m.FPList)
   f, ωf = objerrmp(m, x[id])
   while ωf > err_bound && id ≤ πmax - 1
+    MultiPrecisionR2.increment_fail!(m,:neval_obj,m.FPList[id])
     id += 1
     f, ωf = objerrmp(m, x[id])
   end
@@ -499,6 +507,7 @@ function gradReachPrec!(
   ωg = graderrmp!(m, x[id], g[id])
   umpt!(g, g[id])
   while ωg > err_bound && id ≤ πmax - 1
+    MultiPrecisionR2.increment_fail!(m,:neval_grad,m.FPList[id])
     id += 1
     ωg = graderrmp!(m, x[id], g[id])
     umpt!(g, g[id])
@@ -553,6 +562,7 @@ function hprod_of_mp!(
   πmax = length(m.FPList)
   hprod!(m, x[id], y[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
   while check_overflow(Hv[id]) && id <= πmax - 1
+    MultiPrecisionR2.increment_fail!(m,:neval_hprod,m.FPList[id])
     id += 1
     hprod!(m, x[id], y[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
   end
@@ -572,6 +582,7 @@ function hprod_of_mp!(
   πmax = length(m.FPList)
   hprod!(m, x[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
   while check_overflow(Hv[id]) && id <= πmax - 1
+    MultiPrecisionR2.increment_fail!(m,:neval_hprod,m.FPList[id])
     id += 1
     hprod!(m, x[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
   end
@@ -633,6 +644,7 @@ function hess_coord_of_mp!(
   πmax = length(m.FPList)
   hess_coord!(m, x[id], y[id], vals[id], obj_weight = m.FPList[id](obj_weight))
   while check_overflow(vals[id]) && id <= πmax - 1
+    MultiPrecisionR2.increment_fail!(m,:neval_hess,m.FPList[id])
     id += 1
     hess_coord!(m, x[id], y[id], vals[id], obj_weight = m.FPList[id](obj_weight))
   end
@@ -651,6 +663,7 @@ function hess_coord_of_mp!(
   πmax = length(m.FPList)
   hess_coord!(m, x[id], vals[id], obj_weight = m.FPList[id](obj_weight))
   while check_overflow(vals[id]) && id <= πmax - 1
+    MultiPrecisionR2.increment_fail!(m,:neval_hess,m.FPList[id])
     id += 1
     hess_coord!(m, x[id], vals[id], obj_weight = m.FPList[id](obj_weight))
   end

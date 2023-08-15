@@ -223,7 +223,7 @@ end
       @test ωg == 0.0
       @test πg == 1
     end
-    @testset "Relative error" begin
+    @testset "Relative error and counters" begin
       f2(x) = x[1] + x[2]
       x₀ = ones(2)
       Formats = [Float32, Float64]
@@ -237,19 +237,29 @@ end
       fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 1.0)
       @test ωf == 0.0
       @test πf == 2
+      @test mpmodel.counters_fail.neval_obj == Dict(Float32 => 1, Float64 => 0)
+      @test mpmodel.counters.neval_obj == Dict(Float32 => 1, Float64 => 1)
+      MultiPrecisionR2.reset!(mpmodel)
       fh, ωf, πf = MultiPrecisionR2.objReachPrec(mpmodel, x, 3.0)
       @test ωf == 2.0
       @test πf == 1
+      @test mpmodel.counters_fail.neval_obj == Dict(Float32 => 0, Float64 => 0)
+      @test mpmodel.counters.neval_obj == Dict(Float32 => 1, Float64 => 0)
       #grad test
       g, ωg, πg = MultiPrecisionR2.gradReachPrec(mpmodel, x, 0.0)
       @test ωg == 0.0
       @test πg == 2
+      @test mpmodel.counters_fail.neval_grad == Dict(Float32 => 1, Float64 => 0)
+      @test mpmodel.counters.neval_grad == Dict(Float32 => 1, Float64 => 1)
+      MultiPrecisionR2.reset!(mpmodel)
       g, ωg, πg = MultiPrecisionR2.gradReachPrec(mpmodel, x, 2.0)
       @test ωg == 1.0
       @test πg == 1
+      @test mpmodel.counters_fail.neval_grad == Dict(Float32 => 0, Float64 => 0)
+      @test mpmodel.counters.neval_grad == Dict(Float32 => 1, Float64 => 0)
     end
   end
-  @testset "hprod_ov_mp and hess_prod_ov_mp overflow test" begin
+  @testset "hprod_ov_mp and hess_prod_ov_mp overflow and counters test " begin
     T = [Float16, Float32]
     a = prevfloat(typemax(T[1]))
     f(x) = sum(a .* x .^ 2)
@@ -261,8 +271,12 @@ end
     Hv, id = hprod_of_mp(mpmodel, x, v)
     @test id == 2
     @test Hv[2] == 2.0 * a .* v[2]
+    @test mpmodel.counters_fail.neval_hprod == Dict(Float16 => 1, Float32 => 0)
+    @test mpmodel.counters.neval_hprod == Dict(Float16 => 1, Float32 => 1)
     vals, id = hess_coord_of_mp(mpmodel, x)
     @test id == 2
     @test vals[2] == [2.0 * a, 0, 2.0 * a]
+    @test mpmodel.counters_fail.neval_hess == Dict(Float16 => 1, Float32 => 0)
+    @test mpmodel.counters.neval_hess == Dict(Float16 => 1, Float32 => 1)
   end
 end

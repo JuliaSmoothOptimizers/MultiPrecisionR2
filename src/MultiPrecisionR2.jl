@@ -171,6 +171,7 @@ mutable struct MPR2Solver{T <: Tuple, H <: AbstractFloat} <: AbstractOptimizatio
   ωg::H
   ωfBound::H
   σ::H
+  μ_factor::H
   πmax::Int
   init::Bool
 end
@@ -191,7 +192,8 @@ function MPR2Solver(MPnlp::M) where {S, H, B, D, M <: FPMPNLPModel{H, B, D, S}}
     c,
     π,
     par,
-    [H(0) for _ = 1:(fieldcount(MPR2Solver) - 8)]...,
+    [H(0) for _ = 1:(fieldcount(MPR2Solver) - 9)]...,
+    H(1),
     πmax,
     true,
   )
@@ -267,6 +269,7 @@ function SolverCore.solve!(
   max_iter::Int = 1000,
   max_time::Float64 = 30.0,
   σmin::H = H(sqrt(MPnlp.FPList[end](MPnlp.EpsList[end]))),
+  mu_factor=H(1.0),
   run_free = false,
   verbose::Int = 0,
   e::E = nothing,
@@ -285,6 +288,7 @@ function SolverCore.solve!(
   # check for ill initialized parameters
   CheckMPR2ParamConditions(par)
   solver.p = par
+  solver.μ_factor = mu_factor
   # initialize parameters
   η₁ = par.η₁
   η₂ = par.η₂
@@ -376,7 +380,7 @@ function SolverCore.solve!(
 
     g_recomp, g_succ = recompute_g!(MPnlp, solver, stats, e)
     if !g_succ && !run_free
-      if stats.status == :small_step
+      if stats.status != :small_step
         stats.status = :exception
       end
       stats.status_reliable = true
@@ -422,7 +426,7 @@ function SolverCore.solve!(
       umpt!(solver.g, solver.g[solver.π.πg])
 
       if findfirst(x -> isinf(x), solver.g[end]) !== nothing || isinf(solver.ωg)
-        @warn "gradient evaluation error at c too big to ensure convergence"
+        @warn "gradient overflow at c"
         stats.status = :exception
         stats.status_reliable = true
       end
@@ -487,7 +491,8 @@ Check if step `s` over/underflow. Step cannot be zero in theory, if this happens
 
 function CheckUnderOverflowStep(s::AbstractVector, g::AbstractVector)
   of = findfirst(x -> isinf(x), s) !== nothing
-  uf = findall(x -> x == 0.0, s) != findall(x -> x == 0.0, g)
+  uf = all(x -> x == 0, s) # all elements underflow
+  # uf = findall(x -> x == 0.0, s) != findall(x -> x == 0.0, g) # at least one element underflow
   return of || uf
 end
 
@@ -502,7 +507,8 @@ Check if candidate `c` over/underflow.
 
 function CheckUnderOverflowCandidate(c::AbstractVector, x::AbstractVector, s::AbstractVector)
   of = findfirst(x -> isinf(x), c) !== nothing
-  uf = (x .== c) != (s .== 0)
+  uf = (x == c) # all candidate elements underflow
+  # uf = (x .== c) != (s .== 0) # at least one element of the candidate underflow
   return of || uf
 end
 
@@ -937,15 +943,15 @@ function recompute_g_default!(
   solver.ϕhat = solver.x_norm / solver.s_norm
   solver.ϕ =
     solver.ϕhat * (1 + βfunc(n, m.UList[solver.π.πnx])) / (1 - βfunc(n, m.UList[solver.π.πns]))
-  prec = findall(u -> u < 1 / solver.ϕ, m.UList)
-  if isempty(prec) # step size too small compared to incumbent
-    @warn "Algo stops because the step size is too small compare to the incumbent, addition unstable (due to rounding error or absorbtion) with highest precision level"
-    stats.status = :small_step
-    stats.status_reliable = true
-    return false, false
-  end
+  # prec = findall(u -> u < 1 / solver.ϕ, m.UList)
+  # if isempty(prec) # step size too small compared to incumbent
+    # @warn "Algo stops because the step size is too small compare to the incumbent, addition unstable (due to rounding error or absorbtion) with highest precision level"
+    # stats.status = :small_step
+    # stats.status_reliable = true
+    # return false, false
+  # end
   solver.μ = computeMu(m, solver)
-  while solver.μ > solver.p.κₘ
+  while solver.μ*solver.μ_factor > solver.p.κₘ
     πr = copy(solver.π)
     max_prec = recomputeMuPrecSelection!(solver.π, πr, solver.πmax)
     if solver.μ > solver.p.κₘ && max_prec

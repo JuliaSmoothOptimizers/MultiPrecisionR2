@@ -14,7 +14,7 @@ SolverCore = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
 
 [compat]
 ADNLPModels = "0.6, 0.7"
-IntervalArithmetic = "0.20"
+IntervalArithmetic = "0.20, 0.21"
 NLPModels = "0.19,0.20"
 Requires = "1"
 SolverCore = "0.3"

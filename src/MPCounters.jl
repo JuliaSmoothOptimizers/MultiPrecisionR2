@@ -191,6 +191,7 @@ Reset evaluation count and model data (if appropriate) in `mpnlp`.
 function reset!(mpnlp::AbstractMPNLPModel)
   reset!(mpnlp.counters)
   reset!(mpnlp.counters_fail)
+  NLPModels.reset!(mpnlp.Model)
   reset_data!(mpnlp.Model)
   return mpnlp
 end

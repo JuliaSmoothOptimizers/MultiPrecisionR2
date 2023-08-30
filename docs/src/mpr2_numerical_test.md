@@ -47,6 +47,7 @@ end
 ```@example
 using MultiPrecisionR2
 using DataFrames
+using PrettyTables
 using NLPModels
 using ADNLPModels
 using OptimizationProblems
@@ -71,7 +72,7 @@ r2_status = Dict{Symbol,Int}()
 mpr2_status = [Dict{Symbol,Int}() for _ in eachindex(mu_factor)]
 nvar = 200 #problem dimension (if scalable)
 max_iter = 10000
-gamma(n,u) = sqrt(n)*u
+gamma(n,u) = n*u
 param = MPR2Params(Float128.([0.05,0.1,0.7,0.2])...,Float16(1/2),Float16(2))
 
 mpmodel = nothing
@@ -116,37 +117,38 @@ for pb in eachrow(names_pb_vars)
   end
   push!(pb_status,[nlp.meta.name,statr2.status,mpr2_status_vect...])
 end
-data_header = ["mu_fct",["suc_$fp" for fp in FP]..., "obj_t_rat","obj_nrg_rat",["suc_$fp" for fp in FP]...,"grad_t_rat","grad_nrg_rat"]
-data_mpr2 = Tuple(Vector{Float64}(undef,length(mu_factor)) for _ in 1:11)
-data_mpr2[1] .= mu_factor
+ 
+data_header = ["mu_fct",vcat([["eval_$fp","suc_rate_$fp"] for fp in FP]...)..., "time_rat","nrg_rat","solve_ratio"]
 
-for i in eachindex(mu_factor)
-  for j in eachindex(FP)
-    data_mpr2[j+1][i] = (mpr2_obj_eval[i][j] - mpr2_obj_eval_fail[i][j])/mpr2_obj_eval[i][j]
-  end
-end
+pb_solved_ratio = [mpr2_status[i][:first_order] for i in eachindex(mu_factor)]./r2_status[:first_order] 
 
-mpr2_obj_time = sum.([mpr2_obj_eval[j].*reverse([1.0/2^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])
-data_mpr2[length(FP)+2] .= mpr2_obj_time./r2_obj_eval[1]
-mpr2_obj_energy = sum.([mpr2_obj_eval[j].*reverse([1.0/4^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])
-data_mpr2[length(FP)+3] .= mpr2_obj_energy./r2_obj_eval[1]
+obj_eval_ratio = [[mpr2_obj_eval[i][j]/sum(mpr2_obj_eval[i]) for i in eachindex(mu_factor)] for j in eachindex(FP)]
+obj_success_ratio = [[(mpr2_obj_eval[i][j] - mpr2_obj_eval_fail[i][j])/mpr2_obj_eval[i][j] for i in eachindex(mu_factor)] for j in eachindex(FP)]
+obj_time_ratio = sum.([mpr2_obj_eval[j].*reverse([1.0/2^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])./r2_obj_eval[1]
+obj_energy_ratio = sum.([mpr2_obj_eval[j].*reverse([1.0/4^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])./r2_obj_eval[1]
 
-for i in eachindex(mu_factor)
-  for j in eachindex(FP)
-    data_mpr2[j+length(FP)+3][i] = (mpr2_grad_eval[i][j] - mpr2_grad_eval_fail[i][j])/mpr2_grad_eval[i][j]
-  end
-end
+obj_data = [mu_factor,vcat([[obj_eval_ratio[:][j],obj_success_ratio[:][j]] for j in eachindex(FP)]...)..., obj_time_ratio, obj_energy_ratio,pb_solved_ratio]
 
-mpr2_grad_time = sum.([mpr2_grad_eval[j].*reverse([1.0/2^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])
-data_mpr2[2*length(FP)+4] .= mpr2_grad_time./r2_grad_eval[1]
-mpr2_grad_energy = sum.([mpr2_grad_eval[j].*reverse([1.0/4^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])
-data_mpr2[2*length(FP)+5] .= mpr2_grad_energy./r2_grad_eval[1]
+grad_eval_ratio = [[mpr2_grad_eval[i][j]/sum(mpr2_grad_eval[i]) for i in eachindex(mu_factor)] for j in eachindex(FP)]
+grad_success_ratio = [[(mpr2_grad_eval[i][j] - mpr2_grad_eval_fail[i][j])/mpr2_grad_eval[i][j] for i in eachindex(mu_factor)] for j in eachindex(FP)]
+grad_time_ratio = sum.([mpr2_grad_eval[j].*reverse([1.0/2^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])./r2_grad_eval[1]
+grad_energy_ratio = sum.([mpr2_grad_eval[j].*reverse([1.0/4^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])./r2_grad_eval[1]
+
+grad_data = [mu_factor,vcat([[grad_eval_ratio[:][j],grad_success_ratio[:][j]] for j in eachindex(FP)]...)..., grad_time_ratio, grad_energy_ratio,pb_solved_ratio]
 
 
 data_mpr2_obj = DataFrame(
-    [data_header[i] => data_mpr2[i] for i =1:3+length(FP)]...
-)
+    [data_header[i] => obj_data[i] for i in eachindex(data_header)]...
+);
 data_mpr2_grad = DataFrame(
-    [data_header[i] => data_mpr2[i] for i  in [1,collect(4+length(FP):length(data_header))...]]...
-)
+    [data_header[i] => grad_data[i] for i in eachindex(data_header)]...
+);
+
+
+data_header_table = ["mu_fct",vcat([["eval_$fp","success_rate"] for fp in FP]...)..., "time_rat","nrg_rat","solve_ratio"]
+
+println("Objective evaluation stats:")
+table_mpr2_obj = pretty_table(Float64.(hcat(obj_data...)),header = data_header_table)
+println("Gradient evaluation stats:")
+table_mpr2_grad = pretty_table(Float64.(hcat(grad_data...)),header = data_header_table)
 ```

@@ -469,7 +469,7 @@ function objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where
     @warn "Objective evaluation overflows with highest FP format"
   end
   if id == πmax && isinf(ωf)
-    "Objective evaluation error overflows with highest FP format"
+    @warn "Objective evaluation error overflows with highest FP format"
   end
   return H(f), H(ωf), id
 end

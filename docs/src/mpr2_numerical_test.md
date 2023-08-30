@@ -71,11 +71,13 @@ r2_status = Dict{Symbol,Int}()
 mpr2_status = [Dict{Symbol,Int}() for _ in eachindex(mu_factor)]
 nvar = 200 #problem dimension (if scalable)
 max_iter = 10000
-gamma(n,u) = 0.0
+gamma(n,u) = sqrt(n)*u
 param = MPR2Params(Float128.([0.05,0.1,0.7,0.2])...,Float16(1/2),Float16(2))
 
 mpmodel = nothing
 mpr2_status_vect = Vector{Symbol}(undef,length(FP))
+
+stop_condition(m::FPMPNLPModel,solver::MPR2Solver,tol) = solver.g_norm <= tol # stopping condition for MPR2 (ignores euclidean norm computation error): is the same used by R2 for fair comparison
 
 col = ""
 for mu in mu_factor
@@ -104,7 +106,7 @@ for pb in eachrow(names_pb_vars)
   haskey(r2_status,statr2.status) ? r2_status[statr2.status] +=1 : r2_status = merge(r2_status,Dict(statr2.status => 1))
   for i in eachindex(mu_factor)
     MultiPrecisionR2.reset!(mpmodel)
-    statmpr2 = MPR2(mpmodel,max_iter = max_iter,run_free = true,par = param,mu_factor = mu_factor[i])
+    statmpr2 = MPR2(mpmodel,max_iter = max_iter,run_free = true,par = param,mu_factor = mu_factor[i],stop_condition = stop_condition)
     mpr2_obj_eval[i] .+= [haskey(mpmodel.counters.neval_obj,fp) ? mpmodel.counters.neval_obj[fp] : 0 for fp in FP]
     mpr2_grad_eval[i] .+= [haskey(mpmodel.counters.neval_grad,fp) ? mpmodel.counters.neval_grad[fp] : 0 for fp in FP]
     mpr2_obj_eval_fail[i] .+= [haskey(mpmodel.counters_fail.neval_obj,fp) ? mpmodel.counters_fail.neval_obj[fp] : 0 for fp in FP]
@@ -114,7 +116,7 @@ for pb in eachrow(names_pb_vars)
   end
   push!(pb_status,[nlp.meta.name,statr2.status,mpr2_status_vect...])
 end
-data_header = ["mu_fct",["obj_$fp" for fp in FP]..., "obj_t_rat","obj_nrg_rat",["grad_$fp" for fp in FP]...,"grad_t_rat","grad_nrg_rat"]
+data_header = ["mu_fct",["suc_$fp" for fp in FP]..., "obj_t_rat","obj_nrg_rat",["suc_$fp" for fp in FP]...,"grad_t_rat","grad_nrg_rat"]
 data_mpr2 = Tuple(Vector{Float64}(undef,length(mu_factor)) for _ in 1:11)
 data_mpr2[1] .= mu_factor
 

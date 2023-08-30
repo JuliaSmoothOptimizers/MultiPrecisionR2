@@ -148,6 +148,7 @@ Solver structure containing all the variables necessary to MRP2.
 - `σ::H` : regularization parameter
 - `πmax::Int` : number of FP formats available for evaluations
 - `init::Bool` : initialized with `true`, set to `false` when entering main loop
+- `β_func` : floating point euclidean norm computation error 
 """
 mutable struct MPR2Solver{T <: Tuple, H <: AbstractFloat} <: AbstractOptimizationSolver
   x::T
@@ -174,6 +175,7 @@ mutable struct MPR2Solver{T <: Tuple, H <: AbstractFloat} <: AbstractOptimizatio
   μ_factor::H
   πmax::Int
   init::Bool
+  βfunc
 end
 
 function MPR2Solver(MPnlp::M) where {S, H, B, D, M <: FPMPNLPModel{H, B, D, S}}
@@ -192,10 +194,11 @@ function MPR2Solver(MPnlp::M) where {S, H, B, D, M <: FPMPNLPModel{H, B, D, S}}
     c,
     π,
     par,
-    [H(0) for _ = 1:(fieldcount(MPR2Solver) - 9)]...,
+    [H(0) for _ = 1:(fieldcount(MPR2Solver) - 10)]...,
     H(1),
     πmax,
     true,
+    (n,u) -> max(abs(1 - sqrt(1 - MPnlp.γfunc(n + 2, u))), abs(1 - sqrt(1 + MPnlp.γfunc(n, u)))) # error bound on euclidean norm
   )
 end
 
@@ -224,6 +227,7 @@ Keyword agruments:
 - `compute_g!` : callback function to select precision and compute gradient value and error bound. Called at the end of main loop.
 - `recompute_g!` : callback function to select precision and recompute gradient value if more precision is needed. Called after step, candidate and model decrease computation in main loop.
 - `selectPic!` : callback function to select FP format of `c` at the next iteration
+- `stop_condition` : callback function for stopping condition (e.g. first order point found)
 
 # Outputs
 1. `GenericExecutionStats`: execution stats containing information about algorithm execution (nb. of iteration, termination status, ...). See `SolverCore.jl`
@@ -278,6 +282,7 @@ function SolverCore.solve!(
   compute_g! = compute_g_default!,
   recompute_g! = recompute_g_default!,
   selectPic! = selectPic_default!,
+  stop_condition = default_stop_condition,
 ) where {H, T, E}
   unconstrained(MPnlp) || error("MPR2 should only be called on unconstrained problems.")
   SolverCore.reset!(stats)
@@ -304,9 +309,6 @@ function SolverCore.solve!(
   n = MPnlp.meta.nvar
   FP = MPnlp.FPList
   U = MPnlp.UList
-
-  γfunc = MPnlp.γfunc
-  βfunc(n::Int, u::H) = max(abs(1 - sqrt(1 - γfunc(n + 2, u))), abs(1 - sqrt(1 + γfunc(n, u)))) # error bound on euclidean norm
 
   # initial evaluation, check for overflow
   compute_f_at_x!(MPnlp, solver, stats, e)
@@ -338,7 +340,7 @@ function SolverCore.solve!(
 
   # check first order stopping condition
   ϵ = atol + rtol * solver.g_norm
-  optimal = solver.g_norm ≤ (1 - βfunc(n, U[solver.π.πg])) * ϵ / (1 + H(solver.ωg))
+  optimal = stop_condition(MPnlp,solver,ϵ)
   if optimal
     @info("First order critical point found at initial point")
   end
@@ -448,7 +450,7 @@ function SolverCore.solve!(
     stats.dual_feas = solver.g_norm
     stats.dual_residual_reliable = true
     #SolverCore.set_dual_residual!(stats, solver.g_norm)
-    optimal = solver.g_norm ≤ 1 / (1 + βfunc(n, U[solver.π.πg])) * ϵ / (1 + H(solver.ωg))
+    optimal = stop_condition(MPnlp,solver,ϵ)
     if verbose > 0
       infoline =
         @sprintf "%6d  %9.2e  %9.2e  %9.2e  %9.2e  %9.2e  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %2d  %2d  %2d  %2d \n" stats.iter solver.f solver.ωf solver.f⁺ solver.ωf⁺ solver.g_norm solver.ωg solver.σ solver.μ solver.ϕ solver.ρ solver.π.πx solver.π.πc solver.π.πf solver.π.πg
@@ -746,7 +748,6 @@ function recomputeMu!(
 ) where {T <: Tuple, H}
   g_recompute = false
   n = m.meta.nvar
-  βfunc(n::Int, u::H) = max(abs(1 - sqrt(1 - m.γfunc(n + 2, u))), abs(1 - sqrt(1 + m.γfunc(n, u)))) # error bound on euclidean norm
   if solver.π.πΔ != πr.πΔ # recompute model decrease
     solver.ΔT = computeModelDecrease!(solver.g, solver.s, solver, m.FPList, πr)
   end
@@ -758,7 +759,7 @@ function recomputeMu!(
       solver.s_norm = H(norm(solver.s[πr.πns]))
     end
     solver.ϕhat = solver.x_norm / solver.s_norm
-    solver.ϕ = solver.ϕhat * (1 + βfunc(n, m.UList[πr.πnx])) / (1 - βfunc(n, m.UList[πr.πns]))
+    solver.ϕ = solver.ϕhat * (1 + solver.βfunc(n, m.UList[πr.πnx])) / (1 - solver.βfunc(n, m.UList[πr.πns]))
   end
   if solver.π.πs != πr.πs
     computeStep!(solver.s, solver.g, solver.σ, m.FPList, πr) ||
@@ -937,7 +938,6 @@ function recompute_g_default!(
 ) where {H, E, T <: Tuple}
   g_recompute = false
   n = m.meta.nvar
-  βfunc(n::Int, u::H) = max(abs(1 - sqrt(1 - m.γfunc(n + 2, u))), abs(1 - sqrt(1 + m.γfunc(n, u)))) # error bound on euclidean norm
   ##### default choice, can be put in a callback for alternative strategy ####
   solver.π.πnx = min(solver.π.πx + 1, solver.πmax) # use better prec to lower βn and therefore phik therefore muk
   solver.π.πns = min(solver.π.πs + 1, solver.πmax)
@@ -946,7 +946,7 @@ function recompute_g_default!(
   solver.s_norm = H(norm(solver.s[solver.π.πns]))
   solver.ϕhat = solver.x_norm / solver.s_norm
   solver.ϕ =
-    solver.ϕhat * (1 + βfunc(n, m.UList[solver.π.πnx])) / (1 - βfunc(n, m.UList[solver.π.πns]))
+    solver.ϕhat * (1 + solver.βfunc(n, m.UList[solver.π.πnx])) / (1 - solver.βfunc(n, m.UList[solver.π.πns]))
   # prec = findall(u -> u < 1 / solver.ϕ, m.UList)
   # if isempty(prec) # step size too small compared to incumbent
     # @warn "Algo stops because the step size is too small compare to the incumbent, addition unstable (due to rounding error or absorbtion) with highest precision level"
@@ -966,6 +966,15 @@ function recompute_g_default!(
     update_struct!(solver.π, πr)
   end
   return g_recompute, true
+end
+
+
+"""
+    default_stop_condition(solver)
+Implements `MPR2`` stopping condition. Returns true if condition is met, false otherwise.
+"""
+function default_stop_condition(m::FPMPNLPModel,solver::MPR2Solver{T,H},tol) where {T,H}
+  solver.g_norm ≤ 1 / (1 + solver.βfunc(m.meta.nvar, m.UList[solver.π.πs])) * tol / (1 + H(solver.ωg))
 end
 
 end # module

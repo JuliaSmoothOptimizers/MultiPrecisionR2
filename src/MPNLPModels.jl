@@ -461,7 +461,7 @@ function objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where
   πmax = length(m.FPList)
   f, ωf = objerrmp(m, x[id])
   while ωf > err_bound && id ≤ πmax - 1
-    MultiPrecisionR2.increment_fail!(m,:neval_obj,m.FPList[id])
+    MultiPrecisionR2.increment_fail!(m, :neval_obj, m.FPList[id])
     id += 1
     f, ωf = objerrmp(m, x[id])
   end
@@ -469,7 +469,7 @@ function objReachPrec(m::FPMPNLPModel{H}, x::T, err_bound::H; π::Int = 1) where
     @warn "Objective evaluation overflows with highest FP format"
   end
   if id == πmax && isinf(ωf)
-    "Objective evaluation error overflows with highest FP format"
+    @warn "Objective evaluation error overflows with highest FP format"
   end
   return H(f), H(ωf), id
 end
@@ -506,7 +506,7 @@ function gradReachPrec!(
   ωg = graderrmp!(m, x[id], g[id])
   umpt!(g, g[id])
   while ωg > err_bound && id ≤ πmax - 1
-    MultiPrecisionR2.increment_fail!(m,:neval_grad,m.FPList[id])
+    MultiPrecisionR2.increment_fail!(m, :neval_grad, m.FPList[id])
     id += 1
     ωg = graderrmp!(m, x[id], g[id])
     umpt!(g, g[id])
@@ -561,7 +561,7 @@ function hprod_of_mp!(
   πmax = length(m.FPList)
   hprod!(m, x[id], y[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
   while check_overflow(Hv[id]) && id <= πmax - 1
-    MultiPrecisionR2.increment_fail!(m,:neval_hprod,m.FPList[id])
+    MultiPrecisionR2.increment_fail!(m, :neval_hprod, m.FPList[id])
     id += 1
     hprod!(m, x[id], y[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
   end
@@ -581,7 +581,7 @@ function hprod_of_mp!(
   πmax = length(m.FPList)
   hprod!(m, x[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
   while check_overflow(Hv[id]) && id <= πmax - 1
-    MultiPrecisionR2.increment_fail!(m,:neval_hprod,m.FPList[id])
+    MultiPrecisionR2.increment_fail!(m, :neval_hprod, m.FPList[id])
     id += 1
     hprod!(m, x[id], v[id], Hv[id], obj_weight = m.FPList[id](obj_weight))
   end
@@ -643,7 +643,7 @@ function hess_coord_of_mp!(
   πmax = length(m.FPList)
   hess_coord!(m, x[id], y[id], vals[id], obj_weight = m.FPList[id](obj_weight))
   while check_overflow(vals[id]) && id <= πmax - 1
-    MultiPrecisionR2.increment_fail!(m,:neval_hess,m.FPList[id])
+    MultiPrecisionR2.increment_fail!(m, :neval_hess, m.FPList[id])
     id += 1
     hess_coord!(m, x[id], y[id], vals[id], obj_weight = m.FPList[id](obj_weight))
   end
@@ -662,7 +662,7 @@ function hess_coord_of_mp!(
   πmax = length(m.FPList)
   hess_coord!(m, x[id], vals[id], obj_weight = m.FPList[id](obj_weight))
   while check_overflow(vals[id]) && id <= πmax - 1
-    MultiPrecisionR2.increment_fail!(m,:neval_hess,m.FPList[id])
+    MultiPrecisionR2.increment_fail!(m, :neval_hess, m.FPList[id])
     id += 1
     hess_coord!(m, x[id], vals[id], obj_weight = m.FPList[id](obj_weight))
   end

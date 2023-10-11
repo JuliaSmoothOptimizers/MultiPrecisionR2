@@ -546,7 +546,7 @@ end
       ng0 = rtol != 0 ? norm(grad(nlp, nlp.meta.x0)) : 0
       ϵ = atol + rtol * ng0
       primal, dual = kkt_checker(nlp, stats.solution)
-      if ! (stats.status in (:exception,:max_time) )
+      if !(stats.status in (:exception, :max_time))
         @test all(abs.(dual) .< ϵ)
         @test all(abs.(primal) .< ϵ)
         @test stats.dual_feas < ϵ

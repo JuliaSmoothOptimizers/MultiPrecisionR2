@@ -196,7 +196,7 @@ function MPR2Solver(MPnlp::M) where {S, H, B, D, M <: FPMPNLPModel{H, B, D, S}}
     [H(0) for _ = 1:(fieldcount(MPR2Solver) - 9)]...,
     πmax,
     true,
-    (n,u) -> max(abs(1 - sqrt(1 - MPnlp.γfunc(n + 2, u))), abs(1 - sqrt(1 + MPnlp.γfunc(n, u)))) # error bound on euclidean norm
+    (n, u) -> max(abs(1 - sqrt(1 - MPnlp.γfunc(n + 2, u))), abs(1 - sqrt(1 + MPnlp.γfunc(n, u)))), # error bound on euclidean norm
   )
 end
 
@@ -742,8 +742,9 @@ function recomputeMu!(
   g_recompute = false
   n = m.meta.nvar
   if solver.π.πΔ != πr.πΔ # recompute model decrease
-    solver.ΔT = computeModelDecrease!(solver.g, solver.s, solver, m.FPList, πr) ||
-    ((stats.status = :exception); (stats.status_reliable = true))
+    solver.ΔT =
+      computeModelDecrease!(solver.g, solver.s, solver, m.FPList, πr) ||
+      ((stats.status = :exception); (stats.status_reliable = true))
   end
   if solver.π.πnx != πr.πnx || solver.π.πns != πr.πns # recompute x, s norm and ϕ
     if solver.π.πnx != πr.πnx
@@ -753,15 +754,16 @@ function recomputeMu!(
       solver.s_norm = H(norm(solver.s[πr.πns]))
     end
     solver.ϕhat = solver.x_norm / solver.s_norm
-    solver.ϕ = solver.ϕhat * (1 + solver.βfunc(n, m.UList[πr.πnx])) / (1 - solver.βfunc(n, m.UList[πr.πns]))
+    solver.ϕ =
+      solver.ϕhat * (1 + solver.βfunc(n, m.UList[πr.πnx])) / (1 - solver.βfunc(n, m.UList[πr.πns]))
   end
   if solver.π.πs != πr.πs
     computeStep!(solver.s, solver.g, solver.σ, m.FPList, πr) ||
-    ((stats.status = :exception); (stats.status_reliable = true))
+      ((stats.status = :exception); (stats.status_reliable = true))
   end
   if solver.π.πc != πr.πc
     computeCandidate!(solver.c, solver.x, solver.s, m.FPList, πr) ||
-    ((stats.status = :exception); (stats.status_reliable = true))
+      ((stats.status = :exception); (stats.status_reliable = true))
   end
   if solver.π.πg != πr.πg
     solver.ωg = graderrmp!(m, solver.x[πr.πg], solver.g[πr.πg])
@@ -899,7 +901,7 @@ Compute gradient at x if solver.init == true (first gradient eval outside of mai
 # Outputs:
 * `::bool` : always true (needed to comply with callback template)
 """
-  function compute_g_default!(
+function compute_g_default!(
   m::FPMPNLPModel,
   solver::MPR2Solver{T, H},
   stats::GenericExecutionStats,
@@ -940,7 +942,8 @@ function recompute_g_default!(
   solver.s_norm = H(norm(solver.s[solver.π.πns]))
   solver.ϕhat = solver.x_norm / solver.s_norm
   solver.ϕ =
-    solver.ϕhat * (1 + solver.βfunc(n, m.UList[solver.π.πnx])) / (1 - solver.βfunc(n, m.UList[solver.π.πns]))
+    solver.ϕhat * (1 + solver.βfunc(n, m.UList[solver.π.πnx])) /
+    (1 - solver.βfunc(n, m.UList[solver.π.πns]))
   prec = findall(u -> u < 1 / solver.ϕ, m.UList)
   if isempty(prec) # step size too small compared to incumbent
     @warn "Algo stops because the step size is too small compare to the incumbent, addition unstable (due to rounding error or absorbtion) with highest precision level"
@@ -956,7 +959,7 @@ function recompute_g_default!(
       @warn "Gradient error too big with maximum precision FP format: μ ($(solver.μ)) > κₘ($(solver.p.κₘ))"
       return g_recompute, false
     end
-    g_recompute = recomputeMu!(m, solver,stats, πr)
+    g_recompute = recomputeMu!(m, solver, stats, πr)
     update_struct!(solver.π, πr)
   end
   return g_recompute, true

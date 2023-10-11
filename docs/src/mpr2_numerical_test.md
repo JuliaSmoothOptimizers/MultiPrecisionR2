@@ -10,41 +10,98 @@ using OptimizationProblems
 using OptimizationProblems.ADNLPProblems
 using Quadmath
 using IntervalArithmetic
+using DataFrames
+using PrettyTables
 
 setrounding(Interval,:accurate)
 FP = [Float16,Float32,Float64] # MPR2 Floating Point formats
-mpr2_obj_eval = zeros(length(FP))
-mpr2_grad_eval = zeros(length(FP))
-mpr2_obj_eval = zeros(length(FP))
-mpr2_grad_eval = zeros(length(FP))
-mpr2_status = Dict{Symbol,Int}()
-nvar = 10 #problem dimension (if scalable)
-max_iter = 10
-param = MPR2Params(Float128.([0.1,0.3,0.7,0.1])...,Float16(1/2),Float16(2))
+HP_format = Float128 # High precision format
+
+# MPR2 parameters
+η0 = 0.05
+η1=0.1
+η2 =0.7
+κm = 0.2
+γ1 = 1/2
+γ2 = 2.0
+max_iter = 10000
+max_time = 900.0
+
+param = MPR2Params(HP_format.([η0, η1, η2, κm])...,Float16(γ1),Float16(γ2))
 
 mpmodel = nothing
+
+df_str = ":name => String[], :status => Symbol[]"
+col_str = [":neval_obj_",":neval_obj_fail_",":neval_grad_",":neval_grad_fail_"]
+for col in col_str
+  for fp in FP
+    df_str *= ","*col*"$fp => Int64[]"
+  end
+end
+stats = eval(Meta.parse("DataFrame($df_str)"))
 
 meta = OptimizationProblems.meta
 names_pb_vars = meta[(meta.has_bounds .== false) .& (meta.ncon .== 0), [:nvar, :name]] #select unconstrained problems
 for pb in eachrow(names_pb_vars)
-  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(n=$nvar,type=Val(Float64),backend = :generic)"))
+  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(type=Val(Float64),backend = :generic)"))
   @show nlp.meta.name
   try
-    mpmodel = FPMPNLPModel(nlp,FP,HPFormat = Float128,obj_int_eval=true,grad_int_eval=true); # instanciation checks might error in some case due to over/underflow with low-prec/low-range formats
+    mpmodel = FPMPNLPModel(nlp,FP,HPFormat = HP_format,obj_int_eval=true,grad_int_eval=true); # instanciation checks might error in some case due to over/underflow with low-prec/low-range formats
   catch e
+    println("skip $(nlp.meta.name)")
+    push!(pb_error_skip,nlp.meta.name)
     continue
   end
-  statmpr2 = MPR2(mpmodel,max_iter = max_iter,run_free = true,par = param)
-  mpr2_obj_eval .+= [haskey(mpmodel.counters.neval_obj,fp) ? mpmodel.counters.neval_obj[fp] : 0 for fp in FP]
-  mpr2_grad_eval .+= [haskey(mpmodel.counters.neval_grad,fp) ? mpmodel.counters.neval_grad[fp] : 0 for fp in FP]
-  haskey(mpr2_status,statmpr2.status) ? mpr2_status[statmpr2.status] +=1 : mpr2_status = merge(mpr2_status,Dict(statmpr2.status => 1))
+  statmpr2 = MPR2(mpmodel,max_iter = max_iter,run_free = false, max_time = 3600.0, par = param,verbose=1)
+  push!(stats,
+      [nlp.meta.name,
+      statmpr2.status,
+      [mpmodel.counters.neval_obj[fp] for fp in FP]...,
+      [mpmodel.counters_fail.neval_obj[fp] for fp in FP]...,
+      [mpmodel.counters.neval_grad[fp]  for fp in FP]...,
+      [mpmodel.counters_fail.neval_grad[fp] for fp in FP]...]
+    )
+    CSV.write("guaranteed_implem_results.csv",stats)
 end
+
+data_header_table = ["Algo",vcat([["eval_$fp","success_rate"] for fp in FP]...)...,"FO", "MI", "F"]
+FO = nrow(filter(row -> row.status == "first_order",stats))
+MI = nrow(filter(row -> row.status == "max_iter",stats))
+F = nrow(filter(row -> row.status == "exception",stats)) 
+MT = nrow(filter(row -> row.status == "max_time",stats))
+
+obj_eval_fields = [Meta.parse("neval_obj_$(FP[i])") for i in eachindex(FP)]
+obj_eval_fail_fields = [Meta.parse("neval_obj_fail_$(FP[i])") for i in eachindex(FP)]
+
+obj_eval = [sum(stats[!,obj_eval_fields[j]]) for j in eachindex(FP)]
+obj_eval_fail = [sum(stats[!,obj_eval_fail_fields[j]]) for j in eachindex(FP)]
+obj_total_eval = sum([sum(stats[!,obj_eval_fields[j]]) for j in eachindex(FP)])
+
+obj_eval_ratio = [obj_eval[j]/sum(obj_eval) for j in eachindex(FP)]
+obj_success_ratio = [(obj_eval[j] - obj_eval_fail[j])/obj_eval[j] for j in eachindex(FP)]
+
+data_obj = ["MPR2",vcat([[obj_eval_ratio[i],obj_success_ratio[i]] for i in eachindex(FP)]...)...,FO,MI,F]
+pretty_table(hcat(data_obj...),header = data_header_table)
+
+# grad eval stats
+grad_eval_fields = [Meta.parse("neval_grad_$(FP[i])") for i in eachindex(FP)]
+grad_eval_fail_fields = [Meta.parse("neval_grad_fail_$(FP[i])") for i in eachindex(FP)]
+
+grad_eval = [sum(stats[!,grad_eval_fields[j]]) for j in eachindex(FP)]
+grad_eval_fail = [sum(stats[!,grad_eval_fail_fields[j]]) for j in eachindex(FP)]
+grad_total_eval = sum([sum(stats[!,grad_eval_fields[j]]) for j in eachindex(FP)])
+
+grad_eval_ratio = [grad_eval[j]/sum(grad_eval) for j in eachindex(FP)]
+grad_success_ratio = [(grad_eval[j] - grad_eval_fail[j])/grad_eval[j] for j in eachindex(FP)]
+
+data_grad = ["MPR2",vcat([[grad_eval_ratio[i],grad_success_ratio[i]] for i in eachindex(FP)]...)...,FO,MI,F]
+pretty_table(hcat(data_grad...),header = data_header_table)
 ```
 
 ## relaxed-MPR2 vs R2
 
 
-```@example
+```@example mpr2vsr2
 using MultiPrecisionR2
 using DataFrames
 using PrettyTables
@@ -53,102 +110,166 @@ using ADNLPModels
 using OptimizationProblems
 using OptimizationProblems.ADNLPProblems
 using JSOSolvers
+using SolverBenchmark
 using Quadmath
 
 FP = [Float16,Float32,Float64] # MPR2 Floating Point formats
-omega_obj = Float128.((eps.(FP)))
-omega_grad = Float128.((eps.(FP)))
-omega_obj[end] = Float128(0)
-omega_grad[end] = Float128(0)
-r2_obj_eval = [0]
-r2_grad_eval = [0]
+HP_format = Float128 # High precision format
+# evaluation error models
+omega_obj = HP_format.((eps.((FP))))
+omega_grad = HP_format.((eps.((FP))))
+omega_obj[end] = HP_format(0)
+omega_grad[end] = HP_format(0)
 
-mu_factor = Float128.([1,0.1,0.01])
-mpr2_obj_eval = [zeros(length(FP)) for _ in eachindex(mu_factor)]
-mpr2_grad_eval = [zeros(length(FP)) for _ in eachindex(mu_factor)]
-mpr2_obj_eval_fail = [zeros(length(FP)) for _ in eachindex(mu_factor)]
-mpr2_grad_eval_fail = [zeros(length(FP)) for _ in eachindex(mu_factor)]
-r2_status = Dict{Symbol,Int}()
-mpr2_status = [Dict{Symbol,Int}() for _ in eachindex(mu_factor)]
-nvar = 200 #problem dimension (if scalable)
+# values for mu decrease factor r
+mu_factor = HP_format.([1,0.1,0.01])
+
+# R2/MPR2 parameters
+η0 = 0.05
+η1=0.1
+η2 =0.7
+κm = 0.2
+γ1 = 1/2
+γ2 = 2.0
 max_iter = 10000
-gamma(n,u) = n*u
-param = MPR2Params(Float128.([0.05,0.1,0.7,0.2])...,Float16(1/2),Float16(2))
+
+param = MPR2Params(HP_format.([η0, η1, η2, κm])...,Float16(γ1),Float16(γ2))
+
+# status record structure
+algos = [:R2,[Meta.parse("MPR2_mf_"*replace(string(Float64(mu_factor[i])),"." => "_")) for i in eachindex(mu_factor)]...]
+names_str = ""
+for algo in algos
+  names_str *= ":"*string(algo)*","
+end
+df_str = ":name => String[], :status => Symbol[]"
+col_str = [":neval_obj_",":neval_obj_fail_",":neval_grad_",":neval_grad_fail_"]
+for col in col_str
+  for fp in FP
+    df_str *= ","*col*"$fp => Int64[]"
+  end
+end
+names = eval(Meta.parse("[$names_str]"))
+stats = Dict(name => eval(Meta.parse("DataFrame($df_str)")) for name in names)
 
 mpmodel = nothing
-mpr2_status_vect = Vector{Symbol}(undef,length(FP))
 
 stop_condition(m::FPMPNLPModel,solver::MPR2Solver,tol) = solver.g_norm <= tol # stopping condition for MPR2 (ignores euclidean norm computation error): is the same used by R2 for fair comparison
-
-col = ""
-for mu in mu_factor
-  col *= ",MPR2_muf_$(Int64(Float64(mu*100))) = Symbol[]"
-end
-pb_status = eval(Meta.parse("DataFrame(Pb = String[], R2_status = Symbol[]"*col*")" ))
 
 meta = OptimizationProblems.meta
 names_pb_vars = meta[(meta.has_bounds .== false) .& (meta.ncon .== 0), [:nvar, :name]] #select unconstrained problems
 
-pb_skip = ["vibrbeam"] # overflow in cos argument of obj function causes error
+pb_skip = ["vibrbeam"] # overflow in cos() argument of obj function causes error
 for pb in eachrow(names_pb_vars)
-  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(n=$nvar,type=Val(Float64),backend = :generic)"))
+  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(type=Val($(FP[end])),backend = :generic)"))
   @show nlp.meta.name
   if nlp.meta.name in pb_skip
     continue
   end
   try
-    mpmodel = FPMPNLPModel(nlp,FP,HPFormat = Float128,γfunc = gamma,ωfRelErr = omega_obj,ωgRelErr = omega_grad); # instanciation checks might error in some case due to over/underflow with low-prec/low-range formats
+    mpmodel = FPMPNLPModel(nlp,FP,HPFormat = HP_format,ωfRelErr = omega_obj,ωgRelErr = omega_grad); # instanciation checks might error in some case due to over/underflow with low-prec/low-range formats
   catch e
     continue
   end
-  statr2 = R2(nlp,max_eval=max_iter,η1=0.1,η2 =0.7)
-  r2_obj_eval .+= nlp.counters.neval_obj
-  r2_grad_eval .+= nlp.counters.neval_grad
-  haskey(r2_status,statr2.status) ? r2_status[statr2.status] +=1 : r2_status = merge(r2_status,Dict(statr2.status => 1))
+  statr2 = R2(nlp,max_eval=max_iter,η1=η1,η2 = η2, γ1 = γ1,γ2 = γ2)
+  push!(stats[:R2],(nlp.meta.name,
+        statr2.status,
+        [0 for _ in 1:(length(FP)-1)]...,
+        nlp.counters.neval_obj,
+        [0 for _ in 1:length(FP)]...,
+        [0 for _ in 1:(length(FP)-1)]...,
+        nlp.counters.neval_grad,
+        [0 for _ in 1:length(FP)]...)
+        )
   for i in eachindex(mu_factor)
     MultiPrecisionR2.reset!(mpmodel)
     statmpr2 = MPR2(mpmodel,max_iter = max_iter,run_free = true,par = param,mu_factor = mu_factor[i],stop_condition = stop_condition)
-    mpr2_obj_eval[i] .+= [haskey(mpmodel.counters.neval_obj,fp) ? mpmodel.counters.neval_obj[fp] : 0 for fp in FP]
-    mpr2_grad_eval[i] .+= [haskey(mpmodel.counters.neval_grad,fp) ? mpmodel.counters.neval_grad[fp] : 0 for fp in FP]
-    mpr2_obj_eval_fail[i] .+= [haskey(mpmodel.counters_fail.neval_obj,fp) ? mpmodel.counters_fail.neval_obj[fp] : 0 for fp in FP]
-    mpr2_grad_eval_fail[i] .+= [haskey(mpmodel.counters_fail.neval_grad,fp) ? mpmodel.counters_fail.neval_grad[fp] : 0 for fp in FP]
-    haskey(mpr2_status[i],statmpr2.status) ? mpr2_status[i][statmpr2.status] +=1 : mpr2_status[i] = merge(mpr2_status[i],Dict(statmpr2.status => 1))
-    mpr2_status_vect[i] = statmpr2.status
+    push!(stats[algos[i+1]],
+      [nlp.meta.name,
+      statmpr2.status,
+      [mpmodel.counters.neval_obj[fp] for fp in FP]...,
+      [mpmodel.counters_fail.neval_obj[fp] for fp in FP]...,
+      [mpmodel.counters.neval_grad[fp]  for fp in FP]...,
+      [mpmodel.counters_fail.neval_grad[fp] for fp in FP]...]
+    )
   end
-  push!(pb_status,[nlp.meta.name,statr2.status,mpr2_status_vect...])
 end
- 
-data_header = ["mu_fct",vcat([["eval_$fp","suc_rate_$fp"] for fp in FP]...)..., "time_rat","nrg_rat","solve_ratio"]
 
-pb_solved_ratio = [mpr2_status[i][:first_order] for i in eachindex(mu_factor)]./r2_status[:first_order] 
+obj_time_cost_str = "obj_time_cost(df) = (df.status .!= :first_order) * Inf + sum(["
+for i in eachindex(FP)
+  obj_time_cost_str *= "1/2^(length(FP)-$i) .* df.neval_obj_$(FP[i]),"
+end
+obj_time_cost_str *=" ])"
+eval(Meta.parse(obj_time_cost_str))
 
-obj_eval_ratio = [[mpr2_obj_eval[i][j]/sum(mpr2_obj_eval[i]) for i in eachindex(mu_factor)] for j in eachindex(FP)]
-obj_success_ratio = [[(mpr2_obj_eval[i][j] - mpr2_obj_eval_fail[i][j])/mpr2_obj_eval[i][j] for i in eachindex(mu_factor)] for j in eachindex(FP)]
-obj_time_ratio = sum.([mpr2_obj_eval[j].*reverse([1.0/2^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])./r2_obj_eval[1]
-obj_energy_ratio = sum.([mpr2_obj_eval[j].*reverse([1.0/4^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])./r2_obj_eval[1]
+obj_nrg_cost_str = "obj_nrg_cost(df) = (df.status .!= :first_order) * Inf + sum(["
+for i in eachindex(FP)
+  obj_nrg_cost_str *= "1/4^(length(FP)-$i) .* df.neval_obj_$(FP[i]),"
+end
+obj_nrg_cost_str *=" ])"
+eval(Meta.parse(obj_nrg_cost_str))
 
-obj_data = [mu_factor,vcat([[obj_eval_ratio[:][j],obj_success_ratio[:][j]] for j in eachindex(FP)]...)..., obj_time_ratio, obj_energy_ratio,pb_solved_ratio]
+grad_time_cost_str = "grad_time_cost(df) = (df.status .!= :first_order) * Inf + sum(["
+for i in eachindex(FP)
+  grad_time_cost_str *= "1/2^(length(FP)-$i) .* df.neval_grad_$(FP[i]),"
+end
+grad_time_cost_str *=" ])"
+eval(Meta.parse(grad_time_cost_str))
 
-grad_eval_ratio = [[mpr2_grad_eval[i][j]/sum(mpr2_grad_eval[i]) for i in eachindex(mu_factor)] for j in eachindex(FP)]
-grad_success_ratio = [[(mpr2_grad_eval[i][j] - mpr2_grad_eval_fail[i][j])/mpr2_grad_eval[i][j] for i in eachindex(mu_factor)] for j in eachindex(FP)]
-grad_time_ratio = sum.([mpr2_grad_eval[j].*reverse([1.0/2^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])./r2_grad_eval[1]
-grad_energy_ratio = sum.([mpr2_grad_eval[j].*reverse([1.0/4^(i-1) for i in eachindex(FP)]) for j in eachindex(mu_factor)])./r2_grad_eval[1]
+grad_nrg_cost_str = "grad_nrg_cost(df) = (df.status .!= :first_order) * Inf + sum(["
+for i in eachindex(FP)
+  grad_nrg_cost_str *= "1/4^(length(FP)-$i) .* df.neval_grad_$(FP[i]),"
+end
+grad_nrg_cost_str *=" ])"
+eval(Meta.parse(grad_nrg_cost_str))
 
-grad_data = [mu_factor,vcat([[grad_eval_ratio[:][j],grad_success_ratio[:][j]] for j in eachindex(FP)]...)..., grad_time_ratio, grad_energy_ratio,pb_solved_ratio]
+costs = [obj_time_cost, obj_nrg_cost, grad_time_cost, grad_nrg_cost]
+costs_names = ["objective time", "objective energy", "gradient time", "gradient energy"]
+legend = ["R2",["r-MPR2:a=$(Float64(mf))" for mf in mu_factor]...]
+p_ot = performance_profile(stats,obj_time_cost,title = "Objective time effort")
+p_oe = performance_profile(stats,obj_nrg_cost,title = "Objective energy effort")
+p_gt = performance_profile(stats,grad_time_cost,title = "Gradient time effort")
+p_ge = performance_profile(stats,grad_nrg_cost,title = "Gradient energy effort")
 
+data_header_table = ["Algo","mu_fct",vcat([["eval_$fp","success_rate"] for fp in FP]...)..., "time_rat","nrg_rat","# solved(/$(nrow(stats[:R2])))"]
 
-data_mpr2_obj = DataFrame(
-    [data_header[i] => obj_data[i] for i in eachindex(data_header)]...
-);
-data_mpr2_grad = DataFrame(
-    [data_header[i] => grad_data[i] for i in eachindex(data_header)]...
-);
+pb_solved = [nrow(filter(row -> row.status == :first_order,stats[algo])) for algo in algos] 
 
+# obj eval stats
+obj_eval_fields = [Meta.parse("neval_obj_$(FP[i])") for i in eachindex(FP)]
+obj_eval_fail_fields = [Meta.parse("neval_obj_fail_$(FP[i])") for i in eachindex(FP)]
 
-data_header_table = ["mu_fct",vcat([["eval_$fp","success_rate"] for fp in FP]...)..., "time_rat","nrg_rat","solve_ratio"]
+obj_eval = [[sum(stats[algos[i]][!,obj_eval_fields[j]]) for j in eachindex(FP)] for i in eachindex(algos)]
+obj_eval_fail = [[sum(stats[algos[i]][!,obj_eval_fail_fields[j]]) for j in eachindex(FP)] for i in eachindex(algos)]
+obj_total_eval = [sum([sum(stats[algos[i]][!,obj_eval_fields[j]]) for j in eachindex(FP)]) for i in eachindex(algos)]
+
+obj_eval_ratio = [[obj_eval[i][j]/sum(obj_eval[i]) for i in eachindex(algos)] for j in eachindex(FP)]
+obj_success_ratio = [[(obj_eval[i][j] - obj_eval_fail[i][j])/obj_eval[i][j] for i in eachindex(algos)] for j in eachindex(FP)]
+obj_time_effort = sum.([obj_eval[j].*reverse([1.0/2^(i-1) for i in eachindex(FP)]) for j in eachindex(algos)])
+obj_time_ratio = obj_time_effort./obj_time_effort[1]
+obj_energy_effort = sum.([obj_eval[j].*reverse([1.0/4^(i-1) for i in eachindex(FP)]) for j in eachindex(algos)])
+obj_energy_ratio = obj_energy_effort./obj_energy_effort[1]
+
+obj_data = [[:R2,[:MPR2 for _ in eachindex(mu_factor)]...],[NaN,Float64.(mu_factor)...],vcat([[obj_eval_ratio[:][j],obj_success_ratio[:][j]] for j in eachindex(FP)]...)..., obj_time_ratio, obj_energy_ratio,pb_solved]
+
+# grad eval stats
+grad_eval_fields = [Meta.parse("neval_grad_$(FP[i])") for i in eachindex(FP)]
+grad_eval_fail_fields = [Meta.parse("neval_grad_fail_$(FP[i])") for i in eachindex(FP)]
+
+grad_eval = [[sum(stats[algos[i]][!,grad_eval_fields[j]]) for j in eachindex(FP)] for i in eachindex(algos)]
+grad_eval_fail = [[sum(stats[algos[i]][!,grad_eval_fail_fields[j]]) for j in eachindex(FP)] for i in eachindex(algos)]
+grad_total_eval = [sum([sum(stats[algos[i]][!,grad_eval_fields[j]]) for j in eachindex(FP)]) for i in eachindex(algos)]
+
+grad_eval_ratio = [[grad_eval[i][j]/sum(grad_eval[i]) for i in eachindex(algos)] for j in eachindex(FP)]
+grad_success_ratio = [[(grad_eval[i][j] - grad_eval_fail[i][j])/grad_eval[i][j] for i in eachindex(algos)] for j in eachindex(FP)]
+grad_time_effort = sum.([grad_eval[j].*reverse([1.0/2^(i-1) for i in eachindex(FP)]) for j in eachindex(algos)])
+grad_time_ratio = grad_time_effort./grad_time_effort[1]
+grad_energy_effort = sum.([grad_eval[j].*reverse([1.0/4^(i-1) for i in eachindex(FP)]) for j in eachindex(algos)])
+grad_energy_ratio = grad_energy_effort./grad_energy_effort[1]
+
+grad_data = [[:R2,[:MPR2 for _ in eachindex(mu_factor)]...],[NaN,Float64.(mu_factor)...],vcat([[grad_eval_ratio[:][j],grad_success_ratio[:][j]] for j in eachindex(FP)]...)..., grad_time_ratio, grad_energy_ratio,pb_solved]
 
 println("Objective evaluation stats:")
-table_mpr2_obj = pretty_table(Float64.(hcat(obj_data...)),header = data_header_table)
+table_mpr2_obj = pretty_table(hcat(obj_data...),header = data_header_table)
 println("Gradient evaluation stats:")
-table_mpr2_grad = pretty_table(Float64.(hcat(grad_data...)),header = data_header_table)
+table_mpr2_grad = pretty_table(hcat(grad_data...),header = data_header_table)
 ```

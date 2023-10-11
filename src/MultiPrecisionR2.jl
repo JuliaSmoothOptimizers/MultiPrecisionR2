@@ -395,7 +395,6 @@ function SolverCore.solve!(
         ((stats.status = :exception); (stats.status_reliable = true))
       computeModelDecrease!(solver.g, solver.s, solver, FP, solver.π) ||
         ((stats.status = :exception); (stats.status_reliable = true))
-      @show stats.status computeCandidate!(solver.c, solver.x, solver.s, FP, solver.π)
     end
     stats.dual_feas = solver.g_norm
     stats.dual_residual_reliable = true

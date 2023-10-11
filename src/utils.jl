@@ -127,11 +127,11 @@ function check_overflow(f::AbstractFloat)
 end
 
 function check_overflow(f::Interval)
-  return isinf(diam(f))
+  return isinf(diam(f)) || isnan(diam(f))
 end
 
 function check_overflow(g::AbstractVector{T}) where {T <: Interval}
-  return findfirst(x -> isinf(diam(x)), g) !== nothing
+  return findfirst(x -> isinf(diam(x)) || isnan(diam(x)), g) !== nothing
 end
 
 function check_overflow(g::AbstractVector{T}) where {T <: AbstractFloat}

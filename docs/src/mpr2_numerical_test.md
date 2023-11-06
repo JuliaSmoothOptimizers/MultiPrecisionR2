@@ -194,6 +194,7 @@ for pb in eachrow(names_pb_vars)
   end
 end
 
+#objective evaluation: time cost function
 obj_time_cost_str = "obj_time_cost(df) = (df.status .!= :first_order) * Inf + sum(["
 for i in eachindex(FP)
   obj_time_cost_str *= "1/2^(length(FP)-$i) .* df.neval_obj_$(FP[i]),"
@@ -201,6 +202,7 @@ end
 obj_time_cost_str *=" ])"
 eval(Meta.parse(obj_time_cost_str))
 
+#objective evaluation: energy cost function
 obj_nrg_cost_str = "obj_nrg_cost(df) = (df.status .!= :first_order) * Inf + sum(["
 for i in eachindex(FP)
   obj_nrg_cost_str *= "1/4^(length(FP)-$i) .* df.neval_obj_$(FP[i]),"
@@ -208,6 +210,7 @@ end
 obj_nrg_cost_str *=" ])"
 eval(Meta.parse(obj_nrg_cost_str))
 
+#gradient evaluation: time cost function
 grad_time_cost_str = "grad_time_cost(df) = (df.status .!= :first_order) * Inf + sum(["
 for i in eachindex(FP)
   grad_time_cost_str *= "1/2^(length(FP)-$i) .* df.neval_grad_$(FP[i]),"
@@ -215,6 +218,7 @@ end
 grad_time_cost_str *=" ])"
 eval(Meta.parse(grad_time_cost_str))
 
+#gradient evaluation: energy cost function
 grad_nrg_cost_str = "grad_nrg_cost(df) = (df.status .!= :first_order) * Inf + sum(["
 for i in eachindex(FP)
   grad_nrg_cost_str *= "1/4^(length(FP)-$i) .* df.neval_grad_$(FP[i]),"
@@ -222,6 +226,7 @@ end
 grad_nrg_cost_str *=" ])"
 eval(Meta.parse(grad_nrg_cost_str))
 
+#plot performance profiles
 costs = [obj_time_cost, obj_nrg_cost, grad_time_cost, grad_nrg_cost]
 costs_names = ["objective time", "objective energy", "gradient time", "gradient energy"]
 legend = ["R2",["r-MPR2:a=$(Float64(mf))" for mf in mu_factor]...]
@@ -234,7 +239,7 @@ data_header_table = ["Algo","mu_fct",vcat([["eval_$fp","success_rate"] for fp in
 
 pb_solved = [nrow(filter(row -> row.status == :first_order,stats[algo])) for algo in algos] 
 
-# obj eval stats
+# obj eval stats : compute time and energy savings of MPR2 compare with R2
 obj_eval_fields = [Meta.parse("neval_obj_$(FP[i])") for i in eachindex(FP)]
 obj_eval_fail_fields = [Meta.parse("neval_obj_fail_$(FP[i])") for i in eachindex(FP)]
 
@@ -251,7 +256,7 @@ obj_energy_ratio = obj_energy_effort./obj_energy_effort[1]
 
 obj_data = [[:R2,[:MPR2 for _ in eachindex(mu_factor)]...],[NaN,Float64.(mu_factor)...],vcat([[obj_eval_ratio[:][j],obj_success_ratio[:][j]] for j in eachindex(FP)]...)..., obj_time_ratio, obj_energy_ratio,pb_solved]
 
-# grad eval stats
+# grad eval stats : compute time and energy savings of MPR2 compare with R2
 grad_eval_fields = [Meta.parse("neval_grad_$(FP[i])") for i in eachindex(FP)]
 grad_eval_fail_fields = [Meta.parse("neval_grad_fail_$(FP[i])") for i in eachindex(FP)]
 

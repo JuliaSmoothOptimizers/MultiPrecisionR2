@@ -571,4 +571,14 @@ end
       end
     end
   end
+  @testset "Specific output format" begin
+    omega = Float64.([sqrt(eps(t)) for t in FPFormats])
+    omega[end] = 0.0
+    o_type = Float16
+    for nlp in problem_set
+      mpnlp = FPMPNLPModel(nlp, FPFormats; ωfRelErr = omega, ωgRelErr = omega)
+      stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0,sol_format=o_type)
+      @test stats.solution == o_type.(stats.solution)
+    end
+  end
 end

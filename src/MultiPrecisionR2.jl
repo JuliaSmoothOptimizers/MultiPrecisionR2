@@ -36,6 +36,7 @@ Stores FP formats index in `FPMPNLPModel.FPList` of obj, grad, model reduction a
 """
 mutable struct MPR2Precisions
   πx::Int
+  πx_final::Int
   πnx::Int
   πs::Int
   πns::Int
@@ -51,7 +52,7 @@ end
 end
 
 Base.copy(π::MPR2Precisions) =
-  MPR2Precisions(π.πx, π.πnx, π.πs, π.πns, π.πc, π.πf, π.πf⁺, π.πg, π.πΔ)
+  MPR2Precisions(π.πx, π.πx_final, π.πnx, π.πs, π.πns, π.πc, π.πf, π.πf⁺, π.πg, π.πΔ)
 
 """
     MPR2Params(LPFormat::DataType, HPFormat::DataType)
@@ -272,6 +273,7 @@ function SolverCore.solve!(
   σmin::H = H(sqrt(MPnlp.FPList[end](MPnlp.EpsList[end]))),
   run_free = false,
   verbose::Int = 0,
+  sol_format::DataType = MPnlp.FPList[end],
   e::E = nothing,
   compute_f_at_x! = compute_f_at_x_default!,
   compute_f_at_c! = compute_f_at_c_default!,
@@ -285,6 +287,10 @@ function SolverCore.solve!(
   start_time = time()
   SolverCore.set_time!(stats, 0.0)
 
+  # set solution final type
+  sol_format ∈ MPnlp.FPList || error("Final format of solution provided ($sol_format) must be in MPnlp.FPList ($(MPnlp.FPList)).")
+  solver.π.πx_final = findfirst(x -> x==sol_format,MPnlp.FPList)
+  solver.π.πx = solver.π.πx_final
   # check for ill initialized parameters
   CheckMPR2ParamConditions(par)
   solver.p = par
@@ -292,17 +298,17 @@ function SolverCore.solve!(
   η₁ = par.η₁
   η₂ = par.η₂
   γ₁ = par.γ₁ # in lowest precision format to ensure type stability when updating σ
-  γ₂ = par.γ₂ # in lowest precision format to ensure type stability when updating σ
-
-  #initialize init sol
-  umpt!(solver.x, x₀)
-  umpt!(solver.c, x₀)
+  γ₂ = par.γ₂ # in lowest precision format to ensure type stability when updating
 
   #misc initialization
   SolverCore.set_iter!(stats, 0)
   n = MPnlp.meta.nvar
   FP = MPnlp.FPList
   U = MPnlp.UList
+
+  #initialize init sol
+  umpt!(solver.x, FP[solver.π.πx].(x₀))
+  umpt!(solver.c, FP[solver.π.πx].(x₀))
 
   # initial evaluation, check for overflow
   compute_f_at_x!(MPnlp, solver, stats, e)
@@ -415,7 +421,7 @@ function SolverCore.solve!(
     end
 
     if solver.ρ ≥ η₁
-      if !compute_g!(MPnlp, solver, stats, e) && !run_free
+      if !compute_g!(MPnlp, solver, stats, e) && !run_free # stop because gradient related error too big 
         stats.status = :exception
         stats.status_reliable = true
       end
@@ -454,7 +460,7 @@ function SolverCore.solve!(
       @info infoline
     end
 
-    if stats.status != :exception # get_status does not handle overflow case that set status to exception 
+    if stats.status == :unknown # get_status does not handle overflow case that set status to exception 
       SolverCore.set_status!(
         stats,
         SolverCore.get_status(
@@ -468,12 +474,14 @@ function SolverCore.solve!(
         ),
       )
     end
-
     done = stats.status != :unknown
   end
 
-  stats.solution = solver.x[end]
+  stats.solution = solver.x[end] # has to set stats.solution as max prec format for consistency
   #SolverCore.set_solution!(stats, solver.x[end])
+  if sol_format != FP[end]
+    @info "Solution contained in retruned GenericExecutionStats is of format $(FP[end]) but can be safely casted into required $sol_format solution format (no rounding error will occur)."
+  end
   return stats
 end
 
@@ -615,6 +623,10 @@ function computeCandidate!(
       @warn "Candidate over/underflow with maximum precision FP format ($(FP[πmax]))"
       return false
     end
+    if π.πc > π.πx_final #not enough precision to avoid underflow
+      @warn "Candidate over/underflow with required solution FP format ($(FP[π.πx_final]))"
+      return false
+    end
     π.πc += 1
     c[π.πc] .= FP[π.πc].(x[max(π.πc, π.πx)] .+ s[max(π.πc, π.πs)])
   end
@@ -706,7 +718,7 @@ function recomputeMuPrecSelection!(π::MPR2Precisions, πr::MPR2Precisions, πma
     # Priority #3 strategy: increase πc
   elseif π.πs < πmax
     πr.πs = π.πs + 1
-  elseif π.πc < πmax
+  elseif π.πc < π.πx_final # πmax
     πr.πc = π.πc + 1
     # Priority #4 strategy: recompute gradient
   elseif π.πg < πmax
@@ -818,6 +830,7 @@ Default strategy for selecting FP format of candidate for the next evaluation. U
 """
 function selectPic_default!(solver::MPR2Solver)
   solver.π.πc = max(1, solver.π.πf⁺ - 1)
+  solver.π.πc = min(solver.π.πc,solver.π.πx_final) # doesn't allow storage in greater precision FP format than specified solution output format
 end
 
 ####### Default callback function for objective and gradient evaluation #########
@@ -922,7 +935,8 @@ Increase operation precision levels until sufficiently small μ indicator is ach
 See also [`computeMu`](@ref), [`recomputeMuPrecSelection!`](@ref), [`recomputeMu!`](@ref)
 
 # Outputs:
-* `::bool` : returns false if couldn't reach sufficiently small evaluation error or overflow occured. 
+* `g_recomp::bool` : returns true is the gradient has been recomputed.
+* `success::bool` : returns false if couldn't reach sufficiently small evaluation error or overflow occured. 
 """
 function recompute_g_default!(
   m::FPMPNLPModel,

@@ -24,8 +24,8 @@ n = 100 # problem dimension
 x0 = ones(Float32,n) # initial solution
 mpnlp = FPMPNLPModel(f,x0,T) # creates a multi-precision model of the problem
 stats = MPR2(mpnlp)
-println("Objective was evaluated $(neval_obj(mpnlp,Float32)) times with Float32 and $(neval_obj(mpnlp,Float64)) times with Float64")
-println("Gradient was evaluated $(neval_grad(mpnlp,Float32)) times with Float32 and $(neval_grad(mpnlp,Float64)) times with Float64")
+println("Objective was evaluated $(neval_obj(mpnlp,Float16)) times with Float32 and $(neval_obj(mpnlp,Float32)) times with Float64")
+println("Gradient was evaluated $(neval_grad(mpnlp,Float16)) times with Float32 and $(neval_grad(mpnlp,Float32)) times with Float64")
 ```
 
 # Solver Options

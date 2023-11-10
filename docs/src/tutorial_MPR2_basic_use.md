@@ -220,7 +220,7 @@ T = [Float16,Float32]
 setrounding(Interval,:accurate) # need this since Float16 is used, see warnings in the README
 f(x) = sum(x.^2)
 x = ones(Float32,2)
-mpnlp = FPMPNLPModel(f,x,T,obj_int_eval = true, grad_err_eval = true) # instanciate a FPMPNLPModel, interval evaluation will be used for error estimation
+mpnlp = FPMPNLPModel(f,x,T,obj_int_eval = true, grad_int_eval = true) # instanciate a FPMPNLPModel, interval evaluation will be used for error estimation
 MPR2(mpnlp) # runs MPR2 with interval estimation of the evaluation errors
 ```
 
@@ -249,7 +249,7 @@ T = [Float32,Float64]
 f(x) = sum(x.^2)
 x = ones(Float32,2)
 mpnlp = FPMPNLPModel(f,x,T;HPFormat = HPFormat) # instanciate a FPMPNLPModel with Float64 HPFormat
-MPR2(mpnlp) # runs MPR2 with Float128 to compute "define" values
+MPR2(mpnlp) # runs MPR2 with Float128 to compute "defined" values
 ```
 ## **Gamma Function**
 
@@ -297,7 +297,7 @@ Running the above code block returns a warning indicating that R2 stops because 
 γ₁ = Float16(1/2) # must be FP format of lowest evaluation precision for numerical stability
 γ₂ = Float16(2) # must be FP format of lowest evaluation precision for numerical stability
 param = MPR2Params(η₀,η₁,η₂,κₘ,γ₁,γ₂)
-stat = MPR2(MPmodel,par = param,max_iter = 10000,obj_int_eval = true, grad_int_eval = true) 
+stat = MPR2(MPmodel,par = param,max_iter = 10000) 
 ```
 Now MPR2 converges to a first order critical point since we tolerate enough error on the objective evaluation.
 

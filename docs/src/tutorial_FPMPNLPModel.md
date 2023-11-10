@@ -59,7 +59,7 @@ x = ones(2) # initial point
 x16 = Float16.(x) # initial point in Float16
 x32 = Float32.(x) # initial point in Float32
 ωgRelErr = [0.05,0.02] # gradient error (norm): 5% with Float16 and 2% with Float32
-MPmodel = FPMPNLPModel(f,x32,FP; obj_int_err = true, ωgRelErr = ωgRelErr) # use interval for objective error bound and relative error bound for gradient
+MPmodel = FPMPNLPModel(f,x32,FP; obj_int_eval = true, ωgRelErr = ωgRelErr) # use interval for objective error bound and relative error bound for gradient
 f32, omega_f32 = objerrmp(MPmodel,x32) # evaluate objective and error bound with interval at x with T[1] = Float32 FP model
 g16, omega_g16 = graderrmp(MPmodel,x16) # evaluate gradient and error bound at x with T[2] = Float16 FP model
 ```
@@ -87,10 +87,10 @@ objerrmp(MPmodelRelative,x32)
 graderrmp(MPmodelInterval,x32)
 graderrmp(MPmodelRelative,x32)
 
-@time objerrmp(MPmodelInterval,x32) # interval evaluation of objective
-@time objerrmp(MPmodelRelative,x32) # classic evaluation of objective
-@time graderrmp(MPmodelInterval,x32) # interval evaluation of gradient
-@time graderrmp(MPmodelRelative,x32) # classic evaluation of gradient
+@time objerrmp(MPmodelInterval,x32); # interval evaluation of objective
+@time objerrmp(MPmodelRelative,x32); # classic evaluation of objective
+@time graderrmp(MPmodelInterval,x32); # interval evaluation of gradient
+@time graderrmp(MPmodelRelative,x32); # classic evaluation of gradient
 ```
 
 # **High Precision Format**

@@ -220,6 +220,7 @@ Keyword agruments:
 - `σmin::T = sqrt(T(MPnlp.EpsList[end]))` : minimal value for regularization parameter. Value must be representable in any of the floating point formats of MPnlp. 
 - `run_free = false` : if true, let MPR2 run when maximum precision levels have been reach but numerical stability is not ensured (avoid early stop because of lack of precision)
 - `verbose::Int=0` : display iteration information if > 0
+- `sol_format::DataType = MPnlp.FPList[end]` : User-specified FP format of the returned solution  
 - `e::E` : user defined structure, used as argument for `compute_f_at_x!`, `compute_f_at_c!` `compute_g!` and `recompute_g!` callback functions.
 - `compute_f_at_x!` : callback function to select precision and compute objective value and error bound at the current point. Allows to reevaluate the objective at x if more precision is needed.
 - `compute_f_at_c!` : callback function to select precision and compute objective value and error bound at candidate.

@@ -243,6 +243,7 @@ end
   m = FPMPNLPModel(f, x0, Formats, obj_int_eval = true, grad_int_eval = true)
   solver = MPR2Solver(m)
   π = MPR2Precisions(1)
+  π.πx_final = length(m.FPList)
   πr = copy(π)
   update_struct!(solver.π, π)
   mu = MultiPrecisionR2.computeMu(m, solver)

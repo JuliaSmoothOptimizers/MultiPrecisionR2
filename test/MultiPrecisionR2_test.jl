@@ -243,6 +243,7 @@ end
   m = FPMPNLPModel(f, x0, Formats, obj_int_eval = true, grad_int_eval = true)
   solver = MPR2Solver(m)
   π = MPR2Precisions(1)
+  π.πx_final = length(m.FPList)
   πr = copy(π)
   update_struct!(solver.π, π)
   mu = MultiPrecisionR2.computeMu(m, solver)
@@ -559,7 +560,7 @@ end
     omega[end] = 0.0
     for nlp in problem_set
       mpnlp = FPMPNLPModel(nlp, FPFormats; ωfRelErr = omega, ωgRelErr = omega)
-      stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0)
+      stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0,sol_format=Float32)
       ng0 = rtol != 0 ? norm(grad(nlp, nlp.meta.x0)) : 0
       ϵ = atol + rtol * ng0
       primal, dual = kkt_checker(nlp, stats.solution)
@@ -569,6 +570,16 @@ end
         @test stats.dual_feas < ϵ
         @test stats.status == :first_order
       end
+    end
+  end
+  @testset "Specific output format" begin
+    omega = Float64.([sqrt(eps(t)) for t in FPFormats])
+    omega[end] = 0.0
+    o_type = Float16
+    for nlp in problem_set
+      mpnlp = FPMPNLPModel(nlp, FPFormats; ωfRelErr = omega, ωgRelErr = omega)
+      stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0,sol_format=o_type)
+      @test stats.solution == o_type.(stats.solution)
     end
   end
 end

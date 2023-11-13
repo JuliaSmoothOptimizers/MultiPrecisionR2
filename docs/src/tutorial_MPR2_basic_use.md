@@ -29,7 +29,11 @@ max_iter = 1000
 
 meta = OptimizationProblems.meta
 names_pb_vars = meta[(meta.has_bounds .== false) .& (meta.ncon .== 0), [:nvar, :name]] #select unconstrained problems
+pb_skip = ["vibrbeam"] # overflow in cos() argument of obj function causes error
 for pb in eachrow(names_pb_vars)
+  if pb.name ∈ pb_skip
+    continue
+  end
   nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(n=$nvar,type=Val(Float64),backend = :generic)"))
   mpmodel = FPMPNLPModel(nlp,FP,HPFormat = Float128, ωfRelErr=omega, ωgRelErr=omega);
   statr2 = R2(nlp,max_eval=max_iter)

@@ -7,7 +7,6 @@ makedocs(;
   modules = [MultiPrecisionR2],
   doctest = true,
   linkcheck = false,
-  strict = false,
   authors = "Dominique Monnet <monnetdo@gmail.com> and contributors",
   repo = "https://github.com/JuliaSmoothOptimizers/MultiPrecisionR2",
   sitename = "MultiPrecisionR2.jl",

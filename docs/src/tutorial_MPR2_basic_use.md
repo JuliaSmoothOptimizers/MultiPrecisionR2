@@ -29,8 +29,9 @@ max_iter = 1000
 
 meta = OptimizationProblems.meta
 names_pb_vars = meta[(meta.has_bounds .== false) .& (meta.ncon .== 0), [:nvar, :name]] #select unconstrained problems
-pb_skip = ["vibrbeam"] # overflow in cos() argument of obj function causes error
+pb_skip = ["scosine"] # overflow in cos() argument of obj function causes error
 for pb in eachrow(names_pb_vars)
+  @show pb.name
   if pb.name ∈ pb_skip
     continue
   end

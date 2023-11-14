@@ -289,8 +289,10 @@ function SolverCore.solve!(
   SolverCore.set_time!(stats, 0.0)
 
   # set solution final type
-  sol_format ∈ MPnlp.FPList || error("Final format of solution provided ($sol_format) must be in MPnlp.FPList ($(MPnlp.FPList)).")
-  solver.π.πx_final = findfirst(x -> x==sol_format,MPnlp.FPList)
+  sol_format ∈ MPnlp.FPList || error(
+    "Final format of solution provided ($sol_format) must be in MPnlp.FPList ($(MPnlp.FPList)).",
+  )
+  solver.π.πx_final = findfirst(x -> x == sol_format, MPnlp.FPList)
   solver.π.πx = solver.π.πx_final
   # check for ill initialized parameters
   CheckMPR2ParamConditions(par)
@@ -833,7 +835,7 @@ Default strategy for selecting FP format of candidate for the next evaluation. U
 """
 function selectPic_default!(solver::MPR2Solver)
   solver.π.πc = max(1, solver.π.πf⁺ - 1)
-  solver.π.πc = min(solver.π.πc,solver.π.πx_final) # doesn't allow storage in greater precision FP format than specified solution output format
+  solver.π.πc = min(solver.π.πc, solver.π.πx_final) # doesn't allow storage in greater precision FP format than specified solution output format
 end
 
 ####### Default callback function for objective and gradient evaluation #########

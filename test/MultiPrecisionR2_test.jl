@@ -560,7 +560,7 @@ end
     omega[end] = 0.0
     for nlp in problem_set
       mpnlp = FPMPNLPModel(nlp, FPFormats; ωfRelErr = omega, ωgRelErr = omega)
-      stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0,sol_format=Float32)
+      stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0, sol_format = Float32)
       ng0 = rtol != 0 ? norm(grad(nlp, nlp.meta.x0)) : 0
       ϵ = atol + rtol * ng0
       primal, dual = kkt_checker(nlp, stats.solution)
@@ -578,7 +578,7 @@ end
     o_type = Float16
     for nlp in problem_set
       mpnlp = FPMPNLPModel(nlp, FPFormats; ωfRelErr = omega, ωgRelErr = omega)
-      stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0,sol_format=o_type)
+      stats = MPR2(mpnlp, max_iter = 1000000, max_time = 60.0, sol_format = o_type)
       @test stats.solution == o_type.(stats.solution)
     end
   end

@@ -227,7 +227,7 @@ Keyword agruments:
 - `compute_g!` : callback function to select precision and compute gradient value and error bound. Called at the end of main loop.
 - `recompute_g!` : callback function to select precision and recompute gradient value if more precision is needed. Called after step, candidate and model decrease computation in main loop.
 - `selectPic!` : callback function to select FP format of `c` at the next iteration
-
+- `callback = cb() -> nothing` : callback function called at the end of main loop 
 # Outputs
 1. `GenericExecutionStats`: execution stats containing information about algorithm execution (nb. of iteration, termination status, ...). See `SolverCore.jl`
 
@@ -281,6 +281,7 @@ function SolverCore.solve!(
   compute_g! = compute_g_default!,
   recompute_g! = recompute_g_default!,
   selectPic! = selectPic_default!,
+  callback = () -> nothing
 ) where {H, T, E}
   unconstrained(MPnlp) || error("MPR2 should only be called on unconstrained problems.")
   SolverCore.reset!(stats)
@@ -478,6 +479,7 @@ function SolverCore.solve!(
       )
     end
     done = stats.status != :unknown
+    callback()
   end
 
   stats.solution = solver.x[end] # has to set stats.solution as max prec format for consistency

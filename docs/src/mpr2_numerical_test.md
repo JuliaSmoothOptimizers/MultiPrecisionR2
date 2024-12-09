@@ -12,6 +12,7 @@ using Quadmath
 using IntervalArithmetic
 using DataFrames
 using PrettyTables
+using CSV
 
 setrounding(Interval,:accurate)
 FP = [Float16,Float32,Float64] # MPR2 Floating Point formats
@@ -24,8 +25,10 @@ HP_format = Float128 # High precision format
 κm = 0.2
 γ1 = 1/2
 γ2 = 2.0
-max_iter = 10000
+max_iter = 20000
 max_time = 900.0
+atol = eps(FP[end])^(1/4)
+rtol = atol
 
 param = MPR2Params(HP_format.([η0, η1, η2, κm])...,Float16(γ1),Float16(γ2))
 
@@ -40,10 +43,11 @@ for col in col_str
 end
 stats = eval(Meta.parse("DataFrame($df_str)"))
 
+pb_error_skip = []
 meta = OptimizationProblems.meta
 names_pb_vars = meta[(meta.has_bounds .== false) .& (meta.ncon .== 0), [:nvar, :name]] #select unconstrained problems
 for pb in eachrow(names_pb_vars)
-  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(type=Val(Float64),backend = :generic)"))
+  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(type=Float64,backend = :generic)"))
   @show nlp.meta.name
   try
     mpmodel = FPMPNLPModel(nlp,FP,HPFormat = HP_format,obj_int_eval=true,grad_int_eval=true); # instanciation checks might error in some case due to over/underflow with low-prec/low-range formats
@@ -52,7 +56,7 @@ for pb in eachrow(names_pb_vars)
     push!(pb_error_skip,nlp.meta.name)
     continue
   end
-  statmpr2 = MPR2(mpmodel,max_iter = max_iter,run_free = false, max_time = 3600.0, par = param,verbose=1)
+  statmpr2 = MPR2(mpmodel,max_iter = max_iter,run_free = false, max_time = max_time, par = param,atol = HP_format(atol), rtol = HP_format(rtol), verbose=1)
   push!(stats,
       [nlp.meta.name,
       statmpr2.status,
@@ -61,14 +65,14 @@ for pb in eachrow(names_pb_vars)
       [mpmodel.counters.neval_grad[fp]  for fp in FP]...,
       [mpmodel.counters_fail.neval_grad[fp] for fp in FP]...]
     )
-    CSV.write("guaranteed_implem_results.csv",stats)
+    CSV.write("guaranteed_implem_results_tol_pow_0_25.csv",stats)
 end
 
 data_header_table = ["Algo",vcat([["eval_$fp","success_rate"] for fp in FP]...)...,"FO", "MI", "F"]
-FO = nrow(filter(row -> row.status == "first_order",stats))
-MI = nrow(filter(row -> row.status == "max_iter",stats))
-F = nrow(filter(row -> row.status == "exception",stats)) 
-MT = nrow(filter(row -> row.status == "max_time",stats))
+FO = nrow(filter(row -> row.status == "first_order" || row.status == :first_order,stats))
+MI = nrow(filter(row -> row.status == "max_iter" || row.status == :max_iter,stats))
+F = nrow(filter(row -> row.status == "exception" || row.status == :exception,stats)) 
+MT = nrow(filter(row -> row.status == "max_time" || row.status == :max_time,stats))
 
 obj_eval_fields = [Meta.parse("neval_obj_$(FP[i])") for i in eachindex(FP)]
 obj_eval_fail_fields = [Meta.parse("neval_obj_fail_$(FP[i])") for i in eachindex(FP)]
@@ -131,7 +135,9 @@ mu_factor = HP_format.([1,0.1,0.01])
 κm = 0.2
 γ1 = 1/2
 γ2 = 2.0
-max_iter = 10000
+max_iter = 50000
+atol = eps(FP[end])^(1/4)
+rtol = atol
 
 param = MPR2Params(HP_format.([η0, η1, η2, κm])...,Float16(γ1),Float16(γ2))
 
@@ -160,7 +166,7 @@ names_pb_vars = meta[(meta.has_bounds .== false) .& (meta.ncon .== 0), [:nvar, :
 
 pb_skip = ["vibrbeam"] # overflow in cos() argument of obj function causes error
 for pb in eachrow(names_pb_vars)
-  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(type=Val($(FP[end])),backend = :generic)"))
+  nlp = eval(Meta.parse("ADNLPProblems.$(pb[:name])(type=$(FP[end]), backend = :generic)"))
   @show nlp.meta.name
   if nlp.meta.name in pb_skip
     continue
@@ -170,7 +176,7 @@ for pb in eachrow(names_pb_vars)
   catch e
     continue
   end
-  statr2 = R2(nlp,max_eval=max_iter,η1=η1,η2 = η2, γ1 = γ1,γ2 = γ2)
+  statr2 = R2(nlp,max_eval=max_iter,η1=η1,η2 = η2, γ1 = γ1,γ2 = γ2, atol = atol, rtol = rtol)
   push!(stats[:R2],(nlp.meta.name,
         statr2.status,
         [0 for _ in 1:(length(FP)-1)]...,
@@ -182,7 +188,7 @@ for pb in eachrow(names_pb_vars)
         )
   for i in eachindex(mu_factor)
     MultiPrecisionR2.reset!(mpmodel)
-    statmpr2 = MPR2(mpmodel,max_iter = max_iter,run_free = true,par = param,mu_factor = mu_factor[i],stop_condition = stop_condition)
+    statmpr2 = MPR2(mpmodel,max_iter = max_iter,run_free = true,par = param,mu_factor = mu_factor[i],stop_condition = stop_condition, atol = HP_format(atol), rtol = HP_format(rtol))
     push!(stats[algos[i+1]],
       [nlp.meta.name,
       statmpr2.status,
@@ -277,4 +283,7 @@ println("Objective evaluation stats:")
 table_mpr2_obj = pretty_table(hcat(obj_data...),header = data_header_table)
 println("Gradient evaluation stats:")
 table_mpr2_grad = pretty_table(hcat(grad_data...),header = data_header_table)
+
+# export paper's figure
+
 ```

@@ -3,7 +3,6 @@
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaSmoothOptimizers.github.io/MultiPrecisionR2/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaSmoothOptimizers.github.io/MultiPrecisionR2/dev)
 [![Build Status](https://github.com/JuliaSmoothOptimizers/MultiPrecisionR2/workflows/CI/badge.svg)](https://github.com/JuliaSmoothOptimizers/MultiPrecisionR2/actions)
-[![Build Status](https://api.cirrus-ci.com/github/JuliaSmoothOptimizers/MultiPrecisionR2.svg)](https://cirrus-ci.com/github/JuliaSmoothOptimizers/MultiPrecisionR2)
 [![Coverage](https://codecov.io/gh/JuliaSmoothOptimizers/MultiPrecisionR2/branch/main/graph/badge.svg)](https://codecov.io/gh/JuliaSmoothOptimizers/MultiPrecisionR2)
 
 `MultiPrecisionR2.jl` is a package that implements a multi-precision version of the Quadratic Regularization (R2) algorithm, a first-order algorithm, for solving non-convex, continuous, smooth optimization problems. The Floating Point (FP) format is adapted dynamically during algorithm execution to use low precision FP formats as much as possible while ensuring convergence and numerical stability.
